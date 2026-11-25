@@ -1,5 +1,44 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Etapas 2, 4, 5 y 6 de WORLD_ARCHITECTURE
+
+### Nuevo
+
+- **Generador 1.1.0**: las constantes físicas que estaban en celdas (micro-relieve, radios de volcán, distancia al agua, tamaño mínimo de lago, precipitación por columna) se escalan por `tam_celda_m`. El mismo mapa físico da la misma pendiente mediana a 50 m y a 5 m por celda (test 96×96@50 vs 960×960@5).
+- **Erosión hidráulica y térmica** determinista sobre el D8 que ya calculaba `_hidrologia`: profundiza los valles de los ríos y relaja acantilados. No toca océano ni lagos.
+- **`pendiente` en m/m** en la clasificación de biomas; el rango de `pantano` en `datos_base/biomas/biomas.json` se migró a m/m y `dist_agua` a metros.
+- **Caché LRU de rutas exitosas** en `Terreno` (`TOPE_RUTAS = 256`): un mismo viaje se pide dos veces por decisión; la segunda ya no corre A*. Se invalida en `cambiar_bioma` y devuelve copia defensiva.
+- **`api/presentador.py`**: toda la serialización del visor salió del motor. `Simulacion` ya no tiene `estado_publico*`; hay un test que lo prohíbe.
+- **`motor/chunks.py`**: índice de chunks de 64×64 con `chunks_activos(sim)`, publicado en el estado del visor.
+
+### Arreglado
+
+- **Elegir inicio ya no falla en mundos chicos a 5 m/celda**: el umbral de pendiente se relaja por pasos y hay un último recurso de cualquier tierra caminable junto al agua.
+
+### Pendiente
+
+- El fuego todavía recorre el mapa entero cuando hay celdas encendidas; el recorte por bounding box quedó para la próxima pasada.
+- Mover la simulación a un proceso aparte (Etapa 5.1/5.2) no se hizo: SQLite está atado al hilo y el bucle ya es una task asíncrona con presupuesto.
+
+## Sin publicar — Etapa 3: estado liviano para el visor
+
+### Nuevo
+
+- **`HabitanteSim.a_publico_mapa()`**: lo mínimo que dibuja el mapa (posición, acción, sexo, emoción, antorcha). Los atributos, las barras finas y el objetivo ya no viajan en cada cuadro.
+- **`Simulacion.estado_publico_liviano(bloques=False)`**: mensaje de cada 100 ms. Con `bloques=True` suma fuego, estructuras, colonias y senderos.
+- **Bloque pesado una vez por segundo** en el bucle del visor (`api/vivo.py`): fuego, estructuras, colonias y barras finas dejaron de recalcularse y serializarse 10 veces por segundo.
+- **`_vitales_sucios()`**: salud, sed, energía, hambre, temperatura y frío solo de los vivos que cambiaron desde el último bloque. Los muertos no llevan barras.
+
+### Arreglado
+
+- **El visor ya no reemplaza el estado entero con cada mensaje.** `aplicarEstado` mergea por habitante y por bloque, así que un mensaje liviano no borra el fuego, las estructuras ni las barras que llegaron en el bloque anterior.
+- **El panel de habitantes lee las barras del estado mergeado**, no del mensaje liviano, que ya no las trae.
+
+### Pendiente
+
+- Etapa 4 (caché de rutas exitosas) para bajar el A*, que sigue siendo el 66% del CPU.
+- Etapa 2 (generador) y Etapas 5-6.
+
 ## Sin publicar — CCA v1.1 + persistencia de cerebros cognitivos
 
 ### Nuevo
@@ -17,6 +56,9 @@
 ### Arreglado
 
 - Acceso al plan activo migrado a `decision_engine.plan_manager.active_plan` (CCA v1.1 movió el plan fuera de `DeliberationState`).
+- **La persistencia de cerebros era solo de escritura.** Se guardaba en `cerebros_cognitivos.db` pero nunca se leía, así que al reabrir el mundo cada cerebro arrancaba vacío. Ahora `_cerebro_de` recupera lo que el mundo no guarda —memorias episódicas y semánticas, mapa espacial, pericia, ids y objetivo vigente— y deja que necesidades y personalidad las siga mandando el mundo. El plan en curso no se restaura a propósito: se replanifica, igual que en el motor cognitivo.
+- **Contadores separados por tipo de falla.** `guardados_fallidos` / `ultimo_error_guardando` y `restauraciones_fallidas` / `ultimo_error_restaurando` salen en el panel; antes un fallo de guardado se mezclaba con los de anotación. `olvidar()` ya no se traga el error al archivar el cerebro de un muerto.
+- **Hugo no bebía aunque tuviera agua pegada.** Con sed ≥ `SED_DESPIERTA`, el árbitro del motor cognitivo podía quedarse con el objetivo vigente (p. ej. `explore_environment`) por hístéresis aunque las otras necesidades quedaran en `NUNCA_CRITICA`. Medido en `artemira`: habitante 4 con sed 100 y `agua_adyacente=True` guardaba `current_goal_id="explore_environment"`. Ahora se fuerza `goal_id=None` y se limpia el plan antes de cada tick mientras la sed sea mortal.
 
 Cada actualización lista lo nuevo, lo acordado, lo arreglado y lo que queda pendiente. La versión actual está en `src/mundo_vivo/__init__.py`.
 Las migraciones de base de datos son automáticas y no borran nada: un mundo viejo se abre con la versión nueva y conserva sus recuerdos.

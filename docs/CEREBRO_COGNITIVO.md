@@ -207,8 +207,17 @@ El guardado ocurre:
 - En cada ciclo de `guardar()` (misma frecuencia que `GUARDAR_CADA_S`).
 - Al olvidar un habitante fallecido (`olvidar(h_id)`).
 
+Al crear el cerebro de un habitante que ya existía, `_cerebro_de` intenta recuperarlo con
+`_estado_persistido(brain_id)`. Se restaura sólo lo que la base del mundo no guarda: memorias
+episódicas y semánticas, mapa espacial, pericia aprendida, ids deterministas y el objetivo vigente.
+Las necesidades y la personalidad no se cargan del archivo: las manda el mundo (estado del
+habitante y genoma), que es la fuente de verdad. El plan en curso tampoco se restaura —se
+replanifica desde las creencias actuales—, igual que en el motor cognitivo.
+
 Si el guardado falla (tabla corrupta, disco lleno, etc.) **no tumba la simulación**: el error queda
-registrado en `_anotaciones_fallidas` y `_ultimo_error_anotando`, visibles en el estado del cerebro.
+registrado en `_guardados_fallidos` y `_ultimo_error_guardando`. Si lo que falla es la carga, queda
+en `_restauraciones_fallidas` / `_ultimo_error_restaurando`. Ambos salen en el estado del cerebro.
+Un cerebro nuevo no cuenta como falla de carga: su `BrainNotFoundError` es el caso normal.
 
 ### Correr tests de integración
 

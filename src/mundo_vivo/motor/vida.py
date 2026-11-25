@@ -157,6 +157,15 @@ class VidaMixin:
             nuevo.padre_id = padre.id if padre else None
             nuevo.nacimiento_min = int(self.t)
             self.habitantes[nuevo.id] = nuevo
+        # Fase 8: penalización por endogamia si los padres son medio hermanos (colapso genético).
+        endogamia = False
+        if padre is not None:
+            endogamia = ((madre.madre_id and madre.madre_id == padre.madre_id) or
+                         (madre.padre_id and madre.padre_id == padre.padre_id)) and not (
+                madre.madre_id == padre.madre_id and madre.padre_id == padre.padre_id)
+        if endogamia:
+            nuevo.salud = 70.0
+            self._recuerdo(nuevo, "Naciste de una unión cercana; tu salud es frágil.", 0.6)
         self._evento("nacimiento", "Nació %s, hij%s de %s%s." % (nuevo.nombre, "a" if sexo == "F" else "o",
                      madre.nombre, (" y " + padre.nombre) if padre else ""), nuevo, importancia=4,
                      datos={"madre": madre.id, "padre": padre.id if padre else None})
@@ -309,16 +318,42 @@ class VidaMixin:
         h.camino, h.accion, h.detalle, h.al_llegar = cam, "caminando", "busca a %s" % o.nombre, None
         return True, "Vas a buscar a %s, adonde la viste por última vez." % o.nombre if o.sexo == "F" else "Vas a buscar a %s, adonde lo viste por última vez." % o.nombre
 
-    def parentesco_cercano(self, a, b) -> Optional[str]:
+    def parentesco_cercano(self, a, b, sim=None) -> Optional[str]:
         """Padres, hijos, hermanos y medio hermanos. El motor lo valida: el cerebro solo propone, y podría proponer
-        cualquier cosa. Devuelve el vínculo si son familia directa, o None."""
+        cualquier cosa. Devuelve el vínculo si son familia directa, o None.
+
+        Fase 8: ante cuello de botella genético (población baja y sin parejas fértiles no emparentadas), se
+        relaja la prohibición para medio hermanos (distinta madre) aplicando penalización genética en el
+        recién nacido en vez de extinguir la colonia."""
         if b.id in (a.madre_id, a.padre_id):
             return "madre" if b.id == a.madre_id else "padre"
         if a.id in (b.madre_id, b.padre_id):
             return "hijo"
-        if (a.madre_id and a.madre_id == b.madre_id) or (a.padre_id and a.padre_id == b.padre_id):
+        # hermanos completos: siempre prohibido
+        if a.madre_id and a.madre_id == b.madre_id and a.padre_id and a.padre_id == b.padre_id:
+            return "hermano"
+        # medio hermanos: prohibido salvo colapso poblacional
+        medio = ((a.madre_id and a.madre_id == b.madre_id) or (a.padre_id and a.padre_id == b.padre_id))
+        if medio:
+            if sim is not None and self._colapso_genetico(sim):
+                return None   # se permite, con penalización al nacer
             return "hermano"
         return None
+
+    def _colapso_genetico(self, sim) -> bool:
+        """True si no hay ninguna pareja fértil no emparentada (o población < 10)."""
+        vivos = [h for h in sim.habitantes.values() if h.vivo and self.es_adulto(h)]
+        if len(vivos) < 10:
+            return True
+        for a in vivos:
+            for b in vivos:
+                if a.id >= b.id or a.sexo == b.sexo:
+                    continue
+                if self.parentesco_cercano(a, b) is None:
+                    mujer = a if a.sexo == "F" else b
+                    if not (mujer.embarazo or sim.t < mujer.sin_concebir_hasta):
+                        return False
+        return True
 
     def _accion_proponer_hijo(self, h, it: dict) -> Tuple[bool, str]:
         if not self.modulo("reproduccion"):
@@ -330,9 +365,22 @@ class VidaMixin:
             return False, "Los dos tienen que ser adultos."
         if h.sexo == o.sexo:
             return False, "Para tener un hijo hacen falta una mujer y un hombre."
-        par = self.parentesco_cercano(h, o)
+        par = self.parentesco_cercano(h, o, sim=self)
         if par is not None:
             return False, ("%s es de tu propia sangre: no se tienen hijos con la familia." % o.nombre)
+        # Fase 8: infidelidad — si alguno ya tiene pareja formal y no es el otro, la pareja engañada lo sabe.
+        for proponente, otro in ((h, o), (o, h)):
+            pareja_id = getattr(proponente, "pareja_id", None)
+            if pareja_id is not None and pareja_id != otro.id:
+                pareja = self.habitantes.get(pareja_id)
+                if pareja is not None and pareja.vivo:
+                    self._evento("_relacion", "", pareja, datos={"hab": pareja.id, "otro": proponente.id,
+                                                                  "d_afecto": -0.6, "d_confianza": -0.9,
+                                                                  "motivo": "traición: propuso familia a otro"})
+                    self._recuerdo(pareja, "%s te fue infiel: le propuso familia a %s." % (proponente.nombre, otro.nombre), 0.95)
+                    self.sentir(pareja, "tristeza", 0.8)
+                    self.sentir(pareja, "enojo", 0.7)
+                    self.experiencia(pareja, "traicion")
         mujer = h if h.sexo == "F" else o
         if mujer.embarazo or self.t < mujer.sin_concebir_hasta:
             return False, "%s no puede tener un hijo ahora." % mujer.nombre
@@ -366,6 +414,9 @@ class VidaMixin:
             return False, "%s no puede tener un hijo ahora." % mujer.nombre
         padre = o if mujer is h else h
         mujer.embarazo = {"padre_id": padre.id, "parto_t": self.t + GESTACION_MIN}
+        # Fase 8: compromiso formal
+        h.pareja_id = o.id
+        o.pareja_id = h.id
         self._evento("familia", "%s y %s decidieron formar una familia." % (h.nombre, o.nombre), h, importancia=4,
                      datos={"a": h.id, "b": o.id})
         for a, b in ((h, o), (o, h)):

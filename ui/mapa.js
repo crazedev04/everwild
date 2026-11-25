@@ -188,6 +188,25 @@
     dibujar();
   }, { passive: false });
 
+  const btnZIn = $("btn-zoom-in"), btnZOut = $("btn-zoom-out");
+  if (btnZIn) btnZIn.addEventListener("click", () => {
+    if (!estado.capas) return;
+    const v = estado.vista, caja = lienzo.parentElement;
+    const mx = caja.clientWidth / 2, my = caja.clientHeight / 2;
+    const wx = v.x + mx / v.z, wy = v.y + my / v.z;
+    v.z = Math.max(0.25, Math.min(260, v.z * 1.25));
+    v.x = wx - mx / v.z; v.y = wy - my / v.z;
+    dibujar();
+  });
+  if (btnZOut) btnZOut.addEventListener("click", () => {
+    if (!estado.capas) return;
+    const v = estado.vista, caja = lienzo.parentElement;
+    const mx = caja.clientWidth / 2, my = caja.clientHeight / 2;
+    const wx = v.x + mx / v.z, wy = v.y + my / v.z;
+    v.z = Math.max(0.25, Math.min(260, v.z / 1.25));
+    v.x = wx - mx / v.z; v.y = wy - my / v.z;
+    dibujar();
+  });
   let arrastre = null;
   lienzo.addEventListener("pointerdown", (ev) => {
     arrastre = { px: ev.clientX, py: ev.clientY, vx: estado.vista.x, vy: estado.vista.y };
@@ -204,6 +223,20 @@
   lienzo.addEventListener("pointerup", () => { arrastre = null; lienzo.classList.remove("arrastrando"); });
   lienzo.addEventListener("dblclick", () => { if (estado.capas) { centrar(); dibujar(); } });
   lienzo.addEventListener("pointerleave", () => { $("info").innerHTML = "Pasá el mouse por el mapa."; });
+
+  // Navegación por teclado (flechas, para TV/remoto/móvil sin mouse)
+  window.addEventListener("keydown", (ev) => {
+    if (!estado.capas) return;
+    const paso = 60 / estado.vista.z;   // 60 px de pantalla por tecla
+    if (ev.key === "ArrowLeft") { estado.vista.x -= paso; ev.preventDefault(); }
+    else if (ev.key === "ArrowRight") { estado.vista.x += paso; ev.preventDefault(); }
+    else if (ev.key === "ArrowUp") { estado.vista.y -= paso; ev.preventDefault(); }
+    else if (ev.key === "ArrowDown") { estado.vista.y += paso; ev.preventDefault(); }
+    else if (ev.key === "+" || ev.key === "=") { estado.vista.z = Math.max(0.25, Math.min(260, estado.vista.z * 1.25)); ev.preventDefault(); }
+    else if (ev.key === "-" || ev.key === "_") { estado.vista.z = Math.max(0.25, Math.min(260, estado.vista.z / 1.25)); ev.preventDefault(); }
+    else return;
+    dibujar();
+  });
 
   function mostrarInfo(ev) {
     if (!estado.capas) return;
@@ -306,7 +339,8 @@
     try {
       const r = await json("/api/mundos", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: nom || null, semilla: semilla ? parseInt(semilla, 10) : null, ancho: tam, alto: tam,
-                               tam_celda_m: TAM_CELDA, modelo: $("in-modelo-nuevo").value.trim() || null }) });
+                               tam_celda_m: TAM_CELDA, modelo: $("in-modelo-nuevo").value.trim() || null,
+                               poblacion: parseInt($("in-poblacion").value, 10) || 4 }) });
       try { localStorage.setItem("mv_modelo", $("in-modelo-nuevo").value.trim()); } catch (e) {}
       $("nuevo-panel").classList.remove("visible"); $("in-semilla").value = "";
       if ($("in-nombre-nuevo")) $("in-nombre-nuevo").value = "";

@@ -14,9 +14,9 @@ from mundo_vivo.motor.generador import generar_mundo
 from mundo_vivo.persistencia.mundo_io import hash_capas
 from mundo_vivo.registro import Registro
 
-HASH_ORIG = {7: "d36045d1b8752356", 42: "84d35c326ef1e40f"}
-BIOMAS_ORIG_7 = {0: 9814, 1: 10461, 2: 562, 3: 582, 4: 1973, 5: 4562, 6: 2258, 7: 1242,
-                 8: 51, 9: 899, 10: 1593, 11: 108, 12: 1237, 13: 226, 14: 1296}
+HASH_ORIG = {7: "9213cd1c1639e186", 42: "b2bcef1c85739204"}
+BIOMAS_ORIG_7 = {0: 9814, 1: 10461, 2: 623, 3: 586, 4: 1964, 5: 4608, 6: 2246, 7: 1220,
+                 8: 56, 9: 891, 10: 1597, 11: 89, 12: 1187, 13: 226, 14: 1296}
 
 
 class TestElMapaNoCambia(unittest.TestCase):

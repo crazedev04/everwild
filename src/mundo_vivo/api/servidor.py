@@ -48,6 +48,7 @@ class NuevoMundo(BaseModel):
     alto: int = mundo_io.ANCHO_POR_DEFECTO
     tam_celda_m: int = mundo_io.TAM_CELDA_POR_DEFECTO
     modelo: Optional[str] = None
+    poblacion: int = 4
 
 
 def _etiqueta_emocion(emo: dict) -> str:
@@ -176,6 +177,17 @@ def crear_app(dir_datos: Path) -> FastAPI:
                     _aj.guardar(con, {"modelo": datos.modelo.strip()})
                 finally:
                     con.close()
+            # Poblar con la cantidad pedida (por defecto 4).
+            try:
+                n = max(2, min(100, int(datos.poblacion or 4)))
+            except (TypeError, ValueError):
+                n = 4
+            from ..persistencia import db as _db
+            con = _db.abrir(ruta)
+            try:
+                sim_io.crear_habitantes_iniciales(con, n=n, semilla=semilla)
+            finally:
+                con.close()
             trabajo.update(frac=1.0, texto="Listo", nombre=ruta.stem, hecho=True)
         except Exception as e:                       # el visor tiene que poder mostrar el error, no quedarse colgado
             trabajo.update(hecho=True, error=str(e) or e.__class__.__name__)
@@ -235,6 +247,41 @@ def crear_app(dir_datos: Path) -> FastAPI:
             return {"ok": True, "modelos": sorted(nombres), "predeterminado": _aj.PREDETERMINADOS["modelo"]}
         except Exception as e:
             return {"ok": False, "modelos": [], "predeterminado": _aj.PREDETERMINADOS["modelo"], "error": str(e)[:120]}
+
+    @app.get("/api/mundos/{nombre}/era")
+    def api_era(nombre: str):
+        """Era actual según las propiedades descubiertas por los habitantes."""
+        from ..agentes import conocimiento as _c
+        con = conectar(ruta_de(nombre))
+        try:
+            props = set()
+            for (mats,) in con.execute("SELECT materiales FROM conocimientos WHERE origen != 'catalogo'"):
+                try:
+                    for m in json.loads(mats or "[]"):
+                        pass
+                except Exception:
+                    pass
+            # propiedades descubiertas = las que aparecen en conocimientos como propiedad
+            for (prop,) in con.execute("SELECT DISTINCT propiedad FROM conocimientos WHERE propiedad IS NOT NULL AND propiedad != ''"):
+                props.add(prop)
+            # también las del catálogo descubierto
+            for (rid,) in con.execute("SELECT receta_id FROM conocimientos WHERE receta_id IS NOT NULL"):
+                pass
+            total = len(_c.PROPIEDADES)
+            # eras por propiedad clave
+            orden = [("Piedra", set()), ("Piedra tallada", {"corta", "golpea"}),
+                     ("Fuego", {"enciende"}), ("Metal", {"funde"}),
+                     ("Acero", {"afila", "clava"}), ("Electricidad", {"conduce"})]
+            era_idx = 0
+            for i, (nombre_era, claves) in enumerate(orden):
+                if claves and claves.issubset(props):
+                    era_idx = i
+            progreso = len(props) / total if total else 0.0
+            return {"era": orden[era_idx][0], "era_idx": era_idx, "eras_total": len(orden) - 1,
+                    "propiedades_descubiertas": len(props), "propiedades_total": total,
+                    "progreso": round(progreso, 3)}
+        finally:
+            con.close()
 
     @app.get("/api/mundos/{nombre}/meta")
     def api_meta(nombre: str, dim: int = 0):
@@ -494,6 +541,8 @@ def crear_app(dir_datos: Path) -> FastAPI:
         Llega sin padres, así que no es pariente de nadie: es lo que destraba el cuello de botella de
         sangre cuando toda una generación son medio hermanos y `parentesco_cercano` les prohíbe procrear.
         """
+        if datos.sexo == "azar":
+            datos.sexo = None
         if datos.sexo is not None and datos.sexo not in ("F", "M"):
             raise HTTPException(400, "El sexo tiene que ser 'F', 'M' o nada (para balancear solo).")
         if datos.nombre is not None and not (2 <= len(datos.nombre.strip()) <= 40):

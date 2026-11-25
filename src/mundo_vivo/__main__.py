@@ -177,7 +177,8 @@ def main(argv=None) -> int:
                         pass
                     if loop.time() - ultimo >= 60:
                         ultimo = loop.time()
-                        f = ej.sim.estado_publico()
+                        from .api.presentador import estado_completo
+                        f = estado_completo(ej.sim)
                         vivos = sum(1 for h in ej.sim.habitantes.values() if h.vivo)
                         print("%s · vivos %d/%d · modelo: %s" % (f["texto_fecha"], vivos, len(ej.sim.habitantes),
                               ej.cerebro.estado(ej.sim)), flush=True)

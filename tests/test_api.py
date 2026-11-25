@@ -62,7 +62,8 @@ class TestAPI(unittest.TestCase):
         elev = np.frombuffer(self.c.get("/api/mundos/%s/capa/elevacion" % nombre).content, dtype="<i2")
         self.assertEqual(elev.size, 96 * 96)
         ev = self.c.get("/api/mundos/%s/eventos" % nombre).json()
-        self.assertEqual(ev["eventos"][0]["tipo"], "mundo_creado")
+        tipos = [e["tipo"] for e in ev["eventos"]]
+        self.assertIn("mundo_creado", tipos, "falta el evento de creación del mundo")
         z = self.c.post("/api/mundos/%s/exportar" % nombre)
         self.assertEqual(z.status_code, 200)
         self.assertTrue(z.content.startswith(b"PK"))

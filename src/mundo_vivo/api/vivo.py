@@ -77,6 +77,7 @@ class Ejecutor:
         self._ultimo_guardado = time.monotonic()
         self._ultimo_volcado = time.monotonic()
         self.velocidad_real = 0.0   # minutos simulados por segundo real efectivos
+        self._vitales_prev: dict = {}   # último bloque de barras enviado, para mandar solo lo que cambió
         self._latido = diagnostico.Latido()
         diagnostico.log().info("mundo abierto: %s", json.dumps(
             {"mundo": ruta.stem, "cerebro": self.cerebro.nombre, "velocidad": self.velocidad,
@@ -95,11 +96,41 @@ class Ejecutor:
                 "dimension": s.dimension, "dimensiones": self.mundo.dimensiones()}
 
     def _estado(self) -> dict:
-        e = self.sim.estado_publico()
+        from .presentador import estado_completo
+        e = estado_completo(self.sim)
         e["dimension"] = self.sim.dimension
         e["dimensiones"] = self.mundo.dimensiones()
         e["cielo"] = self.sim.cielo
         return e
+
+    def _estado_liviano(self, pesado: bool) -> dict:
+        """El mensaje de cada 100 ms. `pesado` suma fuego, estructuras, colonias y barras finas,
+        que se mandan una vez por segundo: dibujar no necesita recalcularlos diez veces."""
+        from .presentador import estado_liviano
+        e = estado_liviano(self.sim, bloques=pesado)
+        e["dimension"] = self.sim.dimension
+        e["dimensiones"] = self.mundo.dimensiones()
+        e["cielo"] = self.sim.cielo
+        if pesado:
+            e["vitales"] = self._vitales_sucios()
+        return e
+
+    def _vitales_sucios(self) -> list:
+        """[[id, salud, sed, energia, hambre, temp, frio], ...] solo de los vivos que cambiaron
+        desde el último bloque. Los muertos no llevan barras."""
+        out = []
+        prev = self._vitales_prev
+        ahora: dict = {}
+        for h in self.sim.habitantes.values():
+            if not h.vivo:
+                continue
+            t = (round(h.salud, 1), round(h.sed, 1), round(h.energia, 1), round(h.hambre, 1),
+                 round(self.sim.temp_en(h.x, h.y), 1), round(h.frio, 2))
+            ahora[h.id] = t
+            if prev.get(h.id) != t:
+                out.append([h.id, *t])
+        self._vitales_prev = ahora
+        return out
 
     def suscribir(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=50)
@@ -278,8 +309,11 @@ class Ejecutor:
     async def _bucle(self) -> None:
         dt_vuelta = 1.0 / HZ_BUCLE
         cada_estado = 1.0 / HZ_ESTADO
+        cada_pesado = 1.0        # fuego, estructuras, colonias y barras finas: una vez por segundo
         ult_estado = 0.0
+        ult_pesado = 0.0
         pendiente = 0.0
+        cerebro_estado = {}
         t_prev = time.monotonic()
         try:
             while True:
@@ -307,13 +341,18 @@ class Ejecutor:
                         self._difundir(e)
                 if ahora - ult_estado >= cada_estado or self.velocidad == 0 and ahora - ult_estado >= 0.5:
                     ult_estado = ahora
-                    est = self._estado()
+                    pesado = ahora - ult_pesado >= cada_pesado
+                    if pesado:
+                        ult_pesado = ahora
+                    est = self._estado_liviano(pesado)
                     est["tipo"] = "estado"
                     est["velocidad"] = self.velocidad
                     est["velocidad_real"] = round(self.velocidad_real, 1)
-                    est["cerebro"] = self.cerebro.estado(self.sim)
-                    est["cerebro"]["tope"] = round(self.tope_pensando(), 1)
-                    est["cerebro"]["atencion"] = self.sim.resumen_atencion()
+                    if pesado:
+                        cerebro_estado = dict(self.cerebro.estado(self.sim))
+                        cerebro_estado["tope"] = round(self.tope_pensando(), 1)
+                        cerebro_estado["atencion"] = self.sim.resumen_atencion()
+                    est["cerebro"] = cerebro_estado
                     self._difundir(est)
                 if ahora - self._ultimo_guardado >= GUARDAR_CADA_S:
                     self.guardar()

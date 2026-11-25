@@ -14,6 +14,10 @@ if [ ! -d .venv ]; then
 fi
 .venv/bin/pip install -q -r requirements.txt || exit 1
 export PYTHONPATH=src
+# Mismo default que mundo.sh: si no se pide otro cerebro, arranca con el cognitivo. Antes este
+# script no tocaba la variable y el visor del README caía en el híbrido sin avisar.
+export COGNITIVE_ENGINE_SRC="${COGNITIVE_ENGINE_SRC:-$(cd .. && pwd)/Cognitive Engine/src}"
+export MUNDO_VIVO_CEREBRO="${MUNDO_VIVO_CEREBRO:-cognitivo}"
 if [ $# -eq 0 ]; then
   exec .venv/bin/python -m mundo_vivo servir
 else

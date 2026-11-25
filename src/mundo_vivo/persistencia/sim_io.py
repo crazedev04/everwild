@@ -71,17 +71,28 @@ def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
     ys, xs = np.nonzero(dulce)
     if len(xs) == 0:
         raise ValueError("El mundo no tiene agua dulce: no hay dónde empezar.")
-    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA])
-    cand = []
-    for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
-        for dy in range(-3, 4):
-            for dx in range(-3, 4):
-                x, y = int(wx) + dx, int(wy) + dy
-                if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < 0.15 and t.caminable(x, y) \
-                        and t.agua[y, x] == 0:
-                    cand.append((x, y))
+    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA, B.BOSQUE_FRIO])
+    for umbral in (0.15, 0.35, 0.8, 2.0):
+        cand = []
+        for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < umbral and t.caminable(x, y) \
+                            and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if cand:
+            break
     if not cand:
-        raise ValueError("No se encontró un lugar habitable junto al agua.")
+        # último recurso: cualquier tierra caminable junto al agua
+        for wy, wx in zip(ys[::3], xs[::3]):
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and t.caminable(x, y) and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if not cand:
+            raise ValueError("No se encontró un lugar habitable junto al agua.")
     cx, cy = t.ancho / 2, t.alto / 2
     cand = sorted(set(cand), key=lambda p: math.hypot(p[0] - cx, p[1] - cy))
     for x, y in cand[:40]:

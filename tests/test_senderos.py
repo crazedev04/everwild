@@ -57,7 +57,7 @@ class TestDesgaste(unittest.TestCase):
             s.pisar(x, y)
         s._volcar_pisadas()
         self.assertEqual(float(s.terreno.costo[y, x]), s.terreno._c[y][x])
-        self.assertLess(s.terreno._c[y][x], 1.0)
+        self.assertLess(s.terreno._c[y][x], s.terreno.tam_celda_m / 1.33)
 
     def test_no_se_abre_sendero_en_agua_ni_en_pared(self):
         s, h = _mundo()

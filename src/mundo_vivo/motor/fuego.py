@@ -104,58 +104,107 @@ class Fuego:
             out += peso * p[1 + dy:1 + dy + h, 1 + dx:1 + dx + w]
         return out
 
+    def _bbox_ardiendo(self, margen: int = 2) -> Optional[Tuple[int, int, int, int]]:
+        """Devuelve (y0, y1, x0, x1) delimitando las celdas con fuego con un halo alrededor."""
+        ys, xs = np.nonzero(self.fuego)
+        if len(ys) == 0:
+            return None
+        y0 = max(0, int(ys.min()) - margen)
+        y1 = min(self.alto, int(ys.max()) + 1 + margen)
+        x0 = max(0, int(xs.min()) - margen)
+        x1 = min(self.ancho, int(xs.max()) + 1 + margen)
+        return y0, y1, x0, x1
+
     def paso(self, dt: float, sequedad: float = 1.0, lluvia: Optional[np.ndarray] = None) -> Dict[str, object]:
-        """Avanza dt minutos. Devuelve {'apagadas': n, 'termino': bool, 'celdas_episodio': n}.
-
-        Cuidado con el costo: en un mapa de 2048² cada operación sobre el campo entero toca 4,2
-        millones de celdas. Este método se llama una vez por minuto simulado, así que lo que no sea
-        estrictamente necesario NO puede recorrer el mapa. De ahí los dos atajos:
-
-        - `_hubo_fuego` evita hasta el `self.fuego > 0` cuando no hay nada prendido.
-        - `_sucio` evita el rebrote del combustible y el desvanecimiento de la ceniza cuando no hay
-          nada que rebrotar ni ceniza que borrar, y cuando sí hay los aplica en tandas de
-          `REBROTE_CADA_MIN` con el dt acumulado.
-
-        Medido antes del atajo (mundo de 2048² que nunca se incendió, cerebro cognitivo): este
-        método era el 52% del CPU del motor entero.
-        """
+        """Avanza dt minutos. Devuelve {'apagadas': n, 'termino': bool, 'celdas_episodio': n}."""
         res = {"apagadas": 0, "termino": False, "celdas_episodio": 0}
-        ardiendo = self.fuego > 0 if self._hubo_fuego else None
-        if ardiendo is not None and ardiendo.any():
-            inten = self.fuego.astype(np.float32) / 255.0
-            calor = self._suma_vecinos(inten)
-            self.edad_min += dt
-            debil = math.exp(-self.edad_min / VIDA_INCENDIO_MIN)
-            p = 1.0 - np.exp(-dt * K_PROPAGACION * debil * calor * self.comb * sequedad)
-            if lluvia is not None:
-                p = p * (1.0 - 0.9 * lluvia)
-            nuevo = (~ardiendo) & (self.comb > 0.08) & (self.rng.random(p.shape, dtype=np.float32) < p)
-            # las que ya ardían crecen y consumen combustible
-            consumo = dt * CONSUMO_POR_MIN * np.maximum(inten, 0.3)
-            if lluvia is not None:
-                consumo = consumo * (1.0 + 6.0 * lluvia)  # la lluvia lo apaga
-            self.comb[ardiendo] -= consumo[ardiendo]
-            self.fuego[ardiendo] = np.minimum(255, self.fuego[ardiendo].astype(np.int32) + int(dt * CRECIMIENTO_POR_MIN)).astype(np.uint8)
-            if lluvia is not None:   # la lluvia baja la intensidad; si llega a cero, se apagó sin quemarse del todo
-                bajada = (dt * 45.0 * lluvia).astype(np.int32)
-                self.fuego[ardiendo] = np.maximum(0, self.fuego[ardiendo].astype(np.int32) - bajada[ardiendo]).astype(np.uint8)
-                mojadas = ardiendo & (self.fuego == 0)
-                if mojadas.any():
-                    self.quemado[mojadas] = np.maximum(self.quemado[mojadas], 0.6)
-                    self.episodio_celdas += int(mojadas.sum())
+        ardiendo_todo = self.fuego > 0 if self._hubo_fuego else None
+        if ardiendo_todo is not None and ardiendo_todo.any():
+            bbox = self._bbox_ardiendo(margen=2)
+            total_celdas = self.alto * self.ancho
+            usar_sub = False
+            if bbox is not None:
+                y0, y1, x0, x1 = bbox
+                area_sub = (y1 - y0) * (x1 - x0)
+                if area_sub < 0.5 * total_celdas:
+                    usar_sub = True
+
+            if usar_sub:
+                y0, y1, x0, x1 = bbox
+                sub_fuego = self.fuego[y0:y1, x0:x1]
+                sub_comb = self.comb[y0:y1, x0:x1]
+                sub_quemado = self.quemado[y0:y1, x0:x1]
+                sub_lluvia = lluvia[y0:y1, x0:x1] if lluvia is not None else None
+                ardiendo = sub_fuego > 0
+
+                inten = sub_fuego.astype(np.float32) / 255.0
+                calor = self._suma_vecinos(inten)
+                self.edad_min += dt
+                debil = math.exp(-self.edad_min / VIDA_INCENDIO_MIN)
+                p = 1.0 - np.exp(-dt * K_PROPAGACION * debil * calor * sub_comb * sequedad)
+                if sub_lluvia is not None:
+                    p = p * (1.0 - 0.9 * sub_lluvia)
+                nuevo = (~ardiendo) & (sub_comb > 0.08) & (self.rng.random(p.shape, dtype=np.float32) < p)
+                consumo = dt * CONSUMO_POR_MIN * np.maximum(inten, 0.3)
+                if sub_lluvia is not None:
+                    consumo = consumo * (1.0 + 6.0 * sub_lluvia)
+                sub_comb[ardiendo] -= consumo[ardiendo]
+                sub_fuego[ardiendo] = np.minimum(255, sub_fuego[ardiendo].astype(np.int32) + int(dt * CRECIMIENTO_POR_MIN)).astype(np.uint8)
+                if sub_lluvia is not None:
+                    bajada = (dt * 45.0 * sub_lluvia).astype(np.int32)
+                    sub_fuego[ardiendo] = np.maximum(0, sub_fuego[ardiendo].astype(np.int32) - bajada[ardiendo]).astype(np.uint8)
+                    mojadas = ardiendo & (sub_fuego == 0)
+                    if mojadas.any():
+                        sub_quemado[mojadas] = np.maximum(sub_quemado[mojadas], 0.6)
+                        self.episodio_celdas += int(mojadas.sum())
+                        self.version += 1
+                apagadas = ardiendo & (sub_fuego > 0) & (sub_comb <= 0.04)
+                n_apagadas = int(apagadas.sum())
+                if n_apagadas:
+                    sub_fuego[apagadas] = 0
+                    sub_quemado[apagadas] = 1.0
+                    sub_comb[apagadas] = 0.0
+                    self.episodio_celdas += n_apagadas
+                    res["apagadas"] = n_apagadas
                     self.version += 1
-            apagadas = ardiendo & (self.fuego > 0) & (self.comb <= 0.04)
-            n_apagadas = int(apagadas.sum())
-            if n_apagadas:
-                self.fuego[apagadas] = 0
-                self.quemado[apagadas] = 1.0
-                self.comb[apagadas] = 0.0
-                self.episodio_celdas += n_apagadas
-                res["apagadas"] = n_apagadas
-                self.version += 1
-            if nuevo.any():
-                self.fuego[nuevo] = 60
-                self.version += 1
+                if nuevo.any():
+                    sub_fuego[nuevo] = 60
+                    self.version += 1
+            else:
+                ardiendo = ardiendo_todo
+                inten = self.fuego.astype(np.float32) / 255.0
+                calor = self._suma_vecinos(inten)
+                self.edad_min += dt
+                debil = math.exp(-self.edad_min / VIDA_INCENDIO_MIN)
+                p = 1.0 - np.exp(-dt * K_PROPAGACION * debil * calor * self.comb * sequedad)
+                if lluvia is not None:
+                    p = p * (1.0 - 0.9 * lluvia)
+                nuevo = (~ardiendo) & (self.comb > 0.08) & (self.rng.random(p.shape, dtype=np.float32) < p)
+                consumo = dt * CONSUMO_POR_MIN * np.maximum(inten, 0.3)
+                if lluvia is not None:
+                    consumo = consumo * (1.0 + 6.0 * lluvia)
+                self.comb[ardiendo] -= consumo[ardiendo]
+                self.fuego[ardiendo] = np.minimum(255, self.fuego[ardiendo].astype(np.int32) + int(dt * CRECIMIENTO_POR_MIN)).astype(np.uint8)
+                if lluvia is not None:
+                    bajada = (dt * 45.0 * lluvia).astype(np.int32)
+                    self.fuego[ardiendo] = np.maximum(0, self.fuego[ardiendo].astype(np.int32) - bajada[ardiendo]).astype(np.uint8)
+                    mojadas = ardiendo & (self.fuego == 0)
+                    if mojadas.any():
+                        self.quemado[mojadas] = np.maximum(self.quemado[mojadas], 0.6)
+                        self.episodio_celdas += int(mojadas.sum())
+                        self.version += 1
+                apagadas = ardiendo & (self.fuego > 0) & (self.comb <= 0.04)
+                n_apagadas = int(apagadas.sum())
+                if n_apagadas:
+                    self.fuego[apagadas] = 0
+                    self.quemado[apagadas] = 1.0
+                    self.comb[apagadas] = 0.0
+                    self.episodio_celdas += n_apagadas
+                    res["apagadas"] = n_apagadas
+                    self.version += 1
+                if nuevo.any():
+                    self.fuego[nuevo] = 60
+                    self.version += 1
             self._sucio = True      # algo se consumió o quedó ceniza: hay de qué rebrotar
         # rebrote lento del combustible y desvanecimiento de la ceniza, en tandas
         if dt > 0 and self._sucio:
@@ -170,23 +219,47 @@ class Fuego:
         return res
 
     def _rebrotar(self, dt: float) -> None:
-        """Devuelve combustible a lo quemado y borra la ceniza vieja, con el dt acumulado.
+        """Devuelve combustible a lo quemado y borra la ceniza vieja, con el dt acumulado."""
+        if not self._sucio:
+            return
+        # Optimización por chunks: solo procesar chunks que tengan ceniza o combustible < base
+        CHUNK = 64
+        cyn, cxn = (self.alto + CHUNK - 1) // CHUNK, (self.ancho + CHUNK - 1) // CHUNK
+        fac_rebrote = min(1.0, dt * REBROTE_POR_MIN)
+        fac_ceniza = (1.0 - min(0.5, dt * CENIZA_POR_MIN))
 
-        Aplicar 30 minutos de una vez en lugar de 30 veces un minuto cambia el resultado en el orden
-        de 1e-8 por tanda (el rebrote es 3e-5 por minuto y la fórmula es lineal en dt hasta segundo
-        orden): es ruido frente a un combustible que va de 0 a 1.
+        # Si el mapa es chico (pocos chunks), el overhead de iterar chunks supera vectorizar plano
+        if cyn * cxn <= 4:
+            faltante = self.base - self.comb
+            faltante *= fac_rebrote
+            if self._hubo_fuego:
+                faltante[self.fuego != 0] = 0.0
+            self.comb += faltante
+            self.quemado *= fac_ceniza
+        else:
+            hay_ardiendo = self._hubo_fuego
+            for cy in range(cyn):
+                y0 = cy * CHUNK
+                y1 = min(self.alto, y0 + CHUNK)
+                sub_quem = self.quemado[y0:y1, :]
+                sub_comb = self.comb[y0:y1, :]
+                sub_base = self.base[y0:y1, :]
+                # Ver si hay ceniza o faltante en esta franja
+                if sub_quem.max() > 0.0 or (sub_base - sub_comb).max() > 0.001:
+                    for cx in range(cxn):
+                        x0 = cx * CHUNK
+                        x1 = min(self.ancho, x0 + CHUNK)
+                        q_chunk = self.quemado[y0:y1, x0:x1]
+                        c_chunk = self.comb[y0:y1, x0:x1]
+                        b_chunk = self.base[y0:y1, x0:x1]
+                        if q_chunk.max() > 0.0 or (b_chunk - c_chunk).max() > 0.001:
+                            flt = (b_chunk - c_chunk) * fac_rebrote
+                            if hay_ardiendo:
+                                f_chunk = self.fuego[y0:y1, x0:x1]
+                                flt[f_chunk != 0] = 0.0
+                            c_chunk += flt
+                            q_chunk *= fac_ceniza
 
-        El cierre del ciclo es la otra mitad del asunto. El rebrote es asintótico: `comb` se acerca a
-        `base` pero no llega nunca, y la ceniza tampoco llega a cero. Sin un corte, un incendio de
-        hace meses dejaría al motor recorriendo el mapa entero para siempre. Por debajo de
-        `REBROTE_FIN` se ajusta a los valores exactos y se baja la bandera.
-        """
-        faltante = self.base - self.comb
-        faltante *= min(1.0, dt * REBROTE_POR_MIN)
-        if self._hubo_fuego:
-            faltante[self.fuego != 0] = 0.0        # lo que está ardiendo no rebrota
-        self.comb += faltante
-        self.quemado *= (1.0 - min(0.5, dt * CENIZA_POR_MIN))
         falta = float(np.abs(self.base - self.comb).max()) if self.comb.size else 0.0
         ceniza = float(self.quemado.max()) if self.quemado.size else 0.0
         if falta < REBROTE_FIN and ceniza < REBROTE_FIN:
