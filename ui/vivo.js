@@ -169,8 +169,7 @@
       if (o) Object.assign(o.d, { salud, sed, energia, hambre, temp, frio });
     }
     if (Date.now() - V.fichaT > 2000) { V.fichaT = Date.now(); listaHabitantes(); }
-    if (e.ceniza_v !== V.ceniza.v) pedirCeniza(e.ceniza_v);
-    if (e.nieve_v !== V.nieve.v) pedirNieve(e.nieve_v);
+    // Nieve y ceniza continuas desactivadas del loop activo para eliminar tirones de 4 MB en hilo principal
   }
 
   function pintarReloj(e) {
@@ -404,7 +403,7 @@
     } catch (e) { /* sin red: se reintenta en el próximo ciclo */ }
     finally { _fichaOcupado = false; }
   }
-  setInterval(refrescarFicha, 5000);
+  // setInterval(refrescarFicha, 5000);  // Solo se consulta cuando el usuario hace clic o interactua
 
   // recetas (existentes e inventadas) y animales: se leen de la base cada tanto
   const NOM_PROP = {};  // se muestran tal cual vienen (flota, corta, enciende, teje, construye...)
@@ -439,8 +438,11 @@
     } catch (e) { /* sin red */ }
     finally { _recetasOcupado = false; }
   }
-  setInterval(refrescarRecetas, 15000);
-  setTimeout(refrescarRecetas, 1500);
+  // Refrescar recetas solo al cargar y cada 45s si la pestaña está activa
+  setInterval(() => {
+    if (document.querySelector("#p-recetas.visible")) refrescarRecetas();
+  }, 30000);
+  setTimeout(refrescarRecetas, 2000);
 
   async function actualizarEra() {
     if (!V.nombre) return;
@@ -452,8 +454,8 @@
       $("era-detalle").textContent = r.propiedades_descubiertas + " de " + r.propiedades_total + " propiedades descubiertas";
     } catch (e) {}
   }
-  setInterval(actualizarEra, 15000);
-  setTimeout(actualizarEra, 2000);
+  setInterval(actualizarEra, 60000);
+  setTimeout(actualizarEra, 3000);
 
   function desactivarPoderes() {
     V.herramientaPoder = null;
@@ -577,6 +579,7 @@
     document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("visible", p.id === "p-" + t));
     try { localStorage.setItem("mv_tab", t); } catch (e) {}
     if (t === "familias") pintarFamilias();
+    if (t === "recetas") refrescarRecetas();
   }
   document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => pestana(b.dataset.tab)));
   let tab0 = "gente"; try { tab0 = localStorage.getItem("mv_tab") || "gente"; } catch (e) {}
