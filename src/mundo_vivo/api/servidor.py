@@ -94,8 +94,11 @@ def crear_app(dir_datos: Path) -> FastAPI:
         return ruta
 
     def conectar(ruta: Path) -> sqlite3.Connection:
-        con = sqlite3.connect(ruta, timeout=30)
+        con = sqlite3.connect(ruta, timeout=10.0)
         con.row_factory = sqlite3.Row
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("PRAGMA busy_timeout=5000")
         return con
 
     def cargar(nombre: str, dimension: int = 0):

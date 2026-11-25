@@ -331,8 +331,10 @@
     $("ficha-cab").classList.add("visible");
     await refrescarFicha();
   }
+  let _fichaOcupado = false;
   async function refrescarFicha() {
-    if (V.sel == null || !V.nombre) return;
+    if (V.sel == null || !V.nombre || _fichaOcupado || document.hidden) return;
+    _fichaOcupado = true;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/habitantes/" + V.sel);
       if (!r.ok) return;
@@ -400,14 +402,17 @@
         }
       };
     } catch (e) { /* sin red: se reintenta en el próximo ciclo */ }
+    finally { _fichaOcupado = false; }
   }
   setInterval(refrescarFicha, 5000);
 
   // recetas (existentes e inventadas) y animales: se leen de la base cada tanto
   const NOM_PROP = {};  // se muestran tal cual vienen (flota, corta, enciende, teje, construye...)
+  let _recetasOcupado = false;
   async function refrescarRecetas() {
     const n = V.nombre;
-    if (!n) return;
+    if (!n || _recetasOcupado || document.hidden) return;
+    _recetasOcupado = true;
     try {
       const [r, fa] = await Promise.all([fetch("/api/mundos/" + n + "/recetas").then((x) => x.json()), fetch("/api/mundos/" + n + "/fauna").then((x) => x.json())]);
       const sab = r.existentes.filter((e) => e.descubierta), nuevas = r.existentes.filter((e) => !e.descubierta);
@@ -432,8 +437,9 @@
         Object.entries(por).map(([m, l]) => seccion("a-" + m, tit[m] || m, l.reduce((a, e) => a + e.n, 0),
           "<div>" + (l.filter((e) => e.n > 0).map((e) => "<span class='bicho" + (e.peligro >= 5 ? " peligro" : "") + "' title='" + esc(e.clase + ", " + e.dieta + (e.edad_media != null ? " · edad media " + e.edad_media + " d de ~" + e.vida_dias : "")) + "'>" + e.emoji + " " + esc(e.nombre) + " <b>" + e.n + "</b></span>").join("") || "<span class='nota'>Ninguno por ahora.</span>") + "</div>", true)).join(""));
     } catch (e) { /* sin red */ }
+    finally { _recetasOcupado = false; }
   }
-  setInterval(refrescarRecetas, 12000);
+  setInterval(refrescarRecetas, 15000);
   setTimeout(refrescarRecetas, 1500);
 
   async function actualizarEra() {
@@ -1137,9 +1143,11 @@
   // bucle de dibujo: redibuja mientras haya conexión
   let ultimoCuadro = 0;
   function cuadro(ts) {
-    // de lejos (se ve poco detalle) alcanza con ~8 cuadros por segundo; de cerca ~30
+    if (document.hidden) { requestAnimationFrame(cuadro); return; }
+    // De lejos 10 FPS (100ms), de cerca 25 FPS (40ms) para no ahogar la GPU
     const z = base() && base().estado.vista.z;
-    if (V.conectado && base() && base().estado.capas && ts - ultimoCuadro >= (z < 1.5 ? 120 : 33)) {
+    const dtMin = z < 1.5 ? 100 : (z < 6 ? 50 : 33);
+    if (V.conectado && base() && base().estado.capas && ts - ultimoCuadro >= dtMin) {
       ultimoCuadro = ts; base().dibujar();
     }
     requestAnimationFrame(cuadro);
