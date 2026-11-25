@@ -408,7 +408,13 @@
   (async function iniciar() {
     const lista = await json("/api/biomas");
     estado.pal = {};
-    for (const b of lista) { estado.biomas[b.id] = b; estado.pal[b.id] = hexRgb(b.color); }
+    for (const b of lista) {
+      estado.biomas[b.id] = b;
+      if (b.id_numerico != null) estado.biomas[b.id_numerico] = b;
+      const rgb = hexRgb(b.color);
+      estado.pal[b.id] = rgb;
+      if (b.id_numerico != null) estado.pal[b.id_numerico] = rgb;
+    }
     armarLeyenda();
     await cargarListaMundos(new URLSearchParams(location.search).get("mundo"));
   })().catch((e) => { $("estado").textContent = "Error: " + e.message; });
