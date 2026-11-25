@@ -324,12 +324,16 @@ class Ejecutor:
                 v = self.velocidad
                 pendiente += v * real
                 inicio, avanzado = time.perf_counter(), 0.0
+                # A velocidades altas (>20x), aumentar el paso de avance por tanda para amortizar
+                # el overhead del bucle y llamadas entre subsistemas.
+                paso_tanda = max(PASO_AVANCE, min(10.0, v / HZ_BUCLE)) if v > 20 else PASO_AVANCE
+                presupuesto = 0.045 if v >= 500 else PRESUPUESTO_S
                 while pendiente > 1e-6:
-                    paso = min(PASO_AVANCE, pendiente)
+                    paso = min(paso_tanda, pendiente)
                     self.mundo.avanzar(paso)
                     pendiente -= paso
                     avanzado += paso
-                    if time.perf_counter() - inicio > PRESUPUESTO_S:
+                    if time.perf_counter() - inicio > presupuesto:
                         pendiente = 0.0   # no llega: se recorta en vez de acumular atraso
                         break
                 if real > 0:
