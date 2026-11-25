@@ -193,7 +193,19 @@ class CerebroCognitivo(Cerebro):
         self.cliente = None                 # no hay modelo de lenguaje en este cerebro
         self.con = con
         self._demo = CerebroDemo()          # sólo para el reflejo de huir del fuego
-        self._repo = SQLiteBrainRepository(":memory:")
+        # Persistent brain repository: same folder as the world DB, separate file.
+        if con is not None:
+            try:
+                db_path_str = con.execute("PRAGMA database_list").fetchone()[2]
+                if db_path_str and db_path_str != ":memory:":
+                    cerebros_db: str | Path = Path(db_path_str).parent / "cerebros_cognitivos.db"
+                else:
+                    cerebros_db = ":memory:"
+            except Exception:
+                cerebros_db = ":memory:"
+        else:
+            cerebros_db = ":memory:"
+        self._repo = SQLiteBrainRepository(cerebros_db)
         self._scheduler = MultiBrainScheduler()
         self._cerebros: dict[int, Any] = {}
         self._ultima_propuesta: dict[int, Any] = {}
@@ -559,6 +571,15 @@ class CerebroCognitivo(Cerebro):
         self._scheduler.register_brain(cerebro)
         return cerebro
 
+    def guardar_cerebros(self) -> None:
+        """Persists all active brains to the SQLite repository."""
+        for cerebro in self._cerebros.values():
+            try:
+                cerebro.save(self._repo)
+            except Exception as exc:
+                self._anotaciones_fallidas += 1
+                self._ultimo_error_anotando = f"save: {exc}"[:120]
+
     def olvidar(self, h_id: int) -> None:
         """Archiva el cerebro de alguien que murió."""
         cerebro = self._cerebros.pop(h_id, None)
@@ -567,6 +588,10 @@ class CerebroCognitivo(Cerebro):
         self._ultima_charla.pop(h_id, None)   # si no, queda una entrada por cada muerto, para siempre
         self._ultimo_tick.pop(h_id, None)
         if cerebro is not None:
+            try:
+                cerebro.save(self._repo)
+            except Exception:
+                pass
             self._scheduler.unregister_brain(cerebro.identity.brain_id)
 
     # ------------------------------------------------------------------ percepción

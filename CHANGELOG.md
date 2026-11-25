@@ -1,5 +1,23 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — CCA v1.1 + persistencia de cerebros cognitivos
+
+### Nuevo
+
+- **Integración completa de CCA v1.1** en `src/mundo_vivo/agentes/cerebro_cognitivo.py`:
+  - `EmotionModule` (VAD) instanciado y conectado en `AutonomousBrain`; recibe tick con `delta_simulation_time` explícito.
+  - `ValueSystem` calibrado por rasgos del habitante (`curiosidad` → `curiosity`, `sociabilidad` → `social_connection`, `cautela` → `survival`).
+  - `SelfModel` y `SocialCognition` instanciados y cableados por `brain_id`.
+  - `Observation` incluye `simulation_time=float(sim.t)` y `delta_simulation_time` calculado desde `_ultimo_tick` para que el motor cognitivo gestione su propio tiempo.
+  - Percepts de personas con metadatos `channel="social"` y `entity_type="agent"`.
+  - Acceso al plan activo via `decision_engine.plan_manager.active_plan` (retrocompatible con fallback a `state.plan`).
+- **Persistencia de cerebros cognitivos** en `cerebros_cognitivos.db` (mismo directorio que el mundo). Se guarda en cada ciclo de `guardar()` y al olvidar un habitante fallecido. No interfiere con la base principal del mundo; si falla, registra el error sin tumbar la simulación.
+- **28 tests** de integración pasando, incluido ciclo de 20 días simulados sin muertes con agua al alcance.
+
+### Arreglado
+
+- Acceso al plan activo migrado a `decision_engine.plan_manager.active_plan` (CCA v1.1 movió el plan fuera de `DeliberationState`).
+
 Cada actualización lista lo nuevo, lo acordado, lo arreglado y lo que queda pendiente. La versión actual está en `src/mundo_vivo/__init__.py`.
 Las migraciones de base de datos son automáticas y no borran nada: un mundo viejo se abre con la versión nueva y conserva sus recuerdos.
 

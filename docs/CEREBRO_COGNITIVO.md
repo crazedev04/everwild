@@ -168,3 +168,54 @@ El puente recalcula todas las creencias en cada decisión, y tres consultas son 
 `disponibles()`, `ausentes()` y `ver_animales()`. Son las mismas que ya hacía el respaldo del cerebro
 híbrido, pero antes sólo corrían para quien no estaba en foco del modelo. Está anotado en
 `docs/OPTIMIZACION.md`.
+
+## CCA v1.1 — Módulos activos y cambios de API
+
+Desde la integración de CCA v1.1, el adaptador instancia y cablea los siguientes módulos dentro de cada `AutonomousBrain`:
+
+| Módulo | Clase | Parámetros clave |
+|--------|-------|-----------------|
+| Emoción | `EmotionModule` | `brain_id`, `initial_state=AffectState(valence=0.5, arousal=0.3, dominance=0.5)` |
+| Valores | `ValueSystem` | Calibrado por rasgos: `curiosidad→curiosity`, `sociabilidad→social_connection`, `cautela→survival` |
+| Autoconcepto | `SelfModel` | `brain_id=...` |
+| Cognición social | `SocialCognition` | `brain_id=...` |
+
+### Tiempos explícitos en Observation
+
+`Observation` recibe ahora dos campos temporales que el motor cognitivo usa internamente:
+
+```python
+Observation(
+    facts=hechos,
+    simulation_time=float(sim.t),           # minutos simulados absolutos
+    delta_simulation_time=dt_sim,           # delta desde el tick anterior de este habitante
+)
+```
+
+`delta_simulation_time` se calcula desde `self._ultimo_tick[h.id]` y limita a `[0, 1440]` para evitar
+saltos grandes al inicializar o reiniciar.
+
+### Persistencia
+
+Los cerebros cognitivos se guardan en un archivo SQLite **separado** de la base del mundo:
+
+```
+<carpeta_del_mundo>/cerebros_cognitivos.db
+```
+
+El guardado ocurre:
+- En cada ciclo de `guardar()` (misma frecuencia que `GUARDAR_CADA_S`).
+- Al olvidar un habitante fallecido (`olvidar(h_id)`).
+
+Si el guardado falla (tabla corrupta, disco lleno, etc.) **no tumba la simulación**: el error queda
+registrado en `_anotaciones_fallidas` y `_ultimo_error_anotando`, visibles en el estado del cerebro.
+
+### Correr tests de integración
+
+```bash
+cd /home/cracken/Mimundo/mundo-vivo
+PYTHONPATH="src:/home/cracken/Mimundo/Cognitive Engine/src" \
+    .venv/bin/pytest tests/test_cerebro_cognitivo.py -q
+```
+
+Debe terminar con `28 passed`.

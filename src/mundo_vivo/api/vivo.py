@@ -347,6 +347,8 @@ class Ejecutor:
     def guardar(self) -> None:
         self._volcar()
         sim_io.guardar_mundo_vivo(self.con, self.mundo)
+        if hasattr(self.cerebro, "guardar_cerebros"):
+            self.cerebro.guardar_cerebros()
         self._ultimo_guardado = time.monotonic()
 
     def cerrar(self) -> None:
