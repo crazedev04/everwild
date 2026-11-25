@@ -12,7 +12,7 @@ def estado_base(sim) -> dict:
     luz = reloj.luz(sim.t) if sim.cielo.get("dia_noche", True) else min(0.18, reloj.luz(sim.t))
     return {"t_min": int(sim.t), "fecha": reloj.fecha(sim.t), "texto_fecha": reloj.texto(sim.t),
             "luz": round(luz, 3),
-            "nieve_v": int(sim.t // 360),
+            "nieve_v": int(sim.t // 1800),  # update every 30 sim-min, not 6
             "temp_media": round(sim._temp_media_base + (reloj.ajuste_temp(sim.t) if sim.cielo.get("estaciones", True) else 0.0), 1),
             "ceniza_v": sim.fuego.version,
             "tormentas": [t + [1 if sim.temp_en(t[0], t[1]) <= 0 else 0] for t in sim.clima.a_publico()],

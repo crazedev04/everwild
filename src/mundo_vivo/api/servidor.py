@@ -7,6 +7,7 @@ archivo nuevo). La vista no contiene reglas de simulación.
 from __future__ import annotations
 
 import asyncio
+import zlib
 from contextlib import asynccontextmanager
 import json
 import random
@@ -503,36 +504,47 @@ def crear_app(dir_datos: Path) -> FastAPI:
 
     @app.get("/api/mundos/{nombre}/dinamico/nieve")
     def api_nieve(nombre: str):
-        """Mapa de nieve acumulada (1 byte por celda, 0..255)."""
+        """Mapa de nieve acumulada (1 byte/celda, 0-255) comprimido deflate."""
+        def _resp(raw: bytes) -> Response:
+            return Response(
+                zlib.compress(raw, level=1),
+                media_type="application/octet-stream",
+                headers={"Cache-Control": "no-cache", "Content-Encoding": "deflate"},
+            )
         ej = gestor.ejecutores.get(nombre)
         if ej is not None:
-            return Response(ej.sim.nieve_bytes(), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(ej.sim.nieve_bytes())
         con = conectar(ruta_de(nombre))
         try:
             f = con.execute("SELECT valor FROM estado_dinamico WHERE clave = 'nieve'").fetchone()
         finally:
             con.close()
         if f:
-            return Response(bytes(f["valor"]), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(bytes(f["valor"]))
         m = cargar(nombre)[1]
-        return Response(bytes(int(m["ancho"]) * int(m["alto"])), media_type="application/octet-stream")
+        return _resp(bytes(int(m["ancho"]) * int(m["alto"])))
 
     @app.get("/api/mundos/{nombre}/dinamico/quemado")
     def api_quemado(nombre: str):
-        """Mapa de ceniza (1 byte por celda, 0..255) para dibujar las zonas quemadas."""
+        """Mapa de ceniza (1 byte/celda, 0-255) comprimido deflate."""
+        def _resp(raw: bytes) -> Response:
+            return Response(
+                zlib.compress(raw, level=1),
+                media_type="application/octet-stream",
+                headers={"Cache-Control": "no-cache", "Content-Encoding": "deflate"},
+            )
         ej = gestor.ejecutores.get(nombre)
         if ej is not None:
-            return Response(ej.sim.fuego.ceniza_bytes(), media_type="application/octet-stream",
-                            headers={"Cache-Control": "no-cache"})
+            return _resp(ej.sim.fuego.ceniza_bytes())
         con = conectar(ruta_de(nombre))
         try:
             f = con.execute("SELECT valor FROM estado_dinamico WHERE clave = 'quemado'").fetchone()
         finally:
             con.close()
         if f:
-            return Response(bytes(f["valor"]), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(bytes(f["valor"]))
         m = cargar(nombre)[1]
-        return Response(bytes(int(m["ancho"]) * int(m["alto"])), media_type="application/octet-stream")
+        return _resp(bytes(int(m["ancho"]) * int(m["alto"])))
 
     @app.post("/api/mundos/{nombre}/habitantes")
     def api_sumar_habitante(nombre: str, datos: NuevoHabitante):

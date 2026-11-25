@@ -168,7 +168,7 @@
       const o = V.habs[id];
       if (o) Object.assign(o.d, { salud, sed, energia, hambre, temp, frio });
     }
-    if (Date.now() - V.fichaT > 800) { V.fichaT = Date.now(); listaHabitantes(); }
+    if (Date.now() - V.fichaT > 2000) { V.fichaT = Date.now(); listaHabitantes(); }
     if (e.ceniza_v !== V.ceniza.v) pedirCeniza(e.ceniza_v);
     if (e.nieve_v !== V.nieve.v) pedirNieve(e.nieve_v);
   }
@@ -625,12 +625,15 @@
 
   // ------------------------------------------------------------- nieve
   async function pedirNieve(v) {
+    if (document.hidden) return;
     const ahora = Date.now();
-    if (ahora - V.nieve.pedido < 6000 || !V.nombre) return;
+    if (ahora - V.nieve.pedido < 15000 || !V.nombre) return;
     V.nieve.pedido = ahora;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/nieve");
-      const datos = new Uint8Array(await r.arrayBuffer());
+      const ds = new DecompressionStream("deflate");
+      const piped = r.body.pipeThrough(ds);
+      const datos = new Uint8Array(await new Response(piped).arrayBuffer());
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.nieve.canvas || (V.nieve.canvas = document.createElement("canvas"));
@@ -652,12 +655,15 @@
 
   // ------------------------------------------------------------- ceniza
   async function pedirCeniza(v) {
+    if (document.hidden) return;
     const ahora = Date.now();
-    if (ahora - V.ceniza.pedido < 4000 || !V.nombre) return;
+    if (ahora - V.ceniza.pedido < 10000 || !V.nombre) return;
     V.ceniza.pedido = ahora;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/quemado");
-      const datos = new Uint8Array(await r.arrayBuffer());
+      const ds = new DecompressionStream("deflate");
+      const piped = r.body.pipeThrough(ds);
+      const datos = new Uint8Array(await new Response(piped).arrayBuffer());
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.ceniza.canvas || (V.ceniza.canvas = document.createElement("canvas"));
@@ -697,7 +703,7 @@
     // detalle del suelo con zoom alto: matitas, árboles y piedras según el bioma. Solo lo visible, y solo de cerca,
     // así el terreno deja de ser un manchón plano sin costar nada cuando se mira el mundo entero.
     const _cap = base().estado.capas;
-    if (z >= 6 && _cap && _cap.bioma) {
+    if (z >= 10 && _cap && _cap.bioma) {  // only at close zoom to avoid per-cell draw overhead
       const cb = _cap.bioma, ca = _cap.agua, anchoM = V.meta.ancho;
       const paso = z >= 16 ? 1 : 2;                       // de muy cerca, detalle en cada celda
       for (let cy = vis.y0; cy < vis.y1; cy += paso) {
