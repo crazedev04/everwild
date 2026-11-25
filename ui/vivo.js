@@ -738,6 +738,29 @@
         }
       }
     }
+    // senderos: huellas de tierra pisada que abren los habitantes
+    const chkSenderos = $("chk-senderos");
+    if ((!chkSenderos || chkSenderos.checked) && V.estado.senderos && V.estado.senderos.length) {
+      ctx.fillStyle = "rgba(182, 148, 102, 0.55)";
+      for (const [sx, sy] of V.estado.senderos) {
+        if (!visible(sx, sy, 1)) continue;
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+    }
+    // chunks activos (debug LOD espacial)
+    const chkChunks = $("chk-chunks");
+    if (chkChunks && chkChunks.checked && V.estado.chunks_activos) {
+      const CHUNK = 64;
+      ctx.strokeStyle = "rgba(0, 220, 255, 0.4)";
+      ctx.lineWidth = Math.max(0.08, 1.5 / s);
+      ctx.fillStyle = "rgba(0, 220, 255, 0.08)";
+      for (const [cx, cy] of V.estado.chunks_activos) {
+        const x = cx * CHUNK, y = cy * CHUNK;
+        if (!visible(x + CHUNK/2, y + CHUNK/2, CHUNK)) continue;
+        ctx.fillRect(x, y, CHUNK, CHUNK);
+        ctx.strokeRect(x, y, CHUNK, CHUNK);
+      }
+    }
     // aldeas: el claro de tierra pisada y el nombre, debajo de todo lo demás
     for (const al of V.estado.aldeas || []) {
       if (!visible(al.x, al.y, al.r)) continue;
