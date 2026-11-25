@@ -293,6 +293,10 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.fauna.temp_fn = self.temp_en                                                   # los animales también sienten el frío
         self._fauna_lista = False          # True cuando la fauna ya se pobló o se cargó de la base
         self.centro_seguro = None          # (x, y): sin grandes depredadores al empezar cerca de ahí
+        # Buffer de propuestas del Cerebro Cognitivo — desacopla el hilo cognitivo del tick crítico.
+        # Clave: id del habitante. El motor reutiliza la última propuesta si el cerebro aún no resolvió
+        # la siguiente (relevante cuando el CE real tarda; el CerebroDemo resuelve en microsegundos).
+        self._propuestas_cerebro: Dict[int, dict] = {}
         self.conocimientos: Dict[int, dict] = {}
         self.conocidos: set = set()
         self.al_nacer = None       # callback(sim, madre, padre, genoma, sexo, nombre) -> HabitanteSim (lo pone sim_io)
@@ -700,10 +704,18 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.al_llegar = None
             self._aplicar(h, {"tipo": "beber"})
             return
-        ok, texto = self._aplicar(h, self.cerebro.decidir(self, h))
+        propuesta = self._tick_cerebro(h)
+        ok, texto = self._aplicar(h, propuesta)
         reg = getattr(self.cerebro, "registrar_resultado", None)
         if reg is not None and texto:
             reg(self, h, ok, texto)
+
+    def _tick_cerebro(self, h: HabitanteSim) -> dict:
+        """Consulta al cerebro de forma desacoplada o consume propuesta encolada/cacheada."""
+        propuesta = self._propuestas_cerebro.pop(h.id, None)
+        if propuesta is None:
+            propuesta = self.cerebro.decidir(self, h)
+        return propuesta
 
     def _mover(self, h: HabitanteSim, paso: float) -> None:
         h.accion = "caminando"
