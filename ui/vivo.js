@@ -700,8 +700,13 @@
     const vw = vis.x1 - vis.x0, vh = vis.y1 - vis.y0;
     if (vw <= 0 || vh <= 0) return;
     const visible = (x, y, m) => x >= vis.x0 - m && x <= vis.x1 + m && y >= vis.y0 - m && y <= vis.y1 + m;
-    for (const cv of [V.ceniza.canvas, V.nieve.canvas]) {
-      if (cv) { ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh); }
+    if (V.ceniza && V.ceniza.canvas && V.ceniza.v > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(V.ceniza.canvas, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh);
+    }
+    if (V.nieve && V.nieve.canvas && V.nieve.v > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(V.nieve.canvas, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh);
     }
     // fuego (llamas que titilan)
     const fuego = V.estado.fuego || [];
@@ -1140,15 +1145,11 @@
     return out.slice(0, 6);
   }
 
-  // bucle de dibujo: redibuja mientras haya conexión
-  let ultimoCuadro = 0;
+  // bucle de dibujo: redibuja mientras haya conexion y este visible, a máxima tasa nativa
   function cuadro(ts) {
     if (document.hidden) { requestAnimationFrame(cuadro); return; }
-    // De lejos 10 FPS (100ms), de cerca 25 FPS (40ms) para no ahogar la GPU
-    const z = base() && base().estado.vista.z;
-    const dtMin = z < 1.5 ? 100 : (z < 6 ? 50 : 33);
-    if (V.conectado && base() && base().estado.capas && ts - ultimoCuadro >= dtMin) {
-      ultimoCuadro = ts; base().dibujar();
+    if (V.conectado && base() && base().estado.capas) {
+      base().dibujar();
     }
     requestAnimationFrame(cuadro);
   }
