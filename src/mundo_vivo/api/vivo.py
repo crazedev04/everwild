@@ -46,19 +46,19 @@ VAR_CEREBRO = "MUNDO_VIVO_CEREBRO"
 
 
 def crear_cerebro(con) -> Cerebro:
-    """Instancia el cerebro pedido. Si el cognitivo no está disponible, lo dice y no arranca a medias."""
-    elegido = (os.environ.get(VAR_CEREBRO) or "hibrido").strip().lower()
-    if elegido in ("cognitivo", "cognitive", "cognitive_engine"):
+    """Instancia el cerebro pedido. Por defecto usa Cognitive Engine (GOAP + Utility AI sin LLM)."""
+    elegido = (os.environ.get(VAR_CEREBRO) or "cognitivo").strip().lower()
+    if elegido in ("cognitivo", "cognitive", "cognitive_engine", ""):
         from ..agentes.cerebro_cognitivo import CerebroCognitivo
 
         # La base va para que cada decisión quede anotada en `decisiones`: es de ahí que el visor
         # saca «Lo que pensó».
         return CerebroCognitivo(con)
-    if elegido not in ("hibrido", "híbrido", "llm", ""):
-        raise ValueError(
-            f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: hibrido, cognitivo."
-        )
-    return CerebroHibrido(con)
+    if elegido in ("hibrido", "híbrido", "llm"):
+        return CerebroHibrido(con)
+    raise ValueError(
+        f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: cognitivo, hibrido."
+    )
 
 
 class Ejecutor:
@@ -322,8 +322,6 @@ class Ejecutor:
                 real = min(0.5, ahora - t_prev)
                 t_prev = ahora
                 v = self.velocidad
-                if self.cerebro.pendientes() and self.sim.ajustes["modulos"].get("cerebro_llm"):
-                    v = min(v, self.tope_pensando())   # el tiempo espera a que piensen
                 pendiente += v * real
                 inicio, avanzado = time.perf_counter(), 0.0
                 while pendiente > 1e-6:
