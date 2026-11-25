@@ -202,6 +202,7 @@ class CerebroCognitivo(Cerebro):
         self._anotaciones_fallidas = 0
         self._ultimo_error_anotando = ""
         self._ultima_charla: dict[int, float] = {}
+        self._ultimo_tick: dict[int, float] = {}
         self._charlas = 0
         # Las creencias de la decisión que se está resolviendo, por habitante: {id: (t, creencias)}.
         # `_anotar_decision` las necesita para el registro de entrenamiento y antes las volvía a
@@ -502,6 +503,10 @@ class CerebroCognitivo(Cerebro):
         from cognitive_engine.decision.engine import GOAPDecisionEngine
         from cognitive_engine.decision.goal_selection import GoalArbiter
         from cognitive_engine.decision.utility import CurveType, UtilityCurve
+        from cognitive_engine.emotion.affect import EmotionModule
+        from cognitive_engine.self_model.module import SelfModel
+        from cognitive_engine.social.models import SocialCognition
+        from cognitive_engine.values.system import ValueEntry, ValueSystem
 
         # El piso del reposo baja de 0,5 (el default del motor) a 0,3: con 0,5, los impulsos que no
         # son del cuerpo nunca ganaban y los habitantes se quedaban sentados con el agua ya bebida,
@@ -518,10 +523,29 @@ class CerebroCognitivo(Cerebro):
             name=h.nombre,
             created_tick=int(h.nacimiento_min),
         )
+
+        # Sistema de valores alineado con rasgos del habitante (CCA v1.1)
+        curiosidad_val = max(0.1, min(1.0, float(h.rasgo("curiosidad"))))
+        sociabilidad_val = max(0.1, min(1.0, float(h.rasgo("sociabilidad"))))
+        cautela_val = max(0.1, min(1.0, float(h.rasgo("cautela"))))
+        valores = ValueSystem(
+            entries={
+                "survival": ValueEntry(name="survival", priority=max(0.7, 0.7 + 0.3 * cautela_val), mutability="fixed"),
+                "energy": ValueEntry(name="energy", priority=0.8, mutability="drifting"),
+                "rest": ValueEntry(name="rest", priority=0.6, mutability="drifting"),
+                "social": ValueEntry(name="social", priority=round(sociabilidad_val, 3), mutability="drifting"),
+                "curiosity": ValueEntry(name="curiosity", priority=round(curiosidad_val, 3), mutability="drifting"),
+            }
+        )
+
         cerebro = AutonomousBrain(
             identity=identidad,
             personality=self._personalidad(h),
             needs=self._necesidades(sim, h),
+            emotion=EmotionModule(),
+            values=valores,
+            self_model=SelfModel(brain_id=identidad.brain_id),
+            social_cognition=SocialCognition(brain_id=identidad.brain_id),
             decision_engine=GOAPDecisionEngine(
                 arbiter=arbitro,
                 catalog=self._catalogo(),
@@ -541,6 +565,7 @@ class CerebroCognitivo(Cerebro):
         self._ultima_propuesta.pop(h_id, None)
         self._creencias_vigentes.pop(h_id, None)
         self._ultima_charla.pop(h_id, None)   # si no, queda una entrada por cada muerto, para siempre
+        self._ultimo_tick.pop(h_id, None)
         if cerebro is not None:
             self._scheduler.unregister_brain(cerebro.identity.brain_id)
 
@@ -599,12 +624,23 @@ class CerebroCognitivo(Cerebro):
                         metadata={
                             "satisfies": [COMPANIA],
                             "position": (float(otro.x), float(otro.y)),
+                            "channel": "social",
+                            "entity_type": "agent",
                         },
                     )
                 )
 
+        t_sim = float(sim.t)
+        ultimo_t = self._ultimo_tick.get(h.id, t_sim - 1.0)
+        dt = max(1.0, t_sim - ultimo_t)
+        self._ultimo_tick[h.id] = t_sim
+
         return Observation(
-            brain_id=cerebro.identity.brain_id, tick=int(sim.t), facts=tuple(hechos)
+            brain_id=cerebro.identity.brain_id,
+            tick=int(sim.t),
+            facts=tuple(hechos),
+            simulation_time=t_sim,
+            delta_simulation_time=dt,
         )
 
     # ------------------------------------------------------------------ creencias
@@ -1246,8 +1282,12 @@ class CerebroCognitivo(Cerebro):
         pensamiento = self._pensamiento_de(propuesta)
         cerebro = self._cerebros.get(h.id)
         plan_str = None
-        if cerebro and hasattr(cerebro, "decision_engine") and hasattr(cerebro.decision_engine, "state"):
-            plan = cerebro.decision_engine.state.plan
+        if cerebro and hasattr(cerebro, "decision_engine"):
+            plan = None
+            if hasattr(cerebro.decision_engine, "plan_manager") and cerebro.decision_engine.plan_manager.active_plan:
+                plan = cerebro.decision_engine.plan_manager.active_plan
+            elif hasattr(cerebro.decision_engine, "state") and hasattr(cerebro.decision_engine.state, "plan"):
+                plan = cerebro.decision_engine.state.plan
             if plan:
                 plan_str = json.dumps([p.action_type for p in plan.steps])
 
