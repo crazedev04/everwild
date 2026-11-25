@@ -76,7 +76,7 @@ class TestPuente(unittest.TestCase):
 
         # La cadena completa está en el plan del cerebro, no sólo el paso que se ejecuta.
         interno = cerebro._cerebros[h.id]
-        plan = interno.decision_engine.state.plan
+        plan = interno.decision_engine.plan_manager.active_plan
         self.assertIsNotNone(plan)
         self.assertIn("beber", [p.action_type for p in plan.steps])
 
@@ -109,10 +109,10 @@ class TestPuente(unittest.TestCase):
 
         cerebro.decidir(s, h)
         interno = cerebro._cerebros[h.id]
-        self.assertIsNotNone(interno.decision_engine.state.plan)
+        self.assertIsNotNone(interno.decision_engine.plan_manager.active_plan)
 
         cerebro.registrar_resultado(s, h, False, "No hay agua acá.")
-        self.assertIsNone(interno.decision_engine.state.plan, "un rechazo tiene que invalidar el plan")
+        self.assertIsNone(interno.decision_engine.plan_manager.active_plan, "un rechazo tiene que invalidar el plan")
 
         replanes = interno.decision_engine.state.replans
         cerebro.decidir(s, h)
@@ -616,6 +616,38 @@ class TestMundoCorriendo(unittest.TestCase):
         self.assertTrue([h for h in s.habitantes.values() if h.vivo],
                         "no quedó nadie vivo a los 20 días")
         self.assertEqual(s.cerebro.estado(s)["sin_traducir"], {})
+
+    def test_cca_v1_1_modulos_activos_y_tiempos_de_simulacion(self):
+        """Verifica que CCA v1.1 inicializa Emotion, Values, SelfModel, SocialCognition y avanza tiempos."""
+        s, h = _mundo()
+        cerebro = CerebroCognitivo()
+        h.sed = 85.0
+
+        accion = cerebro.decidir(s, h)
+        interno = cerebro._cerebros[h.id]
+
+        # 1. Módulos CCA v1.1 instanciados
+        self.assertIsNotNone(getattr(interno, "emotion", None))
+        self.assertIsNotNone(getattr(interno, "values", None))
+        self.assertIsNotNone(getattr(interno, "self_model", None))
+        self.assertIsNotNone(getattr(interno, "social_cognition", None))
+
+        # 2. Valores y temperamento configurados
+        self.assertIn("survival", interno.values.entries)
+        self.assertIn("curiosity", interno.values.entries)
+
+        # 3. Observación con simulation_time y delta_simulation_time
+        obs = cerebro._observacion(s, h, interno)
+        self.assertEqual(obs.simulation_time, float(s.t))
+        self.assertGreaterEqual(obs.delta_simulation_time, 1.0)
+
+        # 4. Estado emocional y SelfModel actualizado tras receive_result
+        cerebro.registrar_resultado(s, h, True, "Bebiste.")
+        recuerdos = interno.episodic_memory.retrieve("action", int(s.t))
+        self.assertGreaterEqual(len(recuerdos), 1)
+        propuesta_tipo = accion["tipo"]
+        # En SelfModel se actualiza la creencia agencial sobre la acción ejecutada
+        self.assertGreaterEqual(len(interno.self_model.agent.action_history), 1)
 
 
 if __name__ == "__main__":
