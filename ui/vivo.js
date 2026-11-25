@@ -928,10 +928,20 @@
       o.globalCompositeOperation = "source-over"; o.clearRect(0, 0, vw, vh);
       o.fillStyle = "rgba(6,10,38," + a + ")"; o.fillRect(0, 0, vw, vh);
       o.globalCompositeOperation = "destination-out";
-      const hueco = (x, y, rad, fza) => {      // "agujero" de luz en la capa de noche
-        const g2 = o.createRadialGradient(x - vis.x0, y - vis.y0, 0, x - vis.x0, y - vis.y0, rad);
-        g2.addColorStop(0, "rgba(0,0,0," + fza + ")"); g2.addColorStop(1, "rgba(0,0,0,0)");
-        o.fillStyle = g2; o.fillRect(x - vis.x0 - rad, y - vis.y0 - rad, rad * 2, rad * 2);
+      if (!V._luzSprite) {
+        const cL = document.createElement("canvas");
+        cL.width = 64; cL.height = 64;
+        const ctxL = cL.getContext("2d");
+        const gL = ctxL.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gL.addColorStop(0, "rgba(0,0,0,1)");
+        gL.addColorStop(1, "rgba(0,0,0,0)");
+        ctxL.fillStyle = gL; ctxL.fillRect(0, 0, 64, 64);
+        V._luzSprite = cL;
+      }
+      const hueco = (x, y, rad, fza) => {      // "agujero" de luz en la capa de noche con sprite pre-renderizado
+        o.globalAlpha = fza;
+        o.drawImage(V._luzSprite, x - vis.x0 - rad, y - vis.y0 - rad, rad * 2, rad * 2);
+        o.globalAlpha = 1.0;
       };
       // los radios de luz también en metros, si no a 5 m por celda una fogata alumbraba 45 metros
       const mLuz = (m) => Math.max(5 / s, m / ((V.meta && V.meta.tam_celda_m) || 50));
