@@ -94,6 +94,8 @@ class Terreno:
         np.divide(costo, np.maximum(1e-9, mult), out=self._factor_terreno, where=ok)
         self._fracasos: set = set()   # viajes que ya se comprobó que no se pueden hacer
         self._rutas: "OrderedDict" = OrderedDict()   # (ox, oy, dx, dy) -> camino; LRU acotada
+        self._cache_hits: int = 0
+        self._cache_misses: int = 0
 
     def cambiar_bioma(self, x: int, y: int, bioma: int) -> None:
         """Cambia el bioma de UNA celda y recalcula su costo.
@@ -197,6 +199,18 @@ class Terreno:
         return (int(origen[0]) // BLOQUE_FRACASO, int(origen[1]) // BLOQUE_FRACASO,
                 int(destino[0]), int(destino[1]))
 
+    def metricas_cache(self) -> dict:
+        """Retorna hits/misses acumulados y tamaño actual de la caché de rutas."""
+        total = self._cache_hits + self._cache_misses
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "total": total,
+            "hit_rate": round(self._cache_hits / total, 3) if total else 0.0,
+            "cache_size": len(self._rutas),
+            "cache_tope": TOPE_RUTAS,
+        }
+
     def olvidar_rutas(self) -> None:
         """Olvida las rutas cacheadas. Se llama cuando el mapa cambia (`cambiar_bioma`): un camino
         calculado sobre el terreno anterior ya no es válido."""
@@ -231,6 +245,7 @@ class Terreno:
         cached = self._rutas.get(clave_ruta)
         if cached is not None:
             self._rutas.move_to_end(clave_ruta)
+            self._cache_hits += 1
             return [tuple(p) for p in cached]
         clave = self._clave_fracaso(origen, destino)
         if clave in self._fracasos:
@@ -263,6 +278,7 @@ class Terreno:
                 self._rutas[clave_ruta] = ruta
                 if len(self._rutas) > TOPE_RUTAS:
                     self._rutas.popitem(last=False)
+                self._cache_misses += 1
                 return [tuple(p) for p in ruta]
             if gc > g.get((x, y), INF) + 1e-9:
                 continue

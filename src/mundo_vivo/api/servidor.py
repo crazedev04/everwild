@@ -546,6 +546,30 @@ def crear_app(dir_datos: Path) -> FastAPI:
         m = cargar(nombre)[1]
         return _resp(bytes(int(m["ancho"]) * int(m["alto"])))
 
+    @app.get("/api/mundos/{nombre}/metricas")
+    def api_metricas(nombre: str):
+        """Telemetria en vivo: A* cache, ms/sistema, chunks activos, fuego."""
+        ej = gestor.ejecutores.get(nombre)
+        if ej is None:
+            raise HTTPException(404, "Mundo no está corriendo")
+        sim = ej.sim
+        ter = sim.terreno
+        cache = ter.metricas_cache() if hasattr(ter, "metricas_cache") else {}
+        fuego = sim.fuego
+        from ..motor.chunks import chunks_activos as _chunks
+        chunks = _chunks(sim)
+        return {
+            "cache_rutas": cache,
+            "fuego": {
+                "celdas_ardiendo": int(fuego.celda_ardiendo if hasattr(fuego, "celda_ardiendo") else (fuego.fuego > 0).sum()),
+                "version": fuego.version,
+                "episodio_celdas": fuego.episodio_celdas,
+            },
+            "chunks_activos": len(chunks),
+            "habitantes_vivos": sum(1 for h in sim.habitantes.values() if h.vivo),
+            "t_min": round(sim.t, 1),
+        }
+
     @app.post("/api/mundos/{nombre}/habitantes")
     def api_sumar_habitante(nombre: str, datos: NuevoHabitante):
         """Sangre nueva en un mundo que ya corre (fase 6 del plan del motor).

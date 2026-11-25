@@ -10,6 +10,7 @@ Los eventos nuevos se vuelcan a la tabla `eventos`. Nada de esto toca el mapa ni
 from __future__ import annotations
 
 import json
+import zlib
 import math
 import random
 import uuid
@@ -389,13 +390,21 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
            if r["clave"].startswith(pref) and (dimension or ":" not in r["clave"])}
     if all(k in din for k in ("fuego", "quemado", "combustible")):
         try:
-            sim.fuego.importar(din["fuego"], din["quemado"], din["combustible"], din.get("edad_min"))
+            def _d(v):
+                b = bytes(v)
+                return zlib.decompress(b) if b[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else b
+            sim.fuego.importar(_d(din["fuego"]), _d(din["quemado"]), _d(din["combustible"]), din.get("edad_min"))
         except ValueError:
             pass  # tamaño distinto (mundo cambiado): se parte de cero
+    def _decomp(raw: bytes) -> bytes:
+        try:
+            return zlib.decompress(raw) if raw[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else raw
+        except zlib.error:
+            return raw
     if "nieve" in din:
-        sim.importar_nieve(bytes(din["nieve"]))
+        sim.importar_nieve(_decomp(bytes(din["nieve"])))
     if "desgaste" in din:
-        sim.importar_desgaste(bytes(din["desgaste"]))
+        sim.importar_desgaste(_decomp(bytes(din["desgaste"])))
     vivos = [h for h in sim.habitantes.values() if h.vivo]
     if vivos:
         sim.centro_seguro = (sum(h.x for h in vivos) / len(vivos), sum(h.y for h in vivos) / len(vivos))
@@ -536,10 +545,12 @@ def guardar_simulacion(con, sim: Simulacion) -> None:
             # 60.989 filas y ~10 MB de JSON en el mundo `gaia`, creciendo para siempre.
             _podar_por_habitante(con, "decisiones", 400)
             _podar_por_habitante(con, "entrenamiento_cerebro", TOPE_ENTRENAMIENTO)
-        exp = sim.fuego.exportar()
+        exp_raw = sim.fuego.exportar()
+        exp = {k: (zlib.compress(v, level=1) if isinstance(v, (bytes, bytearray)) else v)
+               for k, v in exp_raw.items()}
         exp["tormentas"] = json.dumps(sim.clima.exportar()).encode("utf-8")
-        exp["nieve"] = sim.nieve_bytes()
-        exp["desgaste"] = sim.desgaste_bytes()
+        exp["nieve"] = zlib.compress(sim.nieve_bytes(), level=1)
+        exp["desgaste"] = zlib.compress(sim.desgaste_bytes(), level=1)
         exp["estructuras"] = json.dumps(sim.exportar_estructuras(), separators=(",", ":")).encode("utf-8")
         exp["fenomenos"] = json.dumps(sim.exportar_fenomenos(), separators=(",", ":")).encode("utf-8")
         exp["colonias"] = json.dumps(sim.exportar_colonias(), separators=(",", ":")).encode("utf-8")
