@@ -149,19 +149,27 @@
   }
 
   function aplicarEstado(e) {
-    V.estado = e; V.luz = e.luz;
+    // El mensaje de cada 100 ms es liviano; el bloque pesado (fuego, estructuras, colonias,
+    // barras finas) llega una vez por segundo. Se MERGEA, nunca se reemplaza: lo que no vino
+    // en este mensaje sigue siendo válido.
+    const est = V.estado || (V.estado = {});
+    Object.assign(est, e);
+    V.luz = e.luz;
     pintarReloj(e);
     const vistos = new Set();
     for (const h of e.habitantes) {
       vistos.add(h.id);
       const o = V.habs[h.id];
-      if (!o) V.habs[h.id] = { x: h.x, y: h.y, d: h };
-      else { o.d = h; if (Math.hypot(o.x - h.x, o.y - h.y) > 30) { o.x = h.x; o.y = h.y; } }
+      if (!o) V.habs[h.id] = { x: h.x, y: h.y, d: { ...h } };
+      else { o.d = Object.assign(o.d, h); if (Math.hypot(o.x - h.x, o.y - h.y) > 30) { o.x = h.x; o.y = h.y; } }
     }
     for (const id of Object.keys(V.habs)) if (!vistos.has(+id)) delete V.habs[id];
-    if (Date.now() - V.fichaT > 800) { V.fichaT = Date.now(); listaHabitantes(); }
-    if (e.ceniza_v !== V.ceniza.v) pedirCeniza(e.ceniza_v);
-    if (e.nieve_v !== V.nieve.v) pedirNieve(e.nieve_v);
+    if (e.vitales) for (const [id, salud, sed, energia, hambre, temp, frio] of e.vitales) {
+      const o = V.habs[id];
+      if (o) Object.assign(o.d, { salud, sed, energia, hambre, temp, frio });
+    }
+    if (Date.now() - V.fichaT > 2000) { V.fichaT = Date.now(); listaHabitantes(); }
+    // Nieve y ceniza continuas desactivadas del loop activo para eliminar tirones de 4 MB en hilo principal
   }
 
   function pintarReloj(e) {
@@ -261,7 +269,8 @@
       d.children[0].style.background = COLORES[h.color % COLORES.length];
       d.children[1].children[0].textContent = h.nombre;
       d.children[1].children[1].textContent = h.vivo ? accionTxt(h) + (h.nac != null && e.t_min != null ? " · " + edadTexto((e.t_min - h.nac) / 1440, true) : "") : "murió";
-      const mini = h.vivo ? barra(h.salud, "var(--ok)") + barra(100 - h.sed, "var(--agua)") + barra(h.energia, "var(--acento)") : "";
+      const vd = (V.habs[h.id] && V.habs[h.id].d) || h;   // las barras viven en el bloque mergeado, no en el mensaje liviano
+      const mini = h.vivo ? barra(vd.salud ?? 0, "var(--ok)") + barra(100 - (vd.sed ?? 0), "var(--agua)") + barra(vd.energia ?? 0, "var(--acento)") : "";
       if (d.children[2]._h !== mini) { d.children[2].innerHTML = mini; d.children[2]._h = mini; }
       if (cont.children[idx] !== d) cont.insertBefore(d, cont.children[idx] || null);
     });
@@ -321,8 +330,10 @@
     $("ficha-cab").classList.add("visible");
     await refrescarFicha();
   }
+  let _fichaOcupado = false;
   async function refrescarFicha() {
-    if (V.sel == null || !V.nombre) return;
+    if (V.sel == null || !V.nombre || _fichaOcupado || document.hidden) return;
+    _fichaOcupado = true;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/habitantes/" + V.sel);
       if (!r.ok) return;
@@ -390,14 +401,17 @@
         }
       };
     } catch (e) { /* sin red: se reintenta en el próximo ciclo */ }
+    finally { _fichaOcupado = false; }
   }
-  setInterval(refrescarFicha, 5000);
+  // setInterval(refrescarFicha, 5000);  // Solo se consulta cuando el usuario hace clic o interactua
 
   // recetas (existentes e inventadas) y animales: se leen de la base cada tanto
   const NOM_PROP = {};  // se muestran tal cual vienen (flota, corta, enciende, teje, construye...)
+  let _recetasOcupado = false;
   async function refrescarRecetas() {
     const n = V.nombre;
-    if (!n) return;
+    if (!n || _recetasOcupado || document.hidden) return;
+    _recetasOcupado = true;
     try {
       const [r, fa] = await Promise.all([fetch("/api/mundos/" + n + "/recetas").then((x) => x.json()), fetch("/api/mundos/" + n + "/fauna").then((x) => x.json())]);
       const sab = r.existentes.filter((e) => e.descubierta), nuevas = r.existentes.filter((e) => !e.descubierta);
@@ -422,9 +436,26 @@
         Object.entries(por).map(([m, l]) => seccion("a-" + m, tit[m] || m, l.reduce((a, e) => a + e.n, 0),
           "<div>" + (l.filter((e) => e.n > 0).map((e) => "<span class='bicho" + (e.peligro >= 5 ? " peligro" : "") + "' title='" + esc(e.clase + ", " + e.dieta + (e.edad_media != null ? " · edad media " + e.edad_media + " d de ~" + e.vida_dias : "")) + "'>" + e.emoji + " " + esc(e.nombre) + " <b>" + e.n + "</b></span>").join("") || "<span class='nota'>Ninguno por ahora.</span>") + "</div>", true)).join(""));
     } catch (e) { /* sin red */ }
+    finally { _recetasOcupado = false; }
   }
-  setInterval(refrescarRecetas, 12000);
-  setTimeout(refrescarRecetas, 1500);
+  // Refrescar recetas solo al cargar y cada 45s si la pestaña está activa
+  setInterval(() => {
+    if (document.querySelector("#p-recetas.visible")) refrescarRecetas();
+  }, 30000);
+  setTimeout(refrescarRecetas, 2000);
+
+  async function actualizarEra() {
+    if (!V.nombre) return;
+    try {
+      const r = await (await fetch("/api/mundos/" + V.nombre + "/era")).json();
+      $("era-barra").style.display = "block";
+      $("era-nombre").textContent = "Era: " + r.era;
+      $("era-fill").style.width = Math.round(r.progreso * 100) + "%";
+      $("era-detalle").textContent = r.propiedades_descubiertas + " de " + r.propiedades_total + " propiedades descubiertas";
+    } catch (e) {}
+  }
+  setInterval(actualizarEra, 60000);
+  setTimeout(actualizarEra, 3000);
 
   function desactivarPoderes() {
     V.herramientaPoder = null;
@@ -476,9 +507,9 @@
   if (bSpConfirmar) bSpConfirmar.onclick = () => {
     const nom = $("sp-nombre").value.trim();
     const sex = $("sp-sexo").value;
-    V.spawnPendiente = { nombre: nom, sexo: sex };
     $("modal-spawn").classList.remove("visible");
     activarPoder("spawn");
+    V.spawnPendiente = { nombre: nom, sexo: sex === "azar" ? null : sex };
   };
 
   const btnFuegoLegacy = $("btn-fuego");
@@ -548,6 +579,7 @@
     document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("visible", p.id === "p-" + t));
     try { localStorage.setItem("mv_tab", t); } catch (e) {}
     if (t === "familias") pintarFamilias();
+    if (t === "recetas") refrescarRecetas();
   }
   document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => pestana(b.dataset.tab)));
   let tab0 = "gente"; try { tab0 = localStorage.getItem("mv_tab") || "gente"; } catch (e) {}
@@ -568,6 +600,7 @@
     if (V.herramientaPoder === "spawn") {
       const datos = V.spawnPendiente || {};
       enviar({ cmd: "spawn", x: gx, y: gy, sexo: datos.sexo, nombre: datos.nombre });
+      V.spawnPendiente = null;
       desactivarPoderes();
       return;
     }
@@ -601,20 +634,28 @@
 
   // ------------------------------------------------------------- nieve
   async function pedirNieve(v) {
+    if (document.hidden) return;
     const ahora = Date.now();
-    if (ahora - V.nieve.pedido < 4000 || !V.nombre) return;
+    if (ahora - V.nieve.pedido < 15000 || !V.nombre) return;
     V.nieve.pedido = ahora;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/nieve");
-      const datos = new Uint8Array(await r.arrayBuffer());
+      const ds = new DecompressionStream("deflate");
+      const piped = r.body.pipeThrough(ds);
+      const datos = new Uint8Array(await new Response(piped).arrayBuffer());
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.nieve.canvas || (V.nieve.canvas = document.createElement("canvas"));
       c.width = w; c.height = h;
       const cx = c.getContext("2d"), img = cx.createImageData(w, h);
+      const data32 = new Uint32Array(img.data.buffer);
       for (let i = 0; i < datos.length; i++) {
         const q = datos[i];
-        if (q > 12) { const p = i * 4; img.data[p] = 240; img.data[p + 1] = 246; img.data[p + 2] = 252; img.data[p + 3] = Math.min(215, q * 0.85); }
+        if (q > 12) {
+          const a = Math.min(215, Math.floor(q * 0.85));
+          // Formato Little Endian en typed array 32-bit: (alpha << 24) | (B << 16) | (G << 8) | R
+          data32[i] = (a << 24) | (252 << 16) | (246 << 8) | 240;
+        }
       }
       cx.putImageData(img, 0, 0);
       V.nieve.v = v;
@@ -623,20 +664,27 @@
 
   // ------------------------------------------------------------- ceniza
   async function pedirCeniza(v) {
+    if (document.hidden) return;
     const ahora = Date.now();
-    if (ahora - V.ceniza.pedido < 2500 || !V.nombre) return;
+    if (ahora - V.ceniza.pedido < 10000 || !V.nombre) return;
     V.ceniza.pedido = ahora;
     try {
       const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/quemado");
-      const datos = new Uint8Array(await r.arrayBuffer());
+      const ds = new DecompressionStream("deflate");
+      const piped = r.body.pipeThrough(ds);
+      const datos = new Uint8Array(await new Response(piped).arrayBuffer());
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.ceniza.canvas || (V.ceniza.canvas = document.createElement("canvas"));
       c.width = w; c.height = h;
       const cx = c.getContext("2d"), img = cx.createImageData(w, h);
+      const data32 = new Uint32Array(img.data.buffer);
       for (let i = 0; i < datos.length; i++) {
         const q = datos[i];
-        if (q > 6) { const p = i * 4; img.data[p] = 28; img.data[p + 1] = 24; img.data[p + 2] = 24; img.data[p + 3] = Math.min(190, q * 0.75); }
+        if (q > 6) {
+          const a = Math.min(190, Math.floor(q * 0.75));
+          data32[i] = (a << 24) | (24 << 16) | (24 << 8) | 28;
+        }
       }
       cx.putImageData(img, 0, 0);
       V.ceniza.v = v;
@@ -655,8 +703,13 @@
     const vw = vis.x1 - vis.x0, vh = vis.y1 - vis.y0;
     if (vw <= 0 || vh <= 0) return;
     const visible = (x, y, m) => x >= vis.x0 - m && x <= vis.x1 + m && y >= vis.y0 - m && y <= vis.y1 + m;
-    for (const cv of [V.ceniza.canvas, V.nieve.canvas]) {
-      if (cv) { ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh); }
+    if (V.ceniza && V.ceniza.canvas && V.ceniza.v > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(V.ceniza.canvas, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh);
+    }
+    if (V.nieve && V.nieve.canvas && V.nieve.v > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(V.nieve.canvas, vis.x0, vis.y0, vw, vh, vis.x0, vis.y0, vw, vh);
     }
     // fuego (llamas que titilan)
     const fuego = V.estado.fuego || [];
@@ -664,7 +717,7 @@
     // detalle del suelo con zoom alto: matitas, árboles y piedras según el bioma. Solo lo visible, y solo de cerca,
     // así el terreno deja de ser un manchón plano sin costar nada cuando se mira el mundo entero.
     const _cap = base().estado.capas;
-    if (z >= 6 && _cap && _cap.bioma) {
+    if (z >= 10 && _cap && _cap.bioma) {  // only at close zoom to avoid per-cell draw overhead
       const cb = _cap.bioma, ca = _cap.agua, anchoM = V.meta.ancho;
       const paso = z >= 16 ? 1 : 2;                       // de muy cerca, detalle en cada celda
       for (let cy = vis.y0; cy < vis.y1; cy += paso) {
@@ -703,6 +756,29 @@
             ctx.beginPath(); ctx.ellipse(px, py, esc * 0.48, esc * 0.36, 0, 0, 6.2832); ctx.fill();
           }
         }
+      }
+    }
+    // senderos: huellas de tierra pisada que abren los habitantes
+    const chkSenderos = $("chk-senderos");
+    if ((!chkSenderos || chkSenderos.checked) && V.estado.senderos && V.estado.senderos.length) {
+      ctx.fillStyle = "rgba(182, 148, 102, 0.55)";
+      for (const [sx, sy] of V.estado.senderos) {
+        if (!visible(sx, sy, 1)) continue;
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+    }
+    // chunks activos (debug LOD espacial)
+    const chkChunks = $("chk-chunks");
+    if (chkChunks && chkChunks.checked && V.estado.chunks_activos) {
+      const CHUNK = 64;
+      ctx.strokeStyle = "rgba(0, 220, 255, 0.4)";
+      ctx.lineWidth = Math.max(0.08, 1.5 / s);
+      ctx.fillStyle = "rgba(0, 220, 255, 0.08)";
+      for (const [cx, cy] of V.estado.chunks_activos) {
+        const x = cx * CHUNK, y = cy * CHUNK;
+        if (!visible(x + CHUNK/2, y + CHUNK/2, CHUNK)) continue;
+        ctx.fillRect(x, y, CHUNK, CHUNK);
+        ctx.strokeRect(x, y, CHUNK, CHUNK);
       }
     }
     // aldeas: el claro de tierra pisada y el nombre, debajo de todo lo demás
@@ -959,8 +1035,25 @@
       const hh = altoP * (Sprites.EDADES[Sprites.edadDe(o.edadDias || 0)].alto);
       const hw = hh * (Sprites.ANCHO_PX / Sprites.ALTO_PX);
       ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(o.x, o.y, hw * 0.34, hw * 0.15, 0, 0, 6.2832); ctx.fill();
-      if (!d.vivo) { ctx.strokeStyle = "#9aa0a6"; ctx.lineWidth = r * 0.3; ctx.beginPath(); ctx.moveTo(o.x - r, o.y - r); ctx.lineTo(o.x + r, o.y + r); ctx.moveTo(o.x + r, o.y - r); ctx.lineTo(o.x - r, o.y + r); ctx.stroke(); }
-      else {
+      if (!d.vivo) {   // lápida en vez de cruz: piedra redondeada con una pequeña cruz
+        const piedraW = r * 1.4, piedraH = r * 1.9, radio = r * 0.35;
+        ctx.fillStyle = "#9aa0a6"; ctx.strokeStyle = "#5a5f66"; ctx.lineWidth = r * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(o.x - piedraW/2 + radio, o.y);
+        ctx.lineTo(o.x - piedraW/2, o.y - piedraH + radio);
+        ctx.quadraticCurveTo(o.x - piedraW/2, o.y - piedraH, o.x - piedraW/2 + radio, o.y - piedraH);
+        ctx.lineTo(o.x + piedraW/2 - radio, o.y - piedraH);
+        ctx.quadraticCurveTo(o.x + piedraW/2, o.y - piedraH, o.x + piedraW/2, o.y - piedraH + radio);
+        ctx.lineTo(o.x + piedraW/2, o.y);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // cruz pequeña arriba
+        ctx.strokeStyle = "#d8d8d8"; ctx.lineWidth = r * 0.18;
+        ctx.beginPath();
+        ctx.moveTo(o.x, o.y - piedraH + r * 0.35); ctx.lineTo(o.x, o.y - piedraH - r * 0.5);
+        ctx.moveTo(o.x - r * 0.35, o.y - piedraH); ctx.lineTo(o.x + r * 0.35, o.y - piedraH);
+        ctx.stroke();
+      } else {
         // el sprite se apoya en los pies, que es donde está la persona en el mundo
         const img = Sprites.persona(o.edadDias || 0, d.sexo, col, o.dir || 0, o.paso || 0);
         ctx.imageSmoothingEnabled = true;
@@ -992,18 +1085,49 @@
     }
     // burbujas de diálogo
     const vistos = {};
+    const IMPORTANTE = /\b(peligro|cuidado|ayuda|muerte|murió|descubrí|inventé|encontré|amenaza|fuego|agua|comida|enfermo|herido|traicion|traicionó|mentira|mentiste|amor|odio|enojado|triste|feliz|celos|propuesta|familia)\b/i;
     for (const e of V.efectos) {
       if (e.tipo !== "habla") continue;
       const o = V.habs[e.id]; if (!o || z < 1.2) continue;
-      const lineas = ajustarTexto(ctx, e.texto, tam, 28), ancho = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + tam * 0.8;
+      const textoRaw = String(e.texto || "");
+      const nombresOtros = Object.values(V.habs).filter((h) => h.id !== e.id).map((h) => h.d && h.d.nombre).filter(Boolean);
+      const mencionaNombre = nombresOtros.some((n) => textoRaw.toLowerCase().includes(String(n).toLowerCase()));
+      if (!mencionaNombre && !IMPORTANTE.test(textoRaw)) continue;
+      const emo = o.d.emo || {};
+      const moodEmoji = emo.miedo >= 0.4 ? "😨" : emo.tristeza >= 0.4 ? "😢" : emo.enojo >= 0.4 ? "😠" : emo.alegria >= 0.4 ? "😊" : "";
+      const texto = (moodEmoji ? moodEmoji + " " : "") + textoRaw;
+      const lineas = ajustarTexto(ctx, texto, tam, 28);
+      const ancho = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + tam * 0.8;
       const alto = lineas.length * tam * 1.15 + tam * 0.6, off = (vistos[e.id] = (vistos[e.id] || 0) + 1) - 1;
       const hhB = Math.max(18 / s, 1.7 / ((V.meta && V.meta.tam_celda_m) || 50));
       const bx = o.x - ancho / 2, by = o.y - hhB - alto - 4 / s - off * (alto + 0.2);
       ctx.globalAlpha = Math.min(1, (Math.min(14000, 6000 + 60 * String(e.texto || '').length) - (ahora - e.t0)) / 1500);
       ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.strokeStyle = "#222"; ctx.lineWidth = Math.max(0.05, 1 / s);
       ctx.beginPath(); ctx.roundRect(bx, by, ancho, alto, tam * 0.4); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "#111"; ctx.font = tam + "px sans-serif";
-      lineas.forEach((l, i) => ctx.fillText(l, bx + tam * 0.4, by + tam * (0.9 + i * 1.15)));
+      let yCursor = by + tam * 0.9;
+      const nombresSorted = nombresOtros.slice().sort((a, b) => String(b).length - String(a).length);
+      const regex = nombresSorted.length ? new RegExp("(" + nombresSorted.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi") : null;
+      for (const l of lineas) {
+        let segs = [];
+        if (regex) {
+          const parts = l.split(regex);
+          for (const p of parts) {
+            if (!p) continue;
+            const esNombre = nombresSorted.some((n) => p.toLowerCase() === String(n).toLowerCase());
+            segs.push({ t: p, bold: esNombre });
+          }
+        } else {
+          segs.push({ t: l, bold: false });
+        }
+        let xCursor = bx + tam * 0.4;
+        for (const seg of segs) {
+          ctx.font = (seg.bold ? "bold " : "") + tam + "px sans-serif";
+          ctx.fillStyle = seg.bold ? "#1a5fb4" : "#111";
+          ctx.fillText(seg.t, xCursor, yCursor);
+          xCursor += ctx.measureText(seg.t).width;
+        }
+        yCursor += tam * 1.15;
+      }
       ctx.globalAlpha = 1;
     }
     // seguir a la persona elegida
@@ -1024,13 +1148,11 @@
     return out.slice(0, 6);
   }
 
-  // bucle de dibujo: redibuja mientras haya conexión
-  let ultimoCuadro = 0;
+  // bucle de dibujo: redibuja mientras haya conexion y este visible, a máxima tasa nativa
   function cuadro(ts) {
-    // de lejos (se ve poco detalle) alcanza con ~8 cuadros por segundo; de cerca ~30
-    const z = base() && base().estado.vista.z;
-    if (V.conectado && base() && base().estado.capas && ts - ultimoCuadro >= (z < 1.5 ? 120 : 33)) {
-      ultimoCuadro = ts; base().dibujar();
+    if (document.hidden) { requestAnimationFrame(cuadro); return; }
+    if (V.conectado && base() && base().estado.capas) {
+      base().dibujar();
     }
     requestAnimationFrame(cuadro);
   }

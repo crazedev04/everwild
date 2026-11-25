@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from mundo_vivo.motor import biomas as B
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.motor.generador import _erosion_hidraulica, _erosion_termica, generar_mundo
 from mundo_vivo.persistencia.mundo_io import hash_capas
 
 
@@ -73,6 +73,63 @@ class TestGenerador(unittest.TestCase):
                                 visto[yy, xx] = True
                                 comp.append((yy, xx))
             self.assertTrue(toca, "río aislado en (%d,%d)" % (x0, y0))
+
+
+class TestEscala(unittest.TestCase):
+    """El mismo mapa físico tiene que verse igual a cualquier resolución."""
+
+    def _pendiente_mediana(self, mundo):
+        c = mundo["capas"]
+        e = c["elevacion"].astype(np.float64)
+        gy, gx = np.gradient(e)
+        p = np.hypot(gx, gy) / float(mundo["meta"]["tam_celda_m"])
+        return float(np.median(p[e >= 0]))
+
+    def test_misma_extent_fisica_misma_pendiente(self):
+        # 96 celdas × 50 m y 960 celdas × 5 m son los dos 4,8 km de ancho.
+        a = generar_mundo(7, 96, 96, 50)
+        b = generar_mundo(7, 960, 960, 5)
+        ma, mb = self._pendiente_mediana(a), self._pendiente_mediana(b)
+        self.assertGreater(ma, 0.5)
+        self.assertLess(max(ma, mb) / min(ma, mb), 1.4,
+                        "pendiente mediana %.3f a 50 m vs %.3f a 5 m" % (ma, mb))
+        fa = float((a["capas"]["elevacion"] >= 0).mean())
+        fb = float((b["capas"]["elevacion"] >= 0).mean())
+        self.assertLess(abs(fa - fb), 0.05, "tierra %.3f vs %.3f" % (fa, fb))
+        self.assertGreater(int((a["capas"]["agua"] == B.AGUA_RIO).sum()), 50)
+        self.assertGreater(int((b["capas"]["agua"] == B.AGUA_RIO).sum()), 50)
+
+
+class TestErosion(unittest.TestCase):
+    def _rampa(self, n=16):
+        e = np.tile(np.linspace(1000.0, 0.0, n), (n, 1))
+        e[0, 0] = -50.0                      # océano: no se toca
+        destino = np.full((n, n), -1, dtype=np.int64)
+        destino[:, :-1] = np.arange(n * n).reshape(n, n)[:, 1:]
+        acc = np.tile(np.arange(1, n + 1, dtype=np.float64), (n, 1))
+        return e, destino, acc
+
+    def test_hidraulica_baja_solo_tierra_y_no_invierte(self):
+        e, destino, acc = self._rampa()
+        out = _erosion_hidraulica(e, destino, acc, e >= 0)
+        self.assertTrue((out[e >= 0] >= 0).all())
+        self.assertEqual(float(out[0, 0]), float(e[0, 0]))
+        self.assertTrue((out <= e + 1e-9).all())
+        self.assertLess(float(out[5].mean()), float(e[5].mean()))
+
+    def test_termica_relaja_y_conserva_masa(self):
+        e, _, _ = self._rampa()
+        mask = e >= 0
+        out = _erosion_termica(e, 50.0, mask, talud=0.01, fuerza=0.5)
+        self.assertEqual(float(out[0, 0]), float(e[0, 0]))
+        self.assertTrue((out[mask] >= 0).all())
+        self.assertLess(abs(out[mask].sum() - e[mask].sum()) / e[mask].sum(), 0.05)
+
+    def test_determinista(self):
+        e, destino, acc = self._rampa()
+        a = _erosion_hidraulica(e, destino, acc, e >= 0)
+        b = _erosion_hidraulica(e, destino, acc, e >= 0)
+        self.assertTrue(np.array_equal(a, b))
 
 
 # huella exacta en la plataforma de desarrollo: 1297c3c0a2c92d93a96eaa0d94588fe628e4fd051ae1e4beb16368532591bbf7

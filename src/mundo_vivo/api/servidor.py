@@ -7,6 +7,7 @@ archivo nuevo). La vista no contiene reglas de simulación.
 from __future__ import annotations
 
 import asyncio
+import zlib
 from contextlib import asynccontextmanager
 import json
 import random
@@ -48,6 +49,7 @@ class NuevoMundo(BaseModel):
     alto: int = mundo_io.ANCHO_POR_DEFECTO
     tam_celda_m: int = mundo_io.TAM_CELDA_POR_DEFECTO
     modelo: Optional[str] = None
+    poblacion: int = 4
 
 
 def _etiqueta_emocion(emo: dict) -> str:
@@ -92,8 +94,11 @@ def crear_app(dir_datos: Path) -> FastAPI:
         return ruta
 
     def conectar(ruta: Path) -> sqlite3.Connection:
-        con = sqlite3.connect(ruta, timeout=30)
+        con = sqlite3.connect(ruta, timeout=10.0)
         con.row_factory = sqlite3.Row
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=NORMAL")
+        con.execute("PRAGMA busy_timeout=5000")
         return con
 
     def cargar(nombre: str, dimension: int = 0):
@@ -176,6 +181,17 @@ def crear_app(dir_datos: Path) -> FastAPI:
                     _aj.guardar(con, {"modelo": datos.modelo.strip()})
                 finally:
                     con.close()
+            # Poblar con la cantidad pedida (por defecto 4).
+            try:
+                n = max(2, min(100, int(datos.poblacion or 4)))
+            except (TypeError, ValueError):
+                n = 4
+            from ..persistencia import db as _db
+            con = _db.abrir(ruta)
+            try:
+                sim_io.crear_habitantes_iniciales(con, n=n, semilla=semilla)
+            finally:
+                con.close()
             trabajo.update(frac=1.0, texto="Listo", nombre=ruta.stem, hecho=True)
         except Exception as e:                       # el visor tiene que poder mostrar el error, no quedarse colgado
             trabajo.update(hecho=True, error=str(e) or e.__class__.__name__)
@@ -236,6 +252,41 @@ def crear_app(dir_datos: Path) -> FastAPI:
         except Exception as e:
             return {"ok": False, "modelos": [], "predeterminado": _aj.PREDETERMINADOS["modelo"], "error": str(e)[:120]}
 
+    @app.get("/api/mundos/{nombre}/era")
+    def api_era(nombre: str):
+        """Era actual según las propiedades descubiertas por los habitantes."""
+        from ..agentes import conocimiento as _c
+        con = conectar(ruta_de(nombre))
+        try:
+            props = set()
+            for (mats,) in con.execute("SELECT materiales FROM conocimientos WHERE origen != 'catalogo'"):
+                try:
+                    for m in json.loads(mats or "[]"):
+                        pass
+                except Exception:
+                    pass
+            # propiedades descubiertas = las que aparecen en conocimientos como propiedad
+            for (prop,) in con.execute("SELECT DISTINCT propiedad FROM conocimientos WHERE propiedad IS NOT NULL AND propiedad != ''"):
+                props.add(prop)
+            # también las del catálogo descubierto
+            for (rid,) in con.execute("SELECT receta_id FROM conocimientos WHERE receta_id IS NOT NULL"):
+                pass
+            total = len(_c.PROPIEDADES)
+            # eras por propiedad clave
+            orden = [("Piedra", set()), ("Piedra tallada", {"corta", "golpea"}),
+                     ("Fuego", {"enciende"}), ("Metal", {"funde"}),
+                     ("Acero", {"afila", "clava"}), ("Electricidad", {"conduce"})]
+            era_idx = 0
+            for i, (nombre_era, claves) in enumerate(orden):
+                if claves and claves.issubset(props):
+                    era_idx = i
+            progreso = len(props) / total if total else 0.0
+            return {"era": orden[era_idx][0], "era_idx": era_idx, "eras_total": len(orden) - 1,
+                    "propiedades_descubiertas": len(props), "propiedades_total": total,
+                    "progreso": round(progreso, 3)}
+        finally:
+            con.close()
+
     @app.get("/api/mundos/{nombre}/meta")
     def api_meta(nombre: str, dim: int = 0):
         return cargar(nombre, dim)[1]
@@ -245,8 +296,10 @@ def crear_app(dir_datos: Path) -> FastAPI:
         crudos = cargar(nombre, dim)[2]
         if capa not in crudos:
             raise HTTPException(404, "Capa desconocida.")
-        return Response(crudos[capa], media_type="application/octet-stream",
-                        headers={"Cache-Control": "no-cache"})
+        raw = crudos[capa]
+        comp = zlib.compress(raw, level=1)
+        return Response(comp, media_type="application/octet-stream",
+                        headers={"Cache-Control": "public, max-age=86400", "Content-Encoding": "deflate"})
 
     @app.get("/api/mundos/{nombre}/eventos")
     def api_eventos(nombre: str, tipo: Optional[str] = None, actor: Optional[int] = None,
@@ -456,36 +509,71 @@ def crear_app(dir_datos: Path) -> FastAPI:
 
     @app.get("/api/mundos/{nombre}/dinamico/nieve")
     def api_nieve(nombre: str):
-        """Mapa de nieve acumulada (1 byte por celda, 0..255)."""
+        """Mapa de nieve acumulada (1 byte/celda, 0-255) comprimido deflate."""
+        def _resp(raw: bytes) -> Response:
+            return Response(
+                zlib.compress(raw, level=1),
+                media_type="application/octet-stream",
+                headers={"Cache-Control": "no-cache", "Content-Encoding": "deflate"},
+            )
         ej = gestor.ejecutores.get(nombre)
         if ej is not None:
-            return Response(ej.sim.nieve_bytes(), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(ej.sim.nieve_bytes())
         con = conectar(ruta_de(nombre))
         try:
             f = con.execute("SELECT valor FROM estado_dinamico WHERE clave = 'nieve'").fetchone()
         finally:
             con.close()
         if f:
-            return Response(bytes(f["valor"]), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(bytes(f["valor"]))
         m = cargar(nombre)[1]
-        return Response(bytes(int(m["ancho"]) * int(m["alto"])), media_type="application/octet-stream")
+        return _resp(bytes(int(m["ancho"]) * int(m["alto"])))
 
     @app.get("/api/mundos/{nombre}/dinamico/quemado")
     def api_quemado(nombre: str):
-        """Mapa de ceniza (1 byte por celda, 0..255) para dibujar las zonas quemadas."""
+        """Mapa de ceniza (1 byte/celda, 0-255) comprimido deflate."""
+        def _resp(raw: bytes) -> Response:
+            return Response(
+                zlib.compress(raw, level=1),
+                media_type="application/octet-stream",
+                headers={"Cache-Control": "no-cache", "Content-Encoding": "deflate"},
+            )
         ej = gestor.ejecutores.get(nombre)
         if ej is not None:
-            return Response(ej.sim.fuego.ceniza_bytes(), media_type="application/octet-stream",
-                            headers={"Cache-Control": "no-cache"})
+            return _resp(ej.sim.fuego.ceniza_bytes())
         con = conectar(ruta_de(nombre))
         try:
             f = con.execute("SELECT valor FROM estado_dinamico WHERE clave = 'quemado'").fetchone()
         finally:
             con.close()
         if f:
-            return Response(bytes(f["valor"]), media_type="application/octet-stream", headers={"Cache-Control": "no-cache"})
+            return _resp(bytes(f["valor"]))
         m = cargar(nombre)[1]
-        return Response(bytes(int(m["ancho"]) * int(m["alto"])), media_type="application/octet-stream")
+        return _resp(bytes(int(m["ancho"]) * int(m["alto"])))
+
+    @app.get("/api/mundos/{nombre}/metricas")
+    def api_metricas(nombre: str):
+        """Telemetria en vivo: A* cache, ms/sistema, chunks activos, fuego."""
+        ej = gestor.ejecutores.get(nombre)
+        if ej is None:
+            raise HTTPException(404, "Mundo no está corriendo")
+        sim = ej.sim
+        ter = sim.terreno
+        cache = ter.metricas_cache() if hasattr(ter, "metricas_cache") else {}
+        fuego = sim.fuego
+        from ..motor.chunks import chunks_activos as _chunks
+        chunks = _chunks(sim)
+        return {
+            "cache_rutas": cache,
+            "fuego": {
+                "celdas_ardiendo": int(fuego.celda_ardiendo if hasattr(fuego, "celda_ardiendo") else (fuego.fuego > 0).sum()),
+                "version": fuego.version,
+                "episodio_celdas": fuego.episodio_celdas,
+            },
+            "chunks_activos": len(chunks),
+            "habitantes_vivos": sum(1 for h in sim.habitantes.values() if h.vivo),
+            "t_min": round(sim.t, 1),
+        }
 
     @app.post("/api/mundos/{nombre}/habitantes")
     def api_sumar_habitante(nombre: str, datos: NuevoHabitante):
@@ -494,6 +582,8 @@ def crear_app(dir_datos: Path) -> FastAPI:
         Llega sin padres, así que no es pariente de nadie: es lo que destraba el cuello de botella de
         sangre cuando toda una generación son medio hermanos y `parentesco_cercano` les prohíbe procrear.
         """
+        if datos.sexo == "azar":
+            datos.sexo = None
         if datos.sexo is not None and datos.sexo not in ("F", "M"):
             raise HTTPException(400, "El sexo tiene que ser 'F', 'M' o nada (para balancear solo).")
         if datos.nombre is not None and not (2 <= len(datos.nombre.strip()) <= 40):

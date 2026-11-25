@@ -23,9 +23,20 @@ import numpy as np
 from . import biomas as B
 from .ruido import fbm, suavizar
 
-VERSION_GENERADOR = "1.0.0"
+VERSION_GENERADOR = "1.1.0"
 ALTURA_MAX_M = 3000.0
 PROFUNDIDAD_MAX_M = 3000.0
+ESCALA_REF_M = 50.0   # resolución histórica: las constantes escritas en celdas valen a 50 m/celda
+
+
+def celdas_de_metros(metros: float, tam_celda_m: float) -> int:
+    """Celdas enteras necesarias para cubrir `metros` a la resolución dada (mínimo 1)."""
+    return max(1, int(round(float(metros) / max(1e-6, float(tam_celda_m)))))
+
+
+def celdas_f(metros: float, tam_celda_m: float) -> float:
+    """Igual que `celdas_de_metros` pero sin redondear: para longitudes de onda y radios de kernel."""
+    return max(0.5, float(metros) / max(1e-6, float(tam_celda_m)))
 
 # tipos de dato con que se guarda cada capa
 DTYPES = {
@@ -129,12 +140,18 @@ def _a_metros(e: np.ndarray, mar: float) -> np.ndarray:
     return out
 
 
-def _volcanes(elev: np.ndarray, s: int, cfg: Optional[dict] = None) -> List[Tuple[int, int]]:
-    """Coloca 1 o 2 volcanes sobre las cumbres más altas. Modifica elev. Los umbrales vienen del preset."""
+def _volcanes(elev: np.ndarray, s: int, cfg: Optional[dict] = None,
+              tam_celda_m: float = ESCALA_REF_M) -> List[Tuple[int, int]]:
+    """Coloca 1 o 2 volcanes sobre las cumbres más altas. Modifica elev. Los umbrales vienen del preset.
+
+    El radio del cono y del cráter son distancias físicas: a 5 m/celda ocupan diez veces más celdas
+    que a 50 m/celda, o el volcán sería una aguja de 25 m de ancho."""
     cfg = cfg or {}
     alt_min = float(cfg.get("altura_min_m", 1200))
     realce = float(cfg.get("realce_m", 450.0))
     crater = float(cfg.get("crater_m", -250.0))
+    sigma = celdas_f(250.0, tam_celda_m)      # 5 celdas a 50 m
+    r_crater = celdas_f(75.0, tam_celda_m)    # 1,5 celdas a 50 m
     h, w = elev.shape
     yy, xx = np.ogrid[:h, :w]
     cand = elev.copy()
@@ -149,8 +166,8 @@ def _volcanes(elev: np.ndarray, s: int, cfg: Optional[dict] = None) -> List[Tupl
         cand[(yy - cy) ** 2 + (xx - cx) ** 2 < (w / 4) ** 2] = -1e9
     for cy, cx in puntos:
         r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-        elev += realce * np.exp(-r2 / (2 * 5.0 ** 2))
-        elev[r2 <= 2.25] += crater  # cráter
+        elev += realce * np.exp(-r2 / (2 * sigma ** 2))
+        elev[r2 <= r_crater ** 2] += crater  # cráter
     return puntos
 
 
@@ -161,12 +178,17 @@ def _temperatura_mar(X, Y, w, h, s) -> np.ndarray:
     return 29.0 - 34.0 * lat ** 1.4 + (fbm(X, Y, w / 3, 3, s + 5) - 0.5) * 6.0
 
 
-def _precipitacion(elev: np.ndarray, t_mar: np.ndarray, s: int) -> np.ndarray:
+def _precipitacion(elev: np.ndarray, t_mar: np.ndarray, s: int,
+                   tam_celda_m: float = ESCALA_REF_M) -> np.ndarray:
     """Viento húmedo cruzando el mapa: se recarga sobre el mar y llueve sobre la tierra,
-    más al subir montañas (sombra de lluvia al otro lado)."""
+    más al subir montañas (sombra de lluvia al otro lado).
+
+    La recarga y la descarga son **por metro recorrido**, no por columna: a 5 m/celda hay diez veces
+    más columnas que a 50 m/celda, y sin el factor `f` llovería diez veces más."""
     invertir = bool(s % 2)  # viento del este o del oeste según la semilla
     if invertir:
         elev, t_mar = elev[:, ::-1], t_mar[:, ::-1]
+    f = float(tam_celda_m) / ESCALA_REF_M
     h, w = elev.shape
     m = np.zeros(h)
     precip = np.zeros((h, w))
@@ -175,9 +197,9 @@ def _precipitacion(elev: np.ndarray, t_mar: np.ndarray, s: int) -> np.ndarray:
         e = elev[:, x]
         oceano = e < 0
         capacidad = np.clip((t_mar[:, x] + 10.0) / 45.0, 0.25, 1.0)
-        m = np.where(oceano, m + (capacidad - m) * 0.35, m)
+        m = np.where(oceano, m + (capacidad - m) * min(1.0, 0.35 * f), m)
         dz = np.maximum(0.0, e - prev)
-        frac = np.where(oceano, 0.0, 0.025 + np.clip(dz / 120.0, 0, 1) * 0.30)
+        frac = np.where(oceano, 0.0, (0.025 + np.clip(dz / (120.0 * f), 0, 1) * 0.30) * f)
         p = m * frac
         precip[:, x] = p
         m = m - p
@@ -240,6 +262,71 @@ def _hidrologia(elev: np.ndarray, peso: np.ndarray, jitter: np.ndarray):
     return lleno_a.reshape(h, w), np.array(destino).reshape(h, w), acc.reshape(h, w)
 
 
+# ---------------------------------------------------------------------- erosión
+
+def _erosion_hidraulica(elev: np.ndarray, destino: np.ndarray, acc: np.ndarray, erodible: np.ndarray,
+                        iteraciones: int = 3, k: float = 0.12) -> np.ndarray:
+    """Incisión fluvial sobre el D8 que ya calculó `_hidrologia`.
+
+    Baja cada celda hacia su destino de flujo en una fracción de la caída, mayor cuanto más caudal
+    lleva. No inventa ríos nuevos: sólo profundiza los valles por donde el agua ya va. Es determinista
+    y no toca el océano ni los lagos (`erodible` los excluye); nunca deja una celda de tierra bajo 0.
+    """
+    out = elev.astype(np.float64, copy=True)
+    if not erodible.any():
+        return out
+    a = np.maximum(acc, 1.0)
+    ref = max(float(np.quantile(a[erodible], 0.99)), 1e-9)
+    peso = np.clip(np.sqrt(a / ref), 0.0, 1.0).ravel()
+    flat = out.ravel()
+    d = destino.ravel()
+    valido = (d >= 0) & erodible.ravel()
+    for _ in range(int(iteraciones)):
+        caida = np.zeros_like(flat)
+        caida[valido] = np.maximum(0.0, flat[valido] - flat[d[valido]])
+        # nunca más de la mitad de la caída por paso: el valle se profundiza sin invertir el río
+        inc = np.minimum(0.5 * caida, k * peso * caida)
+        flat = np.where(valido, np.maximum(flat - inc, 0.0), flat)
+    return flat.reshape(out.shape)
+
+
+def _erosion_termica(elev: np.ndarray, tam_celda_m: float, erodible: np.ndarray,
+                     iteraciones: int = 2, talud: float = 1.2, fuerza: float = 0.25) -> np.ndarray:
+    """Relaja las pendientes mayores que `talud` (m/m) moviendo material al vecino más bajo.
+
+    Es una difusión: lo que una celda pierde se reparte entre sus ocho vecinos, así que la masa de
+    tierra se conserva salvo en el borde de la máscara. No toca océano, lagos ni ríos.
+    """
+    out = elev.astype(np.float64, copy=True)
+    h, w = out.shape
+    if h < 3 or w < 3 or not erodible.any():
+        return out
+    limite = float(talud) * float(tam_celda_m)
+    for _ in range(int(iteraciones)):
+        p = np.pad(out, 1, mode="edge")
+        mejor = np.full((h, w), np.inf)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                vec = p[1 + dy:1 + dy + h, 1 + dx:1 + dx + w]
+                mejor = np.minimum(mejor, np.where(vec >= 0, vec, np.inf))
+        caida = out - mejor
+        mover = np.clip(caida - limite, 0.0, None) * float(fuerza)
+        mover[~erodible | ~np.isfinite(mejor)] = 0.0
+        out -= mover
+        out[erodible] = np.maximum(out[erodible], 0.0)
+        pm = np.pad(mover, 1, mode="constant")
+        recibe = np.zeros_like(out)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                recibe += pm[1 + dy:1 + dy + h, 1 + dx:1 + dx + w] / 8.0
+        out[erodible] += recibe[erodible]
+    return out
+
+
 # -------------------------------------------------------------------- principal
 
 def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: int = 50, progreso=None,
@@ -257,7 +344,7 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
     bruto = _relieve(X, Y, ancho, alto, s)
     mar = float(np.quantile(bruto, P["quantil_mar"]))
     elev = _a_metros(bruto, mar)
-    volcanes = _volcanes(elev, s, P["volcanes"])
+    volcanes = _volcanes(elev, s, P["volcanes"], tam_celda_m)
     oceano = elev < 0
     tierra = ~oceano
 
@@ -265,23 +352,34 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
     # 3-4. clima
     t_mar = _temperatura_mar(X, Y, ancho, alto, s)
     temp = t_mar - 6.5 * np.maximum(elev, 0.0) / 1000.0
-    precip = suavizar(_precipitacion(elev, t_mar, s), 6)
+    precip = suavizar(_precipitacion(elev, t_mar, s, tam_celda_m), 6)
     ref = max(float(np.quantile(precip[tierra], 0.85)), 1e-9)
     pn = np.clip(precip / ref, 0.0, 1.0)
 
     paso(0.42, "Haciendo correr los ríos")
-    # 5. hidrología (un micro-relieve evita ríos rectos sobre llanuras planas)
-    elev = np.where(tierra, elev + (fbm(X, Y, 3.0, 3, s + 9) - 0.5) * 6.0 + 3.0, elev)
+    # 5. hidrología (un micro-relieve evita ríos rectos sobre llanuras planas). Las longitudes de
+    # onda son físicas: 150 m y 125 m, que a 50 m/celda son las 3 y 2,5 celdas históricas.
+    elev = np.where(tierra, elev + (fbm(X, Y, celdas_f(150.0, tam_celda_m), 3, s + 9) - 0.5) * 6.0 + 3.0, elev)
     elev = np.where(tierra, np.maximum(elev, 0.0), elev)
-    lleno, destino, acc = _hidrologia(elev, pn + 0.02, fbm(X, Y, 2.5, 2, s + 11))
+    lleno, destino, acc = _hidrologia(elev, pn + 0.02,
+                                      fbm(X, Y, celdas_f(125.0, tam_celda_m), 2, s + 11))
     prof = lleno - elev
+    min_lago = max(4, int(round(4 * (ESCALA_REF_M / float(tam_celda_m)) ** 2)))
     lago = (prof > P["umbral_lago_m"]) & tierra
-    lago = _seleccionar_lagos(lago, prof, 4, max(40, ancho * alto // 400))
+    lago = _seleccionar_lagos(lago, prof, min_lago, max(40, ancho * alto // 400))
     # las depresiones que no son lago se rellenan: pasan a ser llanuras con drenaje
     elev = np.where(tierra, lleno, elev)
     umbral_rio = float(np.quantile(acc[tierra & ~lago], P["quantil_rio"]))
     rio = (acc > umbral_rio) & tierra & ~lago
-    # cascadas: río que cae más de 100 m hacia su celda de destino
+
+    paso(0.55, "Erosionando los valles")
+    # 5b. erosión sobre el D8 ya calculado. Se excluyen lagos y océano; los ríos son justamente
+    # donde el agua incide. La térmica después relaja los acantilados que deja la hidráulica.
+    erodible = tierra & ~lago
+    elev = _erosion_hidraulica(elev, destino, acc, erodible)
+    elev = _erosion_termica(elev, tam_celda_m, erodible)
+
+    # cascadas: río que cae más de 100 m hacia su celda de destino (después de erosionar)
     cascada = np.zeros_like(rio)
     ys, xs = np.nonzero(rio)
     flat_e = elev.ravel()
@@ -291,15 +389,17 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
             cascada[y, x] = True
 
     paso(0.68, "Sembrando los biomas")
-    # 6. humedad final y biomas
+    # 6. humedad final y biomas. `d_agua` va en METROS (no en celdas): así el rango de `dist_agua`
+    # de los biomas significa lo mismo a cualquier resolución.
     agua_mask = oceano | lago | rio
-    d_agua = _dist_agua(agua_mask, 6)
+    maxd = celdas_de_metros(300.0, tam_celda_m)
+    d_agua = _dist_agua(agua_mask, maxd).astype(np.float32) * float(tam_celda_m)
     ruido_h = fbm(X, Y, ancho / 6, 4, s + 7)
     hum = np.clip(0.65 * pn + 0.35 * ruido_h, 0.0, 1.0)
-    hum = np.clip(hum + 0.22 * np.clip(1.0 - d_agua / 6.0, 0.0, 1.0), 0.0, 1.0)
+    hum = np.clip(hum + 0.22 * np.clip(1.0 - d_agua / 300.0, 0.0, 1.0), 0.0, 1.0)
     hum[oceano] = 1.0
 
-    bioma = _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes)
+    bioma = _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes, tam_celda_m)
 
     agua = np.zeros(elev.shape, dtype=np.uint8)
     agua[oceano] = B.AGUA_OCEANO
@@ -314,9 +414,10 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
 
     rasgos = np.zeros(elev.shape, dtype=np.uint8)
     rasgos[cascada] |= B.RASGO_CASCADA
+    r_lava = celdas_f(75.0, tam_celda_m)   # 1,5 celdas a 50 m
     yy, xx = np.ogrid[:alto, :ancho]
     for cy, cx in volcanes:
-        rasgos[((yy - cy) ** 2 + (xx - cx) ** 2) <= 2.25] |= B.RASGO_LAVA
+        rasgos[((yy - cy) ** 2 + (xx - cx) ** 2) <= r_lava ** 2] |= B.RASGO_LAVA
 
     capas = {
         "elevacion": np.clip(np.round(elev), -32000, 32000).astype(np.int16),
@@ -376,7 +477,7 @@ def _generar_cavernas(s: int, ancho: int, alto: int, tam_celda_m: float, P: dict
 
     paso(0.60, "Midiendo la hondura")
     X, Y = np.meshgrid(np.arange(ancho, dtype=np.float64), np.arange(alto, dtype=np.float64))
-    relieve = fbm(X, Y, 48.0, 4, s ^ 0x5EEDCA7E)
+    relieve = fbm(X, Y, celdas_f(2400.0, tam_celda_m), 4, s ^ 0x5EEDCA7E)
     elev = float(P.get("profundidad_m", -400.0)) + float(P.get("relieve_m", 70.0)) * (relieve - 0.5) * 2.0
 
     agua = np.zeros((alto, ancho), dtype=np.uint8)
@@ -497,7 +598,8 @@ def _mascara(rangos: dict, campos: dict):
     return m
 
 
-def _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes) -> np.ndarray:
+def _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes,
+                tam_celda_m: float = ESCALA_REF_M) -> np.ndarray:
     h, w = elev.shape
     b = np.full((h, w), B.PRADERA, dtype=np.uint8)
     T, H = temp, hum
@@ -505,8 +607,10 @@ def _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes) -> np.ndarray:
     # Clima, pantano y altura salen de los DATOS: cada bioma declara en qué rangos aparece y con qué
     # prioridad (el número más alto pisa al más bajo, igual que el orden de las líneas de antes).
     gy, gx = np.gradient(elev)
+    # pendiente en m/m: el gradiente está en metros por CELDA y hay que dividir por el ancho de celda.
+    # `d_agua` también llega en metros, no en celdas (ver `generar_mundo`).
     campos = {"temperatura_C": T, "humedad": H, "elevacion_m": elev,
-              "dist_agua": d_agua, "pendiente": np.hypot(gx, gy)}
+              "dist_agua": d_agua, "pendiente": np.hypot(gx, gy) / float(tam_celda_m)}
     for _prio, num, rangos in tabla_clima():
         m = _mascara(rangos, campos)
         if m is not None:
@@ -516,10 +620,11 @@ def _clasificar(elev, temp, hum, oceano, lago, d_agua, volcanes) -> np.ndarray:
     costa = _dilatar(oceano) & ~oceano
     b[costa & (elev < 20) & (T > -5)] = B.PLAYA
 
-    # volcanes
+    # volcanes (radio físico: 6 celdas a 50 m)
+    r_volcan = celdas_f(300.0, tam_celda_m)
     yy, xx = np.ogrid[:h, :w]
     for cy, cx in volcanes:
-        b[((yy - cy) ** 2 + (xx - cx) ** 2) <= 36] = B.VOLCAN
+        b[((yy - cy) ** 2 + (xx - cx) ** 2) <= r_volcan ** 2] = B.VOLCAN
 
     # agua
     b[lago] = B.LAGO

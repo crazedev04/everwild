@@ -79,6 +79,7 @@ class HabitanteSim:
         self.genoma = None                         # agentes.genoma.Genoma (o None)
         self.madre_id: Optional[int] = None
         self.padre_id: Optional[int] = None
+        self.pareja_id: Optional[int] = None       # Fase 8: compromiso formal
         self.embarazo: Optional[dict] = None
         self.sin_concebir_hasta = 0.0
         self.propuesta: Optional[dict] = None
@@ -138,6 +139,15 @@ class HabitanteSim:
             lst.sort(key=lambda p: (p[4], p[2]))
             lst.pop(0)
 
+    def a_publico_mapa(self) -> dict:
+        """Lo mínimo para dibujar el mapa. Las barras finas y los atributos van por `vitales`/ficha:
+        el mapa se redibuja 10 veces por segundo y no necesita lo que no cambia."""
+        return {"id": self.id, "nombre": self.nombre, "color": self.color, "x": round(self.x, 3), "y": round(self.y, 3),
+                "vivo": self.vivo, "accion": self.accion, "detalle": self.detalle, "sexo": self.sexo,
+                "nac": int(self.nacimiento_min), "en_fuego": self.en_fuego,
+                "antorcha": bool(self.inventario.get("antorcha_encendida", 0)),
+                "emo": {k: round(v, 2) for k, v in self.emo.items() if v > 0.1}}
+
     def a_publico(self) -> dict:
         return {"id": self.id, "nombre": self.nombre, "color": self.color, "x": round(self.x, 3), "y": round(self.y, 3),
                 "salud": round(self.salud, 1), "sed": round(self.sed, 1), "energia": round(self.energia, 1),
@@ -146,6 +156,7 @@ class HabitanteSim:
                 "objetivo": self.objetivo,
                 "accion": self.accion, "detalle": self.detalle, "vivo": self.vivo, "en_fuego": self.en_fuego,
                 "sexo": self.sexo, "embarazada": bool(self.embarazo), "montado": self.montura is not None,
+                "emo": {k: round(v, 2) for k, v in self.emo.items() if v > 0.1},
                 "nac": int(self.nacimiento_min),
                 # lleva fuego en la mano: en el mapa se le ve la llama y le ilumina alrededor de noche
                 "antorcha": bool(self.inventario.get("antorcha_encendida", 0))}
@@ -411,6 +422,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 if t.agua_adyacente(*c):
                     return c
                 q.append(c)
+        if h.sed >= 55:
+            import sys
+            print("AGUA-CERCANA-NONE: h=%d sed=%.1f pos=(%d,%d) radio=%d" % (h.id, h.sed, x0, y0, radio), file=sys.stderr, flush=True)
         return None
 
     def buscar_agua_lejos(self, h: HabitanteSim) -> Optional[dict]:
@@ -523,6 +537,14 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         if not h.vivo:
             return
         h.vivo, h.causa_muerte, h.t_muerte = False, causa, int(self.t)
+        # Fase 8: liberar la pareja
+        if getattr(h, "pareja_id", None) is not None:
+            pareja = self.habitantes.get(h.pareja_id) if hasattr(self, "habitantes") else None
+            if pareja is not None and pareja.vivo:
+                pareja.pareja_id = None
+                self._evento("_relacion", "", pareja, datos={"hab": pareja.id, "otro": h.id,
+                                                              "d_afecto": -0.3, "d_confianza": -0.3,
+                                                              "motivo": "murió la pareja"})
         h.accion, h.detalle, h.camino = "muerto", "", []
         self._evento("muerte", "%s murió (%s)." % (h.nombre, causa), h, causa=causa, importancia=5)
         for o in self.habitantes.values():
@@ -722,6 +744,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             else:
                 h.accion, h.detalle, h.hasta = "esperando", "no encuentra camino", self.t + 10
                 ok, texto = False, "No encontraste camino."
+                if h.sed >= 55:
+                    import sys
+                    print("SED-SIN-CAMINO: h=%d sed=%.1f pos=(%d,%d) destino=%s" % (h.id, h.sed, int(h.x), int(h.y), dest), file=sys.stderr, flush=True)
         elif tipo == "buscar":
             ok, texto = self._accion_buscar(h, it)
         elif tipo == "juntar":
@@ -792,15 +817,3 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         return ok, texto
 
     # ------------------------------------------------------------------ estado
-    def estado_publico(self) -> dict:
-        f = reloj.fecha(self.t)
-        # Bajo tierra siempre está oscuro, sea la hora que sea. El ritmo de sueño sigue siendo el del mundo:
-        # la gente que baja se lleva su horario puesto, no se vuelve nocturna por estar abajo.
-        luz = reloj.luz(self.t) if self.cielo.get("dia_noche", True) else min(0.18, reloj.luz(self.t))
-        return {"t_min": int(self.t), "fecha": f, "texto_fecha": reloj.texto(self.t), "luz": round(luz, 3),
-                "habitantes": [dict(h.a_publico(), temp=round(self.temp_en(h.x, h.y), 1), frio=round(h.frio, 2)) for h in self.habitantes.values()],
-                "nieve_v": int(self.t // 360),
-                "temp_media": round(self._temp_media_base + (reloj.ajuste_temp(self.t) if self.cielo.get("estaciones", True) else 0.0), 1),
-                "fuego": self.fuego.celdas_activas(), "ceniza_v": self.fuego.version,
-                "tormentas": [t + [1 if self.temp_en(t[0], t[1]) <= 0 else 0] for t in self.clima.a_publico()],
-                "fauna": self.fauna.publico() if self.modulo("fauna") else [], **self.publico_estructuras(), "colonias": self.publico_colonias(), "viento": [round(self.fuego.viento[0], 3), round(self.fuego.viento[1], 3)]}

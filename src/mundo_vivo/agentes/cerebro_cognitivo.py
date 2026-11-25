@@ -193,7 +193,19 @@ class CerebroCognitivo(Cerebro):
         self.cliente = None                 # no hay modelo de lenguaje en este cerebro
         self.con = con
         self._demo = CerebroDemo()          # sólo para el reflejo de huir del fuego
-        self._repo = SQLiteBrainRepository(":memory:")
+        # Persistent brain repository: same folder as the world DB, separate file.
+        if con is not None:
+            try:
+                db_path_str = con.execute("PRAGMA database_list").fetchone()[2]
+                if db_path_str and db_path_str != ":memory:":
+                    cerebros_db: str | Path = Path(db_path_str).parent / "cerebros_cognitivos.db"
+                else:
+                    cerebros_db = ":memory:"
+            except Exception:
+                cerebros_db = ":memory:"
+        else:
+            cerebros_db = ":memory:"
+        self._repo = SQLiteBrainRepository(cerebros_db)
         self._scheduler = MultiBrainScheduler()
         self._cerebros: dict[int, Any] = {}
         self._ultima_propuesta: dict[int, Any] = {}
@@ -201,6 +213,11 @@ class CerebroCognitivo(Cerebro):
         self._sin_traducir: dict[str, int] = {}
         self._anotaciones_fallidas = 0
         self._ultimo_error_anotando = ""
+        self._guardados_fallidos = 0
+        self._ultimo_error_guardando = ""
+        self._restauraciones_fallidas = 0
+        self._ultimo_error_restaurando = ""
+        self._cerebros_restaurados = 0
         self._ultima_charla: dict[int, float] = {}
         self._ultimo_tick: dict[int, float] = {}
         self._charlas = 0
@@ -401,7 +418,11 @@ class CerebroCognitivo(Cerebro):
         # las veces contra `satisfy_sed` el 41%. 23 de las 27 muertes del mundo fueron de sed, y 13
         # de los muertos tenían el agua pegada al cuerpo. Ver `docs/MUERTE_POR_SED.md`.
         salud_atendible = h.sed < SED_DESPIERTA or self._objeto_usable(sim, h) is not None
-        # La sed pasada del umbral manda sobre todo lo que mata más despacio.
+        # La curiosidad sólo compite cuando el cuerpo está cubierto Y hay algo concreto que probar:
+        # si no, inventar con sed baja pero sin idea es ruido y pisa a "explorar".
+        curiosidad_urgente = (h.sed < UMBRAL_SED and h.hambre < UMBRAL_HAMBRE and h.energia > UMBRAL_ENERGIA
+                              and self._idea_para_probar(sim, h) is not None)
+        curiosidad_umbral = 70.0 if curiosidad_urgente else NUNCA_CRITICA
         #
         # El árbitro del motor cognitivo ordena los objetivos por `urgency`, que es cuán VACÍA está
         # la necesidad (`(max - valor) / max`), y no tiene —ni tiene por qué tener— idea de cuán
@@ -446,7 +467,7 @@ class CerebroCognitivo(Cerebro):
                     FAMILIA, max(0.0, 100.0 - 50.0 * ganas_familia), NUNCA_CRITICA
                 ),
                 CURIOSIDAD: need(
-                    CURIOSIDAD, self._curiosidad_de(sim, h), NUNCA_CRITICA
+                    CURIOSIDAD, self._curiosidad_de(sim, h), curiosidad_umbral
                 ),
             }
         )
@@ -538,7 +559,7 @@ class CerebroCognitivo(Cerebro):
             }
         )
 
-        cerebro = AutonomousBrain(
+        componentes = dict(
             identity=identidad,
             personality=self._personalidad(h),
             needs=self._necesidades(sim, h),
@@ -555,9 +576,64 @@ class CerebroCognitivo(Cerebro):
             ),
             id_factory=DeterministicIdFactory(namespace=identidad.brain_id),
         )
+
+        # Continuidad: si este habitante ya tenía cerebro guardado, se recupera SOLO lo que el
+        # mundo no guarda — memorias, mapa espacial, pericia e ids. Necesidades y personalidad las
+        # manda el mundo (estado del habitante y genoma): son la fuente de verdad y un guardado
+        # viejo no puede pisarlas. El plan en curso no se restaura a propósito; se replanifica.
+        datos = self._estado_persistido(identidad.brain_id)
+        if datos is not None:
+            for clave_motor, clave_dato in (
+                ("episodic_memory", "episodic_store"),
+                ("semantic_memory", "semantic_store"),
+                ("spatial_map", "spatial_map"),
+                ("autobiographical_memory", "auto_store"),
+                ("learner", "learner"),
+                ("id_factory", "id_factory"),
+            ):
+                valor = datos.get(clave_dato)
+                if valor is not None:
+                    componentes[clave_motor] = valor
+            if datos.get("lifecycle_state") is not None:
+                componentes["initial_lifecycle_state"] = datos["lifecycle_state"]
+
+        cerebro = AutonomousBrain(**componentes)
+        if datos is not None:
+            posicion = datos.get("position")
+            if posicion is not None:
+                cerebro.position = tuple(posicion)
+            if datos.get("current_goal_id") is not None:
+                cerebro.decision_engine.state.goal_id = datos["current_goal_id"]
+            self._cerebros_restaurados += 1
         self._cerebros[h.id] = cerebro
         self._scheduler.register_brain(cerebro)
         return cerebro
+
+    def guardar_cerebros(self) -> None:
+        """Persists all active brains to the SQLite repository."""
+        for cerebro in self._cerebros.values():
+            try:
+                cerebro.save(self._repo)
+            except Exception as exc:
+                self._guardados_fallidos += 1
+                self._ultimo_error_guardando = f"save: {exc}"[:120]
+
+    def _estado_persistido(self, brain_id: str) -> Optional[dict]:
+        """Lo guardado para un cerebro, o None si es nuevo (o si el repositorio falla).
+
+        Un cerebro nuevo dispara `BrainNotFoundError`, que es el caso normal y no es un error.
+        Cualquier otra falla sí se cuenta, para que el panel no la confunda con 'todavía no existe'.
+        """
+        from cognitive_engine.persistence.repository import BrainNotFoundError
+
+        try:
+            return self._repo.load(brain_id)
+        except BrainNotFoundError:
+            return None
+        except Exception as exc:
+            self._restauraciones_fallidas += 1
+            self._ultimo_error_restaurando = f"load: {exc}"[:120]
+            return None
 
     def olvidar(self, h_id: int) -> None:
         """Archiva el cerebro de alguien que murió."""
@@ -567,6 +643,11 @@ class CerebroCognitivo(Cerebro):
         self._ultima_charla.pop(h_id, None)   # si no, queda una entrada por cada muerto, para siempre
         self._ultimo_tick.pop(h_id, None)
         if cerebro is not None:
+            try:
+                cerebro.save(self._repo)
+            except Exception as exc:
+                self._guardados_fallidos += 1
+                self._ultimo_error_guardando = f"save(muerte): {exc}"[:120]
             self._scheduler.unregister_brain(cerebro.identity.brain_id)
 
     # ------------------------------------------------------------------ percepción
@@ -1023,6 +1104,33 @@ class CerebroCognitivo(Cerebro):
         cerebro.needs = self._necesidades(sim, h)
         cerebro.personality = self._personalidad(h)
 
+        # Hábito: red propia que aprende, para que la UI muestre "lo que aprendió por experiencia".
+        # El cognitivo no la usa para decidir (usa GOAP), pero la mantiene viva para no dejar el panel vacío.
+        if sim.modulo("habitos") and sim.es_adulto(h):
+            if getattr(h, "habito", None) is None:
+                from .habito import Habito
+                h.habito = Habito(genoma_pesos=h.genoma.pesos if h.genoma else None)
+            if getattr(h, "snap", None) is not None and sim.t - h.snap["t"] >= 5:
+                snap = h.snap
+                h.snap = None
+                snap["ok"] = not (h.ultimo_resultado.startswith(("No ", "Esa persona", "Ya ", "Estás repitiendo"))
+                                  if h.ultimo_resultado else False)
+                from .habito import recompensa
+                try:
+                    h.habito.aprender(snap["x"], snap["act"], recompensa(h, sim, snap))
+                except Exception:
+                    pass
+
+        # La sed no admite hístéresis: si el plan vigente no es "satisfy_sed" y la sed ya es urgente,
+        # el árbitro puede quedarse con el objetivo viejo por inercia y el habitante se muere de sed
+        # al lado del agua. Medido en artemira/kratos. Forzamos la replanificación.
+        if h.sed >= UMBRAL_SED and getattr(cerebro.decision_engine.state, "goal_id", None) != "satisfy_sed":
+            cerebro.decision_engine.state.goal_id = None
+            try:
+                cerebro.decision_engine.plan_manager.clear_plan()
+            except Exception:
+                pass
+
         creencias = self._creencias(sim, h)
         self._creencias_vigentes[h.id] = (float(sim.t), creencias)
         propuesta = cerebro.tick(
@@ -1031,7 +1139,27 @@ class CerebroCognitivo(Cerebro):
         )
         self._ultima_propuesta[h.id] = propuesta
         self._decisiones += 1
-        return self._traducir(sim, h, propuesta)
+        accion = self._traducir(sim, h, propuesta)
+
+        # foto para el hábito (igual que el cerebro híbrido)
+        if sim.modulo("habitos") and sim.es_adulto(h) and not (accion.get("tipo") == "esperar" and accion.get("motivo") == "pensando"):
+            from .habito import actividad_de, senales
+            act = actividad_de(accion)
+            if act is not None:
+                cercanos = sim.percibir(h)["cercanos"] if hasattr(sim, "percibir") else []
+                sol = 0.0
+                if not cercanos and h.visto:
+                    sol = (sim.t - max(v[2] for v in h.visto.values())) / 1440.0
+                presas = len([g for g in sim.ver_animales(h) if g["comestible"]]) if sim.modulo_fauna() else 0
+                x = senales(h, sim, bool(cercanos), sol, (sim.t - h.novedad_t) / 1440.0,
+                            sim.peligro_cercano(h) is not None, presas)
+                h.snap = {"act": act, "x": x, "t": sim.t, "salud": h.salud, "sed": h.sed,
+                          "novedad": h.novedad_t, "conoce": len(h.conoce), "inv": sum(h.inventario.values()), "ok": True}
+                try:
+                    h.habito_v = {k: round(v, 3) for k, v in h.habito.valores(x).items()}
+                except Exception:
+                    pass
+        return accion
 
     def _traducir(self, sim: Simulacion, h: HabitanteSim, propuesta: Any) -> dict:
         """Convierte la propuesta del cerebro en la acción que el motor sabe validar."""
@@ -1224,17 +1352,25 @@ class CerebroCognitivo(Cerebro):
         siempre, que es exactamente el bug de «quedarse clavado sin poder explorar».
         """
         ancho, alto = sim.terreno.ancho, sim.terreno.alto
-        for intento in range(16):
-            lejos = sim.celdas(900.0) if intento < 8 else sim.celdas(300.0)
+        for intento in range(32):
+            lejos = sim.celdas(900.0) if intento < 16 else sim.celdas(300.0)
             d = sim.rng.uniform(sim.celdas(100.0), max(sim.celdas(100.0) + 1.0, lejos))
             a = sim.rng.random() * 2 * math.pi
             x = min(ancho - 2, max(1, int(h.x + math.cos(a) * d)))
             y = min(alto - 2, max(1, int(h.y + math.sin(a) * d)))
             if (x, y) == (int(h.x), int(h.y)):
                 continue
-            c = sim.terreno.caminable_cerca(x, y, 4)
+            c = sim.terreno.caminable_cerca(x, y, 8)
             if c:
                 return c
+        # último recurso: caminar en línea recta hasta encontrar tierra
+        for intento in range(8):
+            a = sim.rng.random() * 2 * math.pi
+            for paso in range(1, 40):
+                x = min(ancho - 2, max(1, int(h.x + math.cos(a) * paso)))
+                y = min(alto - 2, max(1, int(h.y + math.sin(a) * paso)))
+                if sim.terreno.caminable(x, y):
+                    return (x, y)
         return None
 
     # ------------------------------------------------------------------ resultados
@@ -1441,6 +1577,11 @@ class CerebroCognitivo(Cerebro):
             "charlas": self._charlas,
             "anotaciones_fallidas": self._anotaciones_fallidas,
             "ultimo_error_anotando": self._ultimo_error_anotando,
+            "guardados_fallidos": self._guardados_fallidos,
+            "ultimo_error_guardando": self._ultimo_error_guardando,
+            "restauraciones_fallidas": self._restauraciones_fallidas,
+            "ultimo_error_restaurando": self._ultimo_error_restaurando,
+            "cerebros_restaurados": self._cerebros_restaurados,
             "latencia_s": 0.0,
             "rechazos_llm": 0,
         }

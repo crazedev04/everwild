@@ -242,6 +242,15 @@
     <div id="avisos" aria-live="polite"></div>
     <div id="feed-flotante" aria-live="polite"></div>
     <div id="dock-observador" role="toolbar" aria-label="Poderes de intervención">
+      <button class="btn-poder" id="btn-zoom-in" title="Acercar">➕ Zoom</button>
+      <button class="btn-poder" id="btn-zoom-out" title="Alejar">➖ Zoom</button>
+      <div id="era-barra" style="display:flex; align-items:center; gap:6px; padding:4px 8px; background:rgba(0,0,0,0.35); border-radius:6px; font-size:12px; color:#fff; margin-right:8px;">
+        <span id="era-nombre" style="font-weight:600;">Era: Piedra</span>
+        <div style="background:#222; border-radius:4px; height:8px; width:120px; overflow:hidden;">
+          <div id="era-fill" style="background:linear-gradient(90deg,#8b5a2b,#d4a017); height:100%; width:0%; transition:width 0.5s;"></div>
+        </div>
+        <span id="era-detalle" class="suave" style="font-size:11px;"></span>
+      </div>
       <button class="btn-poder" id="btn-dock-spawn" title="Crear un habitante nómada en el mapa">👤 Inmigrante</button>
       <button class="btn-poder" id="btn-dock-fuego" title="Encender fuego en el mapa">🔥 Fuego</button>
       <button class="btn-poder magia" id="btn-dock-curar" title="Sanar y saciar a una persona">✨ Curar</button>
@@ -330,6 +339,8 @@
             <label><input type="checkbox" id="chk-rasgos" checked> Cascadas y lava</label>
             <label><input type="checkbox" id="chk-grilla"> Grilla</label>
             <label><input type="checkbox" id="chk-fauna" checked> Fauna</label>
+            <label><input type="checkbox" id="chk-senderos" checked> Senderos</label>
+            <label><input type="checkbox" id="chk-chunks"> Chunks LOD (Debug)</label>
           </div>
         </div>
         <h3>Leyenda</h3>
@@ -387,6 +398,10 @@
         <option value="2048" selected>10 km — Continente Estándar (~90 s)</option>
         <option value="3072">15 km — Inmenso (~3 min)</option>
       </select>
+    </div>
+    <div class="nuevo-fila">
+      <label for="in-poblacion">Habitantes iniciales</label>
+      <input id="in-poblacion" type="number" min="2" max="100" value="4" placeholder="4">
     </div>
     <div class="nuevo-fila">
       <label for="in-modelo-nuevo">Modelo Cognitivo (opcional)</label>

@@ -168,3 +168,63 @@ El puente recalcula todas las creencias en cada decisión, y tres consultas son 
 `disponibles()`, `ausentes()` y `ver_animales()`. Son las mismas que ya hacía el respaldo del cerebro
 híbrido, pero antes sólo corrían para quien no estaba en foco del modelo. Está anotado en
 `docs/OPTIMIZACION.md`.
+
+## CCA v1.1 — Módulos activos y cambios de API
+
+Desde la integración de CCA v1.1, el adaptador instancia y cablea los siguientes módulos dentro de cada `AutonomousBrain`:
+
+| Módulo | Clase | Parámetros clave |
+|--------|-------|-----------------|
+| Emoción | `EmotionModule` | `brain_id`, `initial_state=AffectState(valence=0.5, arousal=0.3, dominance=0.5)` |
+| Valores | `ValueSystem` | Calibrado por rasgos: `curiosidad→curiosity`, `sociabilidad→social_connection`, `cautela→survival` |
+| Autoconcepto | `SelfModel` | `brain_id=...` |
+| Cognición social | `SocialCognition` | `brain_id=...` |
+
+### Tiempos explícitos en Observation
+
+`Observation` recibe ahora dos campos temporales que el motor cognitivo usa internamente:
+
+```python
+Observation(
+    facts=hechos,
+    simulation_time=float(sim.t),           # minutos simulados absolutos
+    delta_simulation_time=dt_sim,           # delta desde el tick anterior de este habitante
+)
+```
+
+`delta_simulation_time` se calcula desde `self._ultimo_tick[h.id]` y limita a `[0, 1440]` para evitar
+saltos grandes al inicializar o reiniciar.
+
+### Persistencia
+
+Los cerebros cognitivos se guardan en un archivo SQLite **separado** de la base del mundo:
+
+```
+<carpeta_del_mundo>/cerebros_cognitivos.db
+```
+
+El guardado ocurre:
+- En cada ciclo de `guardar()` (misma frecuencia que `GUARDAR_CADA_S`).
+- Al olvidar un habitante fallecido (`olvidar(h_id)`).
+
+Al crear el cerebro de un habitante que ya existía, `_cerebro_de` intenta recuperarlo con
+`_estado_persistido(brain_id)`. Se restaura sólo lo que la base del mundo no guarda: memorias
+episódicas y semánticas, mapa espacial, pericia aprendida, ids deterministas y el objetivo vigente.
+Las necesidades y la personalidad no se cargan del archivo: las manda el mundo (estado del
+habitante y genoma), que es la fuente de verdad. El plan en curso tampoco se restaura —se
+replanifica desde las creencias actuales—, igual que en el motor cognitivo.
+
+Si el guardado falla (tabla corrupta, disco lleno, etc.) **no tumba la simulación**: el error queda
+registrado en `_guardados_fallidos` y `_ultimo_error_guardando`. Si lo que falla es la carga, queda
+en `_restauraciones_fallidas` / `_ultimo_error_restaurando`. Ambos salen en el estado del cerebro.
+Un cerebro nuevo no cuenta como falla de carga: su `BrainNotFoundError` es el caso normal.
+
+### Correr tests de integración
+
+```bash
+cd /home/cracken/Mimundo/mundo-vivo
+PYTHONPATH="src:/home/cracken/Mimundo/Cognitive Engine/src" \
+    .venv/bin/pytest tests/test_cerebro_cognitivo.py -q
+```
+
+Debe terminar con `28 passed`.

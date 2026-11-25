@@ -10,6 +10,7 @@ Los eventos nuevos se vuelcan a la tabla `eventos`. Nada de esto toca el mapa ni
 from __future__ import annotations
 
 import json
+import zlib
 import math
 import random
 import uuid
@@ -71,17 +72,28 @@ def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
     ys, xs = np.nonzero(dulce)
     if len(xs) == 0:
         raise ValueError("El mundo no tiene agua dulce: no hay dónde empezar.")
-    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA])
-    cand = []
-    for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
-        for dy in range(-3, 4):
-            for dx in range(-3, 4):
-                x, y = int(wx) + dx, int(wy) + dy
-                if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < 0.15 and t.caminable(x, y) \
-                        and t.agua[y, x] == 0:
-                    cand.append((x, y))
+    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA, B.BOSQUE_FRIO])
+    for umbral in (0.15, 0.35, 0.8, 2.0):
+        cand = []
+        for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < umbral and t.caminable(x, y) \
+                            and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if cand:
+            break
     if not cand:
-        raise ValueError("No se encontró un lugar habitable junto al agua.")
+        # último recurso: cualquier tierra caminable junto al agua
+        for wy, wx in zip(ys[::3], xs[::3]):
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and t.caminable(x, y) and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if not cand:
+            raise ValueError("No se encontró un lugar habitable junto al agua.")
     cx, cy = t.ancho / 2, t.alto / 2
     cand = sorted(set(cand), key=lambda p: math.hypot(p[0] - cx, p[1] - cy))
     for x, y in cand[:40]:
@@ -378,13 +390,21 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
            if r["clave"].startswith(pref) and (dimension or ":" not in r["clave"])}
     if all(k in din for k in ("fuego", "quemado", "combustible")):
         try:
-            sim.fuego.importar(din["fuego"], din["quemado"], din["combustible"], din.get("edad_min"))
+            def _d(v):
+                b = bytes(v)
+                return zlib.decompress(b) if b[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else b
+            sim.fuego.importar(_d(din["fuego"]), _d(din["quemado"]), _d(din["combustible"]), din.get("edad_min"))
         except ValueError:
             pass  # tamaño distinto (mundo cambiado): se parte de cero
+    def _decomp(raw: bytes) -> bytes:
+        try:
+            return zlib.decompress(raw) if raw[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else raw
+        except zlib.error:
+            return raw
     if "nieve" in din:
-        sim.importar_nieve(bytes(din["nieve"]))
+        sim.importar_nieve(_decomp(bytes(din["nieve"])))
     if "desgaste" in din:
-        sim.importar_desgaste(bytes(din["desgaste"]))
+        sim.importar_desgaste(_decomp(bytes(din["desgaste"])))
     vivos = [h for h in sim.habitantes.values() if h.vivo]
     if vivos:
         sim.centro_seguro = (sum(h.x for h in vivos) / len(vivos), sum(h.y for h in vivos) / len(vivos))
@@ -525,10 +545,12 @@ def guardar_simulacion(con, sim: Simulacion) -> None:
             # 60.989 filas y ~10 MB de JSON en el mundo `gaia`, creciendo para siempre.
             _podar_por_habitante(con, "decisiones", 400)
             _podar_por_habitante(con, "entrenamiento_cerebro", TOPE_ENTRENAMIENTO)
-        exp = sim.fuego.exportar()
+        exp_raw = sim.fuego.exportar()
+        exp = {k: (zlib.compress(v, level=1) if isinstance(v, (bytes, bytearray)) else v)
+               for k, v in exp_raw.items()}
         exp["tormentas"] = json.dumps(sim.clima.exportar()).encode("utf-8")
-        exp["nieve"] = sim.nieve_bytes()
-        exp["desgaste"] = sim.desgaste_bytes()
+        exp["nieve"] = zlib.compress(sim.nieve_bytes(), level=1)
+        exp["desgaste"] = zlib.compress(sim.desgaste_bytes(), level=1)
         exp["estructuras"] = json.dumps(sim.exportar_estructuras(), separators=(",", ":")).encode("utf-8")
         exp["fenomenos"] = json.dumps(sim.exportar_fenomenos(), separators=(",", ":")).encode("utf-8")
         exp["colonias"] = json.dumps(sim.exportar_colonias(), separators=(",", ":")).encode("utf-8")

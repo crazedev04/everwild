@@ -43,6 +43,26 @@ class TestVivo(unittest.TestCase):
             else:
                 self.fail("debía rechazar una velocidad no permitida")
 
+    def test_estado_liviano_y_bloque_pesado(self):
+        """Cada 100 ms va lo del mapa; fuego, estructuras y barras finas llegan una vez por segundo."""
+        with self.cli.websocket_connect("/ws/" + self.nombre) as ws:
+            hola = json.loads(ws.receive_text())
+            self.assertIn("fuego", hola["estado"], "al conectar se manda el estado completo")
+            liviano = pesado = None
+            for _ in range(80):
+                m = json.loads(ws.receive_text())
+                if m.get("tipo") != "estado":
+                    continue
+                if "vitales" in m:
+                    pesado = m
+                elif "fuego" not in m:
+                    liviano = m
+                if liviano and pesado:
+                    break
+            self.assertIsNotNone(liviano, "tiene que haber mensajes de 100 ms sin el bloque pesado")
+            self.assertIsNotNone(pesado, "el bloque pesado tiene que llegar una vez por segundo")
+            self.assertNotIn("atributos", liviano["habitantes"][0], "el mapa no lleva atributos")
+
     def test_el_mundo_se_guarda_al_desconectar_y_hay_ficha(self):
         with self.cli.websocket_connect("/ws/" + self.nombre) as ws:
             ws.receive_text()
