@@ -30,10 +30,8 @@
   }
   async function bin(url, Tipo) {
     const r = await fetch(url);
-    const ds = new DecompressionStream("deflate");
-    const piped = r.body.pipeThrough(ds);
-    const buf = await new Response(piped).arrayBuffer();
-    return new Tipo(buf);
+    if (!r.ok) throw new Error((await r.text()) || r.status);
+    return new Tipo(await r.arrayBuffer());
   }
 
   window.MV_abrirMapa = (nombre, dim) => abrirMundo(nombre, dim);
