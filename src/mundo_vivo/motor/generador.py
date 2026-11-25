@@ -327,38 +327,31 @@ def _erosion_termica(elev: np.ndarray, tam_celda_m: float, erodible: np.ndarray,
     return out
 
 
-# -------------------------------------------------------------------- principal
+# -------------------------------------------------------------------- etapas modulares
 
-def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: int = 50, progreso=None,
-                  dimension: str = "mundo") -> Dict:
-    """`progreso(fraccion_0_a_1, texto)` se llama al empezar cada etapa, para la pantalla de carga."""
-    paso = progreso if progreso is not None else (lambda f, t: None)
-    s = int(semilla)
-    P = preset(dimension)
-    if algoritmo(dimension) == "cavernas":
-        return _generar_cavernas(s, ancho, alto, tam_celda_m, P, paso)
-    paso(0.02, "Levantando el relieve")
-    X, Y = np.meshgrid(np.arange(ancho, dtype=np.float64), np.arange(alto, dtype=np.float64))
-
-    # 1-2. relieve y volcanes
+def etapa_relieve(X: np.ndarray, Y: np.ndarray, ancho: int, alto: int, s: int, P: dict, tam_celda_m: int):
+    """Etapa 1: Generación de relieve base, nivel del mar y volcanes."""
     bruto = _relieve(X, Y, ancho, alto, s)
     mar = float(np.quantile(bruto, P["quantil_mar"]))
     elev = _a_metros(bruto, mar)
     volcanes = _volcanes(elev, s, P["volcanes"], tam_celda_m)
     oceano = elev < 0
     tierra = ~oceano
+    return elev, volcanes, oceano, tierra, mar
 
-    paso(0.30, "Repartiendo el calor y la lluvia")
-    # 3-4. clima
+
+def etapa_clima(X: np.ndarray, Y: np.ndarray, ancho: int, alto: int, s: int, elev: np.ndarray, tierra: np.ndarray, tam_celda_m: int):
+    """Etapa 2: Distribución de temperatura según altitud y precipitación."""
     t_mar = _temperatura_mar(X, Y, ancho, alto, s)
     temp = t_mar - 6.5 * np.maximum(elev, 0.0) / 1000.0
     precip = suavizar(_precipitacion(elev, t_mar, s, tam_celda_m), 6)
     ref = max(float(np.quantile(precip[tierra], 0.85)), 1e-9)
     pn = np.clip(precip / ref, 0.0, 1.0)
+    return temp, pn
 
-    paso(0.42, "Haciendo correr los ríos")
-    # 5. hidrología (un micro-relieve evita ríos rectos sobre llanuras planas). Las longitudes de
-    # onda son físicas: 150 m y 125 m, que a 50 m/celda son las 3 y 2,5 celdas históricas.
+
+def etapa_hidrologia_y_erosion(X: np.ndarray, Y: np.ndarray, ancho: int, alto: int, s: int, elev: np.ndarray, tierra: np.ndarray, pn: np.ndarray, P: dict, tam_celda_m: int):
+    """Etapa 3: Red de drenaje, ríos, lagos, erosión hidráulica/térmica y cascadas."""
     elev = np.where(tierra, elev + (fbm(X, Y, celdas_f(150.0, tam_celda_m), 3, s + 9) - 0.5) * 6.0 + 3.0, elev)
     elev = np.where(tierra, np.maximum(elev, 0.0), elev)
     lleno, destino, acc = _hidrologia(elev, pn + 0.02,
@@ -367,19 +360,14 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
     min_lago = max(4, int(round(4 * (ESCALA_REF_M / float(tam_celda_m)) ** 2)))
     lago = (prof > P["umbral_lago_m"]) & tierra
     lago = _seleccionar_lagos(lago, prof, min_lago, max(40, ancho * alto // 400))
-    # las depresiones que no son lago se rellenan: pasan a ser llanuras con drenaje
     elev = np.where(tierra, lleno, elev)
     umbral_rio = float(np.quantile(acc[tierra & ~lago], P["quantil_rio"]))
     rio = (acc > umbral_rio) & tierra & ~lago
 
-    paso(0.55, "Erosionando los valles")
-    # 5b. erosión sobre el D8 ya calculado. Se excluyen lagos y océano; los ríos son justamente
-    # donde el agua incide. La térmica después relaja los acantilados que deja la hidráulica.
     erodible = tierra & ~lago
     elev = _erosion_hidraulica(elev, destino, acc, erodible)
     elev = _erosion_termica(elev, tam_celda_m, erodible)
 
-    # cascadas: río que cae más de 100 m hacia su celda de destino (después de erosionar)
     cascada = np.zeros_like(rio)
     ys, xs = np.nonzero(rio)
     flat_e = elev.ravel()
@@ -388,9 +376,11 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
         if d >= 0 and elev[y, x] - flat_e[d] > P["umbral_cascada_m"]:
             cascada[y, x] = True
 
-    paso(0.68, "Sembrando los biomas")
-    # 6. humedad final y biomas. `d_agua` va en METROS (no en celdas): así el rango de `dist_agua`
-    # de los biomas significa lo mismo a cualquier resolución.
+    return elev, lago, rio, cascada, acc, umbral_rio
+
+
+def etapa_biomas_y_capas(X: np.ndarray, Y: np.ndarray, ancho: int, alto: int, s: int, elev: np.ndarray, temp: np.ndarray, pn: np.ndarray, oceano: np.ndarray, lago: np.ndarray, rio: np.ndarray, cascada: np.ndarray, volcanes: list, acc: np.ndarray, umbral_rio: float, tam_celda_m: int):
+    """Etapa 4: Clasificación de biomas y empaquetado final de matrices."""
     agua_mask = oceano | lago | rio
     maxd = celdas_de_metros(300.0, tam_celda_m)
     d_agua = _dist_agua(agua_mask, maxd).astype(np.float32) * float(tam_celda_m)
@@ -414,7 +404,7 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
 
     rasgos = np.zeros(elev.shape, dtype=np.uint8)
     rasgos[cascada] |= B.RASGO_CASCADA
-    r_lava = celdas_f(75.0, tam_celda_m)   # 1,5 celdas a 50 m
+    r_lava = celdas_f(75.0, tam_celda_m)
     yy, xx = np.ogrid[:alto, :ancho]
     for cy, cx in volcanes:
         rasgos[((yy - cy) ** 2 + (xx - cx) ** 2) <= r_lava ** 2] |= B.RASGO_LAVA
@@ -428,6 +418,40 @@ def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: 
         "caudal": caudal,
         "rasgos": rasgos,
     }
+    return capas, volcanes
+
+
+# -------------------------------------------------------------------- principal
+
+def generar_mundo(semilla: int, ancho: int = 256, alto: int = 256, tam_celda_m: int = 50, progreso=None,
+                  dimension: str = "mundo") -> Dict:
+    """`progreso(fraccion_0_a_1, texto)` se llama al empezar cada etapa, para la pantalla de carga."""
+    paso = progreso if progreso is not None else (lambda f, t: None)
+    s = int(semilla)
+    P = preset(dimension)
+    if algoritmo(dimension) == "cavernas":
+        return _generar_cavernas(s, ancho, alto, tam_celda_m, P, paso)
+    paso(0.02, "Levantando el relieve")
+    X, Y = np.meshgrid(np.arange(ancho, dtype=np.float64), np.arange(alto, dtype=np.float64))
+
+    # 1. relieve y volcanes
+    elev, volcanes, oceano, tierra, mar = etapa_relieve(X, Y, ancho, alto, s, P, tam_celda_m)
+
+    paso(0.30, "Repartiendo el calor y la lluvia")
+    # 2. clima
+    temp, pn = etapa_clima(X, Y, ancho, alto, s, elev, tierra, tam_celda_m)
+
+    paso(0.42, "Haciendo correr los ríos")
+    # 3. hidrología y erosión
+    elev, lago, rio, cascada, acc, umbral_rio = etapa_hidrologia_y_erosion(
+        X, Y, ancho, alto, s, elev, tierra, pn, P, tam_celda_m
+    )
+
+    paso(0.68, "Sembrando los biomas")
+    # 4. biomas y capas
+    capas, volcanes = etapa_biomas_y_capas(
+        X, Y, ancho, alto, s, elev, temp, pn, oceano, lago, rio, cascada, volcanes, acc, umbral_rio, tam_celda_m
+    )
     meta = {
         "semilla": s,
         "version_generador": VERSION_GENERADOR,

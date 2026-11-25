@@ -142,11 +142,25 @@ class Terreno:
         return float(self.humedad[y, x]) / 255.0
 
     def caminable_cerca(self, x: int, y: int, radio: int = 6) -> Optional[Tuple[int, int]]:
-        for r in range(radio + 1):
-            for dy in range(-r, r + 1):
-                for dx in range(-r, r + 1):
-                    if max(abs(dx), abs(dy)) == r and self.caminable(x + dx, y + dy):
-                        return (x + dx, y + dy)
+        w, h, c = self.ancho, self.alto, self._c
+        if 0 <= x < w and 0 <= y < h and c[y][x] != INF:
+            return (x, y)
+        for r in range(1, radio + 1):
+            y_min, y_max = max(0, y - r), min(h - 1, y + r)
+            x_min, x_max = max(0, x - r), min(w - 1, x + r)
+            # Bordes horizontal superior e inferior
+            for cy in (y - r, y + r):
+                if 0 <= cy < h:
+                    row = c[cy]
+                    for cx in range(x_min, x_max + 1):
+                        if row[cx] != INF:
+                            return (cx, cy)
+            # Bordes vertical izquierdo y derecho
+            for cx in (x - r, x + r):
+                if 0 <= cx < w:
+                    for cy in range(y_min + 1, y_max):
+                        if c[cy][cx] != INF:
+                            return (cx, cy)
         return None
 
     def agua_adyacente(self, x: int, y: int) -> bool:
