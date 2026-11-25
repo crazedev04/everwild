@@ -563,8 +563,19 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             dt_min -= paso
             self._paso(paso)
 
-    def _paso(self, paso: float) -> None:
-        self.t += paso
+    def _tick_rapido_fisica(self, paso: float) -> None:
+        """Ticks rápidos: movimiento, navegación, cinemática y necesidades vitales directas."""
+        for h in list(self.habitantes.values()):
+            if h.vivo:
+                self._vida(h, paso)
+            if h.vivo:
+                self._actualizar(h, paso)
+                self._decaer_emociones(h, paso)
+                if h.montura is not None:
+                    self._sincronizar_montura(h)
+
+    def _tick_amortizado_sistemas(self, paso: float) -> None:
+        """Ticks amortizados: clima, nieve, fuego, fauna, senderos, colonias y fenómenos globales."""
         if self.modulo("fauna"):
             if not self._fauna_lista:
                 self._fauna_lista = True
@@ -574,14 +585,6 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 self._ataques_animales()
             if self.fauna.mutaciones:
                 self._avisar_mutaciones()
-        for h in list(self.habitantes.values()):
-            if h.vivo:
-                self._vida(h, paso)
-            if h.vivo:
-                self._actualizar(h, paso)
-                self._decaer_emociones(h, paso)
-                if h.montura is not None:
-                    self._sincronizar_montura(h)
         self.repartir_atencion()
         if self.cielo.get("dia_noche", True):     # bajo tierra no hay tormentas ni nieve: no hay cielo
             self.clima.paso(self, paso)
@@ -601,6 +604,13 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 ha = r["celdas_episodio"] * (self.tam_celda_m ** 2) / 10000.0
                 self._evento("incendio_extinguido", "El incendio se extinguió. Se quemaron unas %.1f hectáreas." % ha,
                              importancia=3, origen="sistema", datos={"celdas": r["celdas_episodio"], "hectareas": round(ha, 1)})
+
+    def _paso(self, paso: float) -> None:
+        self.t += paso
+        # 1. Ticks rápidos: física, desplazamiento, vitales
+        self._tick_rapido_fisica(paso)
+        # 2. Ticks amortizados: macro-sistemas globales
+        self._tick_amortizado_sistemas(paso)
 
     def _actualizar(self, h: HabitanteSim, paso: float) -> None:
         dormido = h.accion == "durmiendo" and self.t < h.hasta
