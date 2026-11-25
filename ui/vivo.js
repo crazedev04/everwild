@@ -928,10 +928,20 @@
       o.globalCompositeOperation = "source-over"; o.clearRect(0, 0, vw, vh);
       o.fillStyle = "rgba(6,10,38," + a + ")"; o.fillRect(0, 0, vw, vh);
       o.globalCompositeOperation = "destination-out";
-      const hueco = (x, y, rad, fza) => {      // "agujero" de luz en la capa de noche
-        const g2 = o.createRadialGradient(x - vis.x0, y - vis.y0, 0, x - vis.x0, y - vis.y0, rad);
-        g2.addColorStop(0, "rgba(0,0,0," + fza + ")"); g2.addColorStop(1, "rgba(0,0,0,0)");
-        o.fillStyle = g2; o.fillRect(x - vis.x0 - rad, y - vis.y0 - rad, rad * 2, rad * 2);
+      if (!V._luzSprite) {
+        const cL = document.createElement("canvas");
+        cL.width = 64; cL.height = 64;
+        const ctxL = cL.getContext("2d");
+        const gL = ctxL.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gL.addColorStop(0, "rgba(0,0,0,1)");
+        gL.addColorStop(1, "rgba(0,0,0,0)");
+        ctxL.fillStyle = gL; ctxL.fillRect(0, 0, 64, 64);
+        V._luzSprite = cL;
+      }
+      const hueco = (x, y, rad, fza) => {      // "agujero" de luz en la capa de noche con sprite pre-renderizado
+        o.globalAlpha = fza;
+        o.drawImage(V._luzSprite, x - vis.x0 - rad, y - vis.y0 - rad, rad * 2, rad * 2);
+        o.globalAlpha = 1.0;
       };
       // los radios de luz también en metros, si no a 5 m por celda una fogata alumbraba 45 metros
       const mLuz = (m) => Math.max(5 / s, m / ((V.meta && V.meta.tam_celda_m) || 50));
@@ -948,12 +958,18 @@
         if (visible(x, y, rRef)) hueco(x, y, rRef, 0.3);   // la puerta tira un poco de luz
       }
       for (const [x, y, inten] of fuego) { if (!visible(x, y, 2)) continue; o.fillStyle = "rgba(0,0,0," + (0.35 + 0.5 * inten / 255) + ")"; o.fillRect(x - 1 - vis.x0, y - 1 - vis.y0, 3, 3); }
+      if (!V._sombraHab) {
+        const cS = document.createElement("canvas");
+        cS.width = 16; cS.height = 16;
+        const ctxS = cS.getContext("2d");
+        const gS = ctxS.createRadialGradient(8, 8, 0, 8, 8, 8);
+        gS.addColorStop(0, "rgba(0,0,0,0.55)"); gS.addColorStop(1, "rgba(0,0,0,0)");
+        ctxS.fillStyle = gS; ctxS.fillRect(0, 0, 16, 16);
+        V._sombraHab = cS;
+      }
       for (const hb of Object.values(V.habs)) {
         if (!hb.d.vivo || !visible(hb.x, hb.y, 5)) continue;
-        const hx = hb.x - vis.x0, hy = hb.y - vis.y0;
-        const g = o.createRadialGradient(hx, hy, 0, hx, hy, 4);
-        g.addColorStop(0, "rgba(0,0,0,0.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
-        o.fillStyle = g; o.fillRect(hx - 4, hy - 4, 8, 8);
+        o.drawImage(V._sombraHab, hb.x - vis.x0 - 4, hb.y - vis.y0 - 4, 8, 8);
       }
       ctx.imageSmoothingEnabled = true; ctx.drawImage(V.oscuro, vis.x0, vis.y0, ow, oh);
       // brillo cálido alrededor del fuego

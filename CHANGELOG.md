@@ -1,5 +1,14 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Desacoplamiento estructural y modularización total
+
+### Nuevo
+
+- **Modularización del Generador (`mundo_vivo.generador`)**: Tubería de generación de mundos completamente desacoplada en su propio paquete modular, sin dependencias de WebSocket, red ni simulación viva. `mundo_vivo.motor.generador` conservado como shim de retrocompatibilidad transparente.
+- **Física dividida en Ticks Rápidos y Amortizados**: `Simulacion._paso()` separa `_tick_rapido_fisica(paso)` (cinemática, movimiento, vitales) y `_tick_amortizado_sistemas(paso)` (clima, fuego, fauna, senderos, colonias).
+- **Desacoplamiento del Cerebro Cognitivo**: `Simulacion._tick_cerebro()` y buffer diferido `_propuestas_cerebro`, aislando la toma de decisiones del camino crítico de la simulación.
+- **Suite de fronteras modulares**: `tests/test_modularizacion.py` garantizando el aislamiento de capas y contratos arquitectónicos.
+
 ## Sin publicar — Etapas 2, 4, 5 y 6 de WORLD_ARCHITECTURE
 
 ### Nuevo

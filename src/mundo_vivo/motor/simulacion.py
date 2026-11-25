@@ -293,6 +293,10 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.fauna.temp_fn = self.temp_en                                                   # los animales también sienten el frío
         self._fauna_lista = False          # True cuando la fauna ya se pobló o se cargó de la base
         self.centro_seguro = None          # (x, y): sin grandes depredadores al empezar cerca de ahí
+        # Buffer de propuestas del Cerebro Cognitivo — desacopla el hilo cognitivo del tick crítico.
+        # Clave: id del habitante. El motor reutiliza la última propuesta si el cerebro aún no resolvió
+        # la siguiente (relevante cuando el CE real tarda; el CerebroDemo resuelve en microsegundos).
+        self._propuestas_cerebro: Dict[int, dict] = {}
         self.conocimientos: Dict[int, dict] = {}
         self.conocidos: set = set()
         self.al_nacer = None       # callback(sim, madre, padre, genoma, sexo, nombre) -> HabitanteSim (lo pone sim_io)
@@ -563,8 +567,19 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             dt_min -= paso
             self._paso(paso)
 
-    def _paso(self, paso: float) -> None:
-        self.t += paso
+    def _tick_rapido_fisica(self, paso: float) -> None:
+        """Ticks rápidos: movimiento, navegación, cinemática y necesidades vitales directas."""
+        for h in list(self.habitantes.values()):
+            if h.vivo:
+                self._vida(h, paso)
+            if h.vivo:
+                self._actualizar(h, paso)
+                self._decaer_emociones(h, paso)
+                if h.montura is not None:
+                    self._sincronizar_montura(h)
+
+    def _tick_amortizado_sistemas(self, paso: float) -> None:
+        """Ticks amortizados: clima, nieve, fuego, fauna, senderos, colonias y fenómenos globales."""
         if self.modulo("fauna"):
             if not self._fauna_lista:
                 self._fauna_lista = True
@@ -574,14 +589,6 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 self._ataques_animales()
             if self.fauna.mutaciones:
                 self._avisar_mutaciones()
-        for h in list(self.habitantes.values()):
-            if h.vivo:
-                self._vida(h, paso)
-            if h.vivo:
-                self._actualizar(h, paso)
-                self._decaer_emociones(h, paso)
-                if h.montura is not None:
-                    self._sincronizar_montura(h)
         self.repartir_atencion()
         if self.cielo.get("dia_noche", True):     # bajo tierra no hay tormentas ni nieve: no hay cielo
             self.clima.paso(self, paso)
@@ -601,6 +608,13 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 ha = r["celdas_episodio"] * (self.tam_celda_m ** 2) / 10000.0
                 self._evento("incendio_extinguido", "El incendio se extinguió. Se quemaron unas %.1f hectáreas." % ha,
                              importancia=3, origen="sistema", datos={"celdas": r["celdas_episodio"], "hectareas": round(ha, 1)})
+
+    def _paso(self, paso: float) -> None:
+        self.t += paso
+        # 1. Ticks rápidos: física, desplazamiento, vitales
+        self._tick_rapido_fisica(paso)
+        # 2. Ticks amortizados: macro-sistemas globales
+        self._tick_amortizado_sistemas(paso)
 
     def _actualizar(self, h: HabitanteSim, paso: float) -> None:
         dormido = h.accion == "durmiendo" and self.t < h.hasta
@@ -690,10 +704,18 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.al_llegar = None
             self._aplicar(h, {"tipo": "beber"})
             return
-        ok, texto = self._aplicar(h, self.cerebro.decidir(self, h))
+        propuesta = self._tick_cerebro(h)
+        ok, texto = self._aplicar(h, propuesta)
         reg = getattr(self.cerebro, "registrar_resultado", None)
         if reg is not None and texto:
             reg(self, h, ok, texto)
+
+    def _tick_cerebro(self, h: HabitanteSim) -> dict:
+        """Consulta al cerebro de forma desacoplada o consume propuesta encolada/cacheada."""
+        propuesta = self._propuestas_cerebro.pop(h.id, None)
+        if propuesta is None:
+            propuesta = self.cerebro.decidir(self, h)
+        return propuesta
 
     def _mover(self, h: HabitanteSim, paso: float) -> None:
         h.accion = "caminando"
