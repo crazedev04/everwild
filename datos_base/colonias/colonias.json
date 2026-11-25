@@ -1,0 +1,13 @@
+[
+ {"type": "colonia", "id": "moho_de_pantano", "nombre": "un moho verdoso", "color": "#7a8f4a",
+  "biomas": ["pantano", "selva"],
+  "crece": {"por_dia": 0.10, "humedad_min": 0.55, "temperatura_C": [4, 45]},
+  "muere": {"temperatura_C": [-99, 0]},
+  "cosecha": {"material": "hongo_visionario", "cantidad": [1, 2]}},
+
+ {"type": "colonia", "id": "liquen_de_piedra", "nombre": "un liquen gris", "color": "#9aa49a",
+  "biomas": ["montana", "tundra", "nieve"],
+  "crece": {"por_dia": 0.05, "temperatura_C": [-30, 12]},
+  "muere": {"temperatura_C": [25, 99]},
+  "cosecha": {"material": "hierba_medicinal", "cantidad": [1, 1]}}
+]

@@ -1,0 +1,8 @@
+[
+ {"type": "bioma", "id": "caverna", "nombre": "Caverna", "color": "#3b3a44",
+  "velocidad": 1.6, "combustible": 0.03, "id_numerico": 100},
+ {"type": "bioma", "id": "roca_viva", "nombre": "Roca viva", "color": "#23222a",
+  "velocidad": null, "combustible": 0.0, "id_numerico": 101},
+ {"type": "bioma", "id": "hongal", "nombre": "Hongal", "color": "#4a6b52",
+  "velocidad": 1.8, "combustible": 0.35, "id_numerico": 102}
+]

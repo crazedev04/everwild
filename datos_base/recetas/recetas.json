@@ -1,0 +1,1652 @@
+[
+ {
+  "type": "receta",
+  "id": "fogata",
+  "nombre": "fogata",
+  "ingredientes": [
+   "madera"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Madera que arde para dar calor y luz.",
+  "tiempo_min": 20
+ },
+ {
+  "type": "receta",
+  "id": "fogata_de_palos",
+  "nombre": "fogata de ramas",
+  "ingredientes": [
+   "palo"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Ramas secas amontonadas que arden rápido.",
+  "tiempo_min": 15
+ },
+ {
+  "type": "receta",
+  "id": "fogata_de_paja",
+  "nombre": "fuego de paja",
+  "ingredientes": [
+   "paja"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Paja seca: prende enseguida pero dura poco.",
+  "tiempo_min": 5
+ },
+ {
+  "type": "receta",
+  "id": "hoguera_de_carbon",
+  "nombre": "brasero de carbón",
+  "ingredientes": [
+   "carbon"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Carbón vegetal: calor parejo y casi sin humo.",
+  "tiempo_min": 20
+ },
+ {
+  "type": "receta",
+  "id": "fogata_de_lena",
+  "nombre": "fogata de leña",
+  "ingredientes": [
+   "#lena"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Cualquier leña seca sirve para armar fuego.",
+  "tiempo_min": 20
+ },
+ {
+  "type": "receta",
+  "id": "antorcha",
+  "nombre": "antorcha",
+  "ingredientes": [
+   "madera",
+   "fibra"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Un palo con fibras que arde para llevar la luz.",
+  "tiempo_min": 10
+ },
+ {
+  "type": "receta",
+  "id": "antorcha_de_resina",
+  "nombre": "antorcha de resina",
+  "ingredientes": [
+   "palo",
+   "resina"
+  ],
+  "propiedad": "ilumina",
+  "categoria": "fuego",
+  "descripcion": "Un palo untado con resina: ilumina horas.",
+  "tiempo_min": 10
+ },
+ {
+  "type": "receta",
+  "id": "antorcha_de_grasa",
+  "nombre": "antorcha de grasa",
+  "ingredientes": [
+   "palo",
+   "grasa"
+  ],
+  "propiedad": "ilumina",
+  "categoria": "fuego",
+  "descripcion": "Un palo envuelto en grasa que arde despacio.",
+  "tiempo_min": 10
+ },
+ {
+  "type": "receta",
+  "id": "vela_de_grasa",
+  "nombre": "vela de grasa",
+  "ingredientes": [
+   "grasa",
+   "fibra"
+  ],
+  "propiedad": "ilumina",
+  "categoria": "fuego",
+  "descripcion": "Grasa con una mecha de fibra.",
+  "tiempo_min": 15
+ },
+ {
+  "type": "receta",
+  "id": "lampara_de_grasa",
+  "nombre": "lámpara de grasa",
+  "ingredientes": [
+   "ceramica",
+   "grasa"
+  ],
+  "propiedad": "ilumina",
+  "categoria": "fuego",
+  "descripcion": "Una vasija con grasa y mecha: luz estable adentro de la choza.",
+  "tiempo_min": 20
+ },
+ {
+  "type": "receta",
+  "id": "taladro_de_fuego",
+  "nombre": "taladro de fuego (frotar palos)",
+  "ingredientes": [
+   "palo",
+   "paja"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Frotar un palo contra otro sobre paja hasta que salga brasa.",
+  "tiempo_min": 30
+ },
+ {
+  "type": "receta",
+  "id": "chispa_de_pedernal",
+  "nombre": "chispa de pedernal",
+  "ingredientes": [
+   "pedernal",
+   "paja"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Golpear pedernal para sacar chispas sobre yesca.",
+  "tiempo_min": 10
+ },
+ {
+  "type": "receta",
+  "id": "piedras_de_chispa",
+  "nombre": "piedras de chispa",
+  "ingredientes": [
+   "pedernal",
+   "pirita"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Pedernal contra pirita: chispas de sobra.",
+  "tiempo_min": 5
+ },
+ {
+  "type": "receta",
+  "id": "eslabon",
+  "nombre": "eslabón y pedernal",
+  "ingredientes": [
+   "acero",
+   "pedernal"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Acero contra pedernal: el encendedor de siempre.",
+  "tiempo_min": 3
+ },
+ {
+  "type": "receta",
+  "id": "yesquero",
+  "nombre": "yesquero",
+  "ingredientes": [
+   "acero",
+   "pedernal",
+   "paja"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Un kit chico con eslabón, pedernal y yesca para llevar.",
+  "tiempo_min": 15
+ },
+ {
+  "type": "receta",
+  "id": "arco_de_fuego",
+  "nombre": "arco de fuego",
+  "ingredientes": [
+   "palo",
+   "cuerda",
+   "paja"
+  ],
+  "propiedad": "enciende",
+  "categoria": "fuego",
+  "descripcion": "Un palo girado con un arco de cuerda: enciende rápido.",
+  "tiempo_min": 25
+ },
+ {
+  "type": "receta",
+  "id": "cuchillo_de_piedra",
+  "nombre": "cuchillo de piedra",
+  "ingredientes": [
+   "piedra"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Una piedra dura con filo para cortar."
+ },
+ {
+  "type": "receta",
+  "id": "cuchillo_de_pedernal",
+  "nombre": "cuchillo de pedernal",
+  "ingredientes": [
+   "pedernal"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Pedernal lascado: filo de navaja."
+ },
+ {
+  "type": "receta",
+  "id": "cuchillo_de_cuerno",
+  "nombre": "cuchillo de cuerno",
+  "ingredientes": [
+   "cuerno"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Cuerno afilado."
+ },
+ {
+  "type": "receta",
+  "id": "cuchillo_de_acero",
+  "nombre": "cuchillo de acero",
+  "ingredientes": [
+   "acero",
+   "hueso"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Hoja de acero con mango de hueso."
+ },
+ {
+  "type": "receta",
+  "id": "hacha_de_piedra",
+  "nombre": "hacha de piedra",
+  "ingredientes": [
+   "madera",
+   "piedra",
+   "cuerda"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Piedra atada a un mango: corta ramas y huesos."
+ },
+ {
+  "type": "receta",
+  "id": "hacha_de_pedernal",
+  "nombre": "hacha de pedernal",
+  "ingredientes": [
+   "palo",
+   "pedernal",
+   "tendon"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Hoja de pedernal atada con tendón."
+ },
+ {
+  "type": "receta",
+  "id": "hacha_de_acero",
+  "nombre": "hacha de acero",
+  "ingredientes": [
+   "madera",
+   "acero"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Mango de madera con hoja de acero."
+ },
+ {
+  "type": "receta",
+  "id": "hoz_de_acero",
+  "nombre": "hoz",
+  "ingredientes": [
+   "acero",
+   "palo"
+  ],
+  "propiedad": "corta",
+  "categoria": "herramienta",
+  "descripcion": "Hoja curva para segar pasto y granos."
+ },
+ {
+  "type": "receta",
+  "id": "lanza",
+  "nombre": "lanza de punta de piedra",
+  "ingredientes": [
+   "madera",
+   "piedra"
+  ],
+  "propiedad": "corta",
+  "categoria": "caza",
+  "descripcion": "Palo con punta de piedra para cazar y defenderse."
+ },
+ {
+  "type": "receta",
+  "id": "lanza_de_pedernal",
+  "nombre": "lanza de pedernal",
+  "ingredientes": [
+   "palo",
+   "pedernal",
+   "cuerda"
+  ],
+  "propiedad": "corta",
+  "categoria": "caza",
+  "descripcion": "Punta de pedernal bien atada: más filo y alcance."
+ },
+ {
+  "type": "receta",
+  "id": "punzon_de_piedra",
+  "nombre": "punzón de piedra",
+  "ingredientes": [
+   "piedra"
+  ],
+  "propiedad": "perfora",
+  "categoria": "herramienta",
+  "descripcion": "Piedra con punta para agujerear cuero."
+ },
+ {
+  "type": "receta",
+  "id": "aguja_de_hueso",
+  "nombre": "aguja de hueso",
+  "ingredientes": [
+   "hueso"
+  ],
+  "propiedad": "perfora",
+  "categoria": "herramienta",
+  "descripcion": "Hueso afinado: sirve para coser pieles."
+ },
+ {
+  "type": "receta",
+  "id": "punta_de_colmillo",
+  "nombre": "punta de colmillo",
+  "ingredientes": [
+   "colmillo"
+  ],
+  "propiedad": "perfora",
+  "categoria": "herramienta",
+  "descripcion": "Colmillo afilado."
+ },
+ {
+  "type": "receta",
+  "id": "punta_de_bronce",
+  "nombre": "punta de bronce",
+  "ingredientes": [
+   "bronce"
+  ],
+  "propiedad": "perfora",
+  "categoria": "herramienta",
+  "descripcion": "Punta metálica que no se rompe."
+ },
+ {
+  "type": "receta",
+  "id": "lanza_de_hueso",
+  "nombre": "lanza de punta de hueso",
+  "ingredientes": [
+   "palo",
+   "hueso"
+  ],
+  "propiedad": "perfora",
+  "categoria": "caza",
+  "descripcion": "Palo con una punta de hueso afilada."
+ },
+ {
+  "type": "receta",
+  "id": "arpon",
+  "nombre": "arpón de hueso",
+  "ingredientes": [
+   "palo",
+   "hueso",
+   "cuerda"
+  ],
+  "propiedad": "perfora",
+  "categoria": "caza",
+  "descripcion": "Punta de hueso atada a una cuerda: para pescar."
+ },
+ {
+  "type": "receta",
+  "id": "pala_de_hueso",
+  "nombre": "pala de hueso",
+  "ingredientes": [
+   "palo",
+   "colmillo"
+  ],
+  "propiedad": "perfora",
+  "categoria": "herramienta",
+  "descripcion": "Para cavar."
+ },
+ {
+  "type": "receta",
+  "id": "flecha_de_pedernal",
+  "nombre": "flecha de pedernal",
+  "ingredientes": [
+   "palo",
+   "pedernal",
+   "pluma"
+  ],
+  "propiedad": "perfora",
+  "categoria": "caza",
+  "descripcion": "Vara emplumada con punta de pedernal."
+ },
+ {
+  "type": "receta",
+  "id": "flecha_de_hueso",
+  "nombre": "flecha de hueso",
+  "ingredientes": [
+   "palo",
+   "hueso",
+   "pluma"
+  ],
+  "propiedad": "perfora",
+  "categoria": "caza",
+  "descripcion": "Vara emplumada con punta de hueso."
+ },
+ {
+  "type": "receta",
+  "id": "pico_de_piedra",
+  "nombre": "pico de piedra",
+  "ingredientes": [
+   "palo",
+   "piedra",
+   "#ligadura"
+  ],
+  "propiedad": "golpea",
+  "categoria": "herramienta",
+  "descripcion": "Para romper roca y cavar tierra dura."
+ },
+ {
+  "type": "receta",
+  "id": "arco",
+  "nombre": "arco",
+  "ingredientes": [
+   "madera",
+   "fibra"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Madera flexible con fibra tensada."
+ },
+ {
+  "type": "receta",
+  "id": "arco_de_tendon",
+  "nombre": "arco de tendón",
+  "ingredientes": [
+   "palo",
+   "tendon"
+  ],
+  "propiedad": "dispara",
+  "categoria": "caza",
+  "descripcion": "Una rama con tendón tensado: dispara flechas."
+ },
+ {
+  "type": "receta",
+  "id": "arco_compuesto",
+  "nombre": "arco compuesto",
+  "ingredientes": [
+   "palo",
+   "tendon",
+   "hueso"
+  ],
+  "propiedad": "dispara",
+  "categoria": "caza",
+  "descripcion": "Madera, hueso y tendón: más fuerza."
+ },
+ {
+  "type": "receta",
+  "id": "honda",
+  "nombre": "honda",
+  "ingredientes": [
+   "cuero",
+   "cuerda"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Lanza piedras con mucha velocidad."
+ },
+ {
+  "type": "receta",
+  "id": "boleadoras",
+  "nombre": "boleadoras",
+  "ingredientes": [
+   "piedra",
+   "cuerda"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Piedras atadas que enredan las patas de un animal."
+ },
+ {
+  "type": "receta",
+  "id": "lazo",
+  "nombre": "trampa de lazo",
+  "ingredientes": [
+   "cuerda",
+   "palo"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Un nudo corredizo en un sendero de animales."
+ },
+ {
+  "type": "receta",
+  "id": "red_de_pesca",
+  "nombre": "red de pesca",
+  "ingredientes": [
+   "fibra",
+   "hueso"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Red con pesas de hueso."
+ },
+ {
+  "type": "receta",
+  "id": "red_de_fibra",
+  "nombre": "red de fibra",
+  "ingredientes": [
+   "fibra",
+   "cuerda"
+  ],
+  "propiedad": "ata",
+  "categoria": "caza",
+  "descripcion": "Una red para atrapar peces y aves."
+ },
+ {
+  "type": "receta",
+  "id": "cuerda",
+  "nombre": "cuerda",
+  "ingredientes": [
+   "fibra"
+  ],
+  "propiedad": "ata",
+  "categoria": "textil",
+  "descripcion": "Fibras trenzadas que aguantan peso.",
+  "resultado": {
+   "item": "cuerda",
+   "cantidad": 2
+  }
+ },
+ {
+  "type": "receta",
+  "id": "rienda",
+  "nombre": "rienda",
+  "ingredientes": [
+   "cuero"
+  ],
+  "propiedad": "ata",
+  "categoria": "transporte",
+  "descripcion": "Tiras de cuero para guiar un animal."
+ },
+ {
+  "type": "receta",
+  "id": "soga_gruesa",
+  "nombre": "soga gruesa",
+  "ingredientes": [
+   "cuerda",
+   "hilo"
+  ],
+  "propiedad": "ata",
+  "categoria": "textil",
+  "descripcion": "Varias cuerdas trenzadas."
+ },
+ {
+  "type": "receta",
+  "id": "liga_de_tendon",
+  "nombre": "ligadura de tendón",
+  "ingredientes": [
+   "tendon"
+  ],
+  "propiedad": "ata",
+  "categoria": "textil",
+  "descripcion": "Tiras de tendón que al secarse aprietan."
+ },
+ {
+  "type": "receta",
+  "id": "hilo_de_fibra",
+  "nombre": "hilo de fibra",
+  "ingredientes": [
+   "fibra"
+  ],
+  "propiedad": "teje",
+  "categoria": "textil",
+  "descripcion": "Fibras retorcidas en un hilo fino.",
+  "resultado": {
+   "item": "hilo",
+   "cantidad": 1
+  }
+ },
+ {
+  "type": "receta",
+  "id": "hilo_de_lana",
+  "nombre": "hilo de lana",
+  "ingredientes": [
+   "lana"
+  ],
+  "propiedad": "teje",
+  "categoria": "textil",
+  "descripcion": "Lana hilada.",
+  "resultado": {
+   "item": "hilo",
+   "cantidad": 1
+  }
+ },
+ {
+  "type": "receta",
+  "id": "tela_de_hilo",
+  "nombre": "tela tejida",
+  "ingredientes": [
+   "hilo"
+  ],
+  "propiedad": "teje",
+  "categoria": "textil",
+  "descripcion": "Hilos cruzados en un telar sencillo.",
+  "resultado": {
+   "item": "tela",
+   "cantidad": 1
+  }
+ },
+ {
+  "type": "receta",
+  "id": "tela_de_lana",
+  "nombre": "tela de lana",
+  "ingredientes": [
+   "hilo",
+   "lana"
+  ],
+  "propiedad": "teje",
+  "categoria": "textil",
+  "descripcion": "Un tejido grueso y cálido.",
+  "resultado": {
+   "item": "tela",
+   "cantidad": 1
+  }
+ },
+ {
+  "type": "receta",
+  "id": "esterilla_de_paja",
+  "nombre": "esterilla de paja",
+  "ingredientes": [
+   "paja"
+  ],
+  "propiedad": "teje",
+  "categoria": "textil",
+  "descripcion": "Paja trenzada: para dormir o forrar paredes."
+ },
+ {
+  "type": "receta",
+  "id": "abrigo_de_cuero",
+  "nombre": "abrigo de cuero",
+  "ingredientes": [
+   "cuero"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Un abrigo de cuero curtido."
+ },
+ {
+  "type": "receta",
+  "id": "manto_de_lana",
+  "nombre": "manto de lana",
+  "ingredientes": [
+   "lana"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Un manto de lana."
+ },
+ {
+  "type": "receta",
+  "id": "abrigo_de_plumas",
+  "nombre": "abrigo de plumas",
+  "ingredientes": [
+   "pluma"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Plumas cosidas: ligeras y calientes."
+ },
+ {
+  "type": "receta",
+  "id": "taparrabos_de_piel",
+  "nombre": "taparrabos de piel",
+  "ingredientes": [
+   "piel"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "La ropa más simple: un trozo de piel."
+ },
+ {
+  "type": "receta",
+  "id": "capa_de_piel",
+  "nombre": "capa de piel",
+  "ingredientes": [
+   "piel",
+   "cuerda"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Piel atada a los hombros."
+ },
+ {
+  "type": "receta",
+  "id": "botas_de_cuero",
+  "nombre": "botas de cuero",
+  "ingredientes": [
+   "cuero",
+   "cuerda"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Cuero atado alrededor de los pies."
+ },
+ {
+  "type": "receta",
+  "id": "guantes",
+  "nombre": "guantes de cuero",
+  "ingredientes": [
+   "cuero",
+   "tendon"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Cuero cosido con tendón."
+ },
+ {
+  "type": "receta",
+  "id": "gorro_de_lana",
+  "nombre": "gorro de lana",
+  "ingredientes": [
+   "lana",
+   "hilo"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Un gorro tejido."
+ },
+ {
+  "type": "receta",
+  "id": "tunica_de_tela",
+  "nombre": "túnica de tela",
+  "ingredientes": [
+   "tela"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Una prenda de tela tejida."
+ },
+ {
+  "type": "receta",
+  "id": "manta_de_tela",
+  "nombre": "manta",
+  "ingredientes": [
+   "tela",
+   "lana"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Una manta gruesa para dormir."
+ },
+ {
+  "type": "receta",
+  "id": "chaleco_de_plumas",
+  "nombre": "chaleco de piel y plumas",
+  "ingredientes": [
+   "piel",
+   "pluma"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Piel con plumas por dentro."
+ },
+ {
+  "type": "receta",
+  "id": "capa_de_paja",
+  "nombre": "capa de paja",
+  "ingredientes": [
+   "paja"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Una capa de paja para la lluvia y el frío."
+ },
+ {
+  "type": "receta",
+  "id": "sandalias",
+  "nombre": "sandalias",
+  "ingredientes": [
+   "cuero",
+   "fibra"
+  ],
+  "propiedad": "abriga",
+  "categoria": "ropa",
+  "descripcion": "Suela de cuero atada con fibra."
+ },
+ {
+  "type": "receta",
+  "id": "escudo_de_madera",
+  "nombre": "escudo de madera",
+  "ingredientes": [
+   "madera",
+   "cuero"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Tablas forradas en cuero."
+ },
+ {
+  "type": "receta",
+  "id": "armadura_de_cuero",
+  "nombre": "armadura de cuero",
+  "ingredientes": [
+   "cuero",
+   "cuerda"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Cuero grueso atado al torso."
+ },
+ {
+  "type": "receta",
+  "id": "casco_de_hueso",
+  "nombre": "casco de hueso",
+  "ingredientes": [
+   "hueso",
+   "cuero"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Protege la cabeza."
+ },
+ {
+  "type": "receta",
+  "id": "cuero_endurecido",
+  "nombre": "cuero endurecido",
+  "ingredientes": [
+   "cuero",
+   "grasa"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Cuero tratado que aguanta golpes."
+ },
+ {
+  "type": "receta",
+  "id": "coraza_de_cuerno",
+  "nombre": "coraza de cuerno",
+  "ingredientes": [
+   "cuerno",
+   "cuero"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Placas de cuerno cosidas en cuero."
+ },
+ {
+  "type": "receta",
+  "id": "peto_de_bronce",
+  "nombre": "peto de bronce",
+  "ingredientes": [
+   "bronce",
+   "cuero"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Placas de bronce sobre cuero."
+ },
+ {
+  "type": "receta",
+  "id": "casco_de_bronce",
+  "nombre": "casco de bronce",
+  "ingredientes": [
+   "bronce"
+  ],
+  "propiedad": "protege",
+  "categoria": "caza",
+  "descripcion": "Un casco metálico."
+ },
+ {
+  "type": "receta",
+  "id": "cesta_de_fibra",
+  "nombre": "cesta de fibra",
+  "ingredientes": [
+   "fibra"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Fibras trenzadas para cargar cosas."
+ },
+ {
+  "type": "receta",
+  "id": "cesta_de_paja",
+  "nombre": "cesta de paja",
+  "ingredientes": [
+   "paja"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Paja trenzada."
+ },
+ {
+  "type": "receta",
+  "id": "odre_de_cuero",
+  "nombre": "odre de cuero",
+  "ingredientes": [
+   "cuero"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Una bolsa de cuero para agua."
+ },
+ {
+  "type": "receta",
+  "id": "bolsa_de_piel",
+  "nombre": "bolsa de piel",
+  "ingredientes": [
+   "piel"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Una piel cosida en bolsa."
+ },
+ {
+  "type": "receta",
+  "id": "cuenco_de_hoja",
+  "nombre": "cuenco de hojas",
+  "ingredientes": [
+   "hoja_grande"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Hojas grandes dobladas: sirven para beber."
+ },
+ {
+  "type": "receta",
+  "id": "vasija_de_barro",
+  "nombre": "vasija de barro",
+  "ingredientes": [
+   "arcilla"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Arcilla moldeada y secada al sol."
+ },
+ {
+  "type": "receta",
+  "id": "olla_de_ceramica",
+  "nombre": "olla de cerámica",
+  "ingredientes": [
+   "ceramica"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Arcilla cocida: aguanta el fuego y el agua."
+ },
+ {
+  "type": "receta",
+  "id": "mochila",
+  "nombre": "mochila de cuero",
+  "ingredientes": [
+   "cuero",
+   "cuerda"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Cuero con tirantes de cuerda."
+ },
+ {
+  "type": "receta",
+  "id": "carcaj",
+  "nombre": "carcaj",
+  "ingredientes": [
+   "cuero",
+   "tendon"
+  ],
+  "propiedad": "contiene",
+  "categoria": "recipiente",
+  "descripcion": "Para llevar flechas."
+ },
+ {
+  "type": "receta",
+  "id": "balsa",
+  "nombre": "balsa",
+  "ingredientes": [
+   "madera"
+  ],
+  "propiedad": "flota",
+  "categoria": "transporte",
+  "descripcion": "Troncos atados que flotan: sirve para cruzar el agua.",
+  "tiempo_min": 240
+ },
+ {
+  "type": "receta",
+  "id": "bote_de_cuero",
+  "nombre": "bote de cuero",
+  "ingredientes": [
+   "madera",
+   "cuero"
+  ],
+  "propiedad": "flota",
+  "categoria": "transporte",
+  "descripcion": "Armazón de madera forrado en cuero.",
+  "tiempo_min": 420
+ },
+ {
+  "type": "receta",
+  "id": "balsa_de_palos",
+  "nombre": "balsa de palos",
+  "ingredientes": [
+   "palo",
+   "cuerda"
+  ],
+  "propiedad": "flota",
+  "categoria": "transporte",
+  "descripcion": "Ramas atadas: para cruzar un río tranquilo.",
+  "tiempo_min": 180
+ },
+ {
+  "type": "receta",
+  "id": "flotador_de_cuero",
+  "nombre": "flotador de cuero",
+  "ingredientes": [
+   "cuero"
+  ],
+  "propiedad": "flota",
+  "categoria": "transporte",
+  "descripcion": "Un odre inflado que sostiene a una persona."
+ },
+ {
+  "type": "receta",
+  "id": "choza_de_ramas",
+  "nombre": "choza de ramas",
+  "ingredientes": [
+   "palo",
+   "hoja_grande"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Un armazón de ramas con hojas grandes.",
+  "tiempo_min": 480,
+  "estructura": {
+   "abrigo": 0.3
+  }
+ },
+ {
+  "type": "receta",
+  "id": "refugio_de_paja",
+  "nombre": "refugio de paja",
+  "ingredientes": [
+   "palo",
+   "paja"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Palos y paja: una choza simple que se arma en un día.",
+  "tiempo_min": 360,
+  "estructura": {
+   "abrigo": 0.4
+  }
+ },
+ {
+  "type": "receta",
+  "id": "choza_de_barro",
+  "nombre": "choza de barro",
+  "ingredientes": [
+   "palo",
+   "arcilla"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Palos revocados con barro: cálida y firme.",
+  "tiempo_min": 900,
+  "estructura": {
+   "abrigo": 0.6
+  }
+ },
+ {
+  "type": "receta",
+  "id": "tienda_de_piel",
+  "nombre": "tienda de piel",
+  "ingredientes": [
+   "palo",
+   "piel"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Pieles sobre palos: se arma y desarma.",
+  "tiempo_min": 300,
+  "estructura": {
+   "abrigo": 0.5
+  }
+ },
+ {
+  "type": "receta",
+  "id": "tienda_de_cuero",
+  "nombre": "tienda de cuero",
+  "ingredientes": [
+   "palo",
+   "cuero"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Una tienda resistente al viento.",
+  "tiempo_min": 360,
+  "estructura": {
+   "abrigo": 0.55
+  }
+ },
+ {
+  "type": "receta",
+  "id": "cabana_de_troncos",
+  "nombre": "cabaña de troncos",
+  "ingredientes": [
+   "madera"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Troncos apilados.",
+  "tiempo_min": 1440,
+  "estructura": {
+   "abrigo": 0.7
+  }
+ },
+ {
+  "type": "receta",
+  "id": "muro_de_piedra",
+  "nombre": "muro de piedra",
+  "ingredientes": [
+   "piedra"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Piedras apiladas: defensa y reparo.",
+  "tiempo_min": 1200,
+  "estructura": {
+   "abrigo": 0.25
+  }
+ },
+ {
+  "type": "receta",
+  "id": "ladrillo_de_adobe",
+  "nombre": "ladrillo de adobe",
+  "ingredientes": [
+   "arcilla",
+   "paja"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Barro con paja secado al sol.",
+  "resultado": {
+   "item": "ladrillo",
+   "cantidad": 1
+  }
+ },
+ {
+  "type": "receta",
+  "id": "horno_de_barro",
+  "nombre": "horno de barro",
+  "ingredientes": [
+   "arcilla",
+   "piedra"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Una bóveda de barro y piedra que encierra el fuego: adentro se junta mucho más calor que al aire libre.",
+  "requiere_fuego": false,
+  "tiempo_min": 300,
+  "estructura": {
+   "abrigo": 0.0
+  }
+ },
+ {
+  "type": "receta",
+  "id": "fragua",
+  "nombre": "fragua",
+  "ingredientes": [
+   "piedra",
+   "arcilla_refractaria",
+   "#carbon_de_fragua"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Un hogar de piedra con tiro de aire y lecho de carbón: pone la piedra al rojo blanco.",
+  "requiere": {
+   "calor_C": 1000
+  },
+  "tiempo_min": 900,
+  "estructura": {
+   "abrigo": 0.0
+  }
+ },
+ {
+  "type": "receta",
+  "id": "cerca_de_palos",
+  "nombre": "cerca de palos",
+  "ingredientes": [
+   "palo"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Un corral: para encerrar animales.",
+  "tiempo_min": 300
+ },
+ {
+  "type": "receta",
+  "id": "techo_de_hojas",
+  "nombre": "techo de hojas",
+  "ingredientes": [
+   "hoja_grande",
+   "palo"
+  ],
+  "propiedad": "impermeabiliza",
+  "categoria": "refugio",
+  "descripcion": "Hojas superpuestas que dejan correr la lluvia."
+ },
+ {
+  "type": "receta",
+  "id": "impermeable_de_grasa",
+  "nombre": "cuero engrasado",
+  "ingredientes": [
+   "cuero",
+   "grasa"
+  ],
+  "propiedad": "impermeabiliza",
+  "categoria": "refugio",
+  "descripcion": "Cuero con grasa: el agua resbala."
+ },
+ {
+  "type": "receta",
+  "id": "capa_impermeable",
+  "nombre": "capa impermeable",
+  "ingredientes": [
+   "piel",
+   "grasa"
+  ],
+  "propiedad": "impermeabiliza",
+  "categoria": "ropa",
+  "descripcion": "Piel engrasada para la lluvia."
+ },
+ {
+  "type": "receta",
+  "id": "brea",
+  "nombre": "brea de resina",
+  "ingredientes": [
+   "resina",
+   "grasa"
+  ],
+  "propiedad": "impermeabiliza",
+  "categoria": "refugio",
+  "descripcion": "Para sellar techos y botes."
+ },
+ {
+  "type": "receta",
+  "id": "pegamento_de_resina",
+  "nombre": "pegamento de resina",
+  "ingredientes": [
+   "resina"
+  ],
+  "propiedad": "pega",
+  "categoria": "herramienta",
+  "descripcion": "Une cosas al secarse."
+ },
+ {
+  "type": "receta",
+  "id": "cola_de_tendon",
+  "nombre": "cola de tendón",
+  "ingredientes": [
+   "tendon",
+   "agua"
+  ],
+  "propiedad": "pega",
+  "categoria": "herramienta",
+  "descripcion": "Tendón hervido: un pegamento fuerte."
+ },
+ {
+  "type": "receta",
+  "id": "carne_asada",
+  "nombre": "carne asada",
+  "ingredientes": [
+   "carne",
+   "madera"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Carne cocida al fuego: dura más y rinde más.",
+  "resultado": {
+   "item": "carne_cocida",
+   "cantidad": 2
+  },
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "pescado_asado",
+  "nombre": "pescado asado",
+  "ingredientes": [
+   "pescado",
+   "madera"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Pescado cocido al fuego.",
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "huevos_cocidos",
+  "nombre": "huevos cocidos",
+  "ingredientes": [
+   "huevo",
+   "agua"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Huevos hervidos.",
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "raices_asadas",
+  "nombre": "raíces asadas",
+  "ingredientes": [
+   "raiz",
+   "madera"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Raíces cocidas en las brasas.",
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "guiso",
+  "nombre": "guiso",
+  "ingredientes": [
+   "carne",
+   "raiz",
+   "agua"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Carne y raíces hervidas.",
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "caldo_de_huesos",
+  "nombre": "caldo de huesos",
+  "ingredientes": [
+   "hueso",
+   "raiz",
+   "agua"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Caldo para días de frío.",
+  "requiere_fuego": true,
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "miel_guardada",
+  "nombre": "miel guardada",
+  "ingredientes": [
+   "miel"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "La miel no se pudre."
+ },
+ {
+  "type": "receta",
+  "id": "frutos_secos",
+  "nombre": "frutos secos",
+  "ingredientes": [
+   "frutos"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Frutos silvestres."
+ },
+ {
+  "type": "receta",
+  "id": "torta_de_raiz",
+  "nombre": "torta de raíz y miel",
+  "ingredientes": [
+   "raiz",
+   "miel"
+  ],
+  "propiedad": "alimenta",
+  "categoria": "comida",
+  "descripcion": "Raíz molida con miel."
+ },
+ {
+  "type": "receta",
+  "id": "carne_en_sal",
+  "nombre": "carne salada",
+  "ingredientes": [
+   "carne",
+   "sal"
+  ],
+  "propiedad": "conserva",
+  "categoria": "comida",
+  "descripcion": "La sal hace que la carne dure semanas."
+ },
+ {
+  "type": "receta",
+  "id": "pescado_salado",
+  "nombre": "pescado salado",
+  "ingredientes": [
+   "pescado",
+   "sal"
+  ],
+  "propiedad": "conserva",
+  "categoria": "comida",
+  "descripcion": "Pescado conservado con sal."
+ },
+ {
+  "type": "receta",
+  "id": "carne_en_ceniza",
+  "nombre": "carne curada en ceniza",
+  "ingredientes": [
+   "carne",
+   "ceniza"
+  ],
+  "propiedad": "conserva",
+  "categoria": "comida",
+  "descripcion": "Carne enterrada en ceniza: dura un tiempo."
+ },
+ {
+  "type": "receta",
+  "id": "frutos_en_miel",
+  "nombre": "frutos en miel",
+  "ingredientes": [
+   "frutos",
+   "miel"
+  ],
+  "propiedad": "conserva",
+  "categoria": "comida",
+  "descripcion": "La miel conserva la fruta."
+ },
+ {
+  "type": "receta",
+  "id": "grasa_derretida",
+  "nombre": "manteca de grasa",
+  "ingredientes": [
+   "grasa",
+   "sal"
+  ],
+  "propiedad": "conserva",
+  "categoria": "comida",
+  "descripcion": "Grasa salada que dura."
+ },
+ {
+  "type": "receta",
+  "id": "cataplasma",
+  "nombre": "cataplasma",
+  "ingredientes": [
+   "hierba_medicinal",
+   "hoja_grande"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "Hierbas aplastadas sobre una herida."
+ },
+ {
+  "type": "receta",
+  "id": "infusion",
+  "nombre": "infusión de hierbas",
+  "ingredientes": [
+   "hierba_medicinal",
+   "agua"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "Una infusión que baja la fiebre."
+ },
+ {
+  "type": "receta",
+  "id": "vendaje_de_tela",
+  "nombre": "vendaje",
+  "ingredientes": [
+   "tela",
+   "hierba_medicinal"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "Tela con hierbas para cubrir heridas."
+ },
+ {
+  "type": "receta",
+  "id": "unguento",
+  "nombre": "ungüento",
+  "ingredientes": [
+   "hierba_medicinal",
+   "grasa"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "Hierbas en grasa."
+ },
+ {
+  "type": "receta",
+  "id": "miel_en_la_herida",
+  "nombre": "miel en la herida",
+  "ingredientes": [
+   "miel"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "La miel evita que se infecte."
+ },
+ {
+  "type": "receta",
+  "id": "venda_de_fibra",
+  "nombre": "venda de fibra",
+  "ingredientes": [
+   "fibra",
+   "hierba_medicinal"
+  ],
+  "propiedad": "cura",
+  "categoria": "salud",
+  "descripcion": "Fibra con hierbas."
+ },
+ {
+  "type": "receta",
+  "id": "cable_de_cobre",
+  "nombre": "cable de cobre",
+  "ingredientes": [
+   "cobre"
+  ],
+  "propiedad": "conduce",
+  "categoria": "metal",
+  "descripcion": "Un hilo de cobre que conduce la electricidad."
+ },
+ {
+  "type": "receta",
+  "id": "carbon_vegetal",
+  "nombre": "carbón vegetal",
+  "ingredientes": [
+   "palo",
+   "ceniza"
+  ],
+  "propiedad": "arde",
+  "categoria": "fuego",
+  "descripcion": "Ramas quemadas sin aire: carbón que arde parejo.",
+  "requiere_fuego": true,
+  "tiempo_min": 120,
+  "resultado": {
+   "item": "carbon",
+   "cantidad": 2
+  },
+  "requiere": {
+   "calor_C": 400
+  }
+ },
+ {
+  "type": "receta",
+  "id": "ceramica_cocida",
+  "nombre": "cerámica cocida",
+  "ingredientes": [
+   "arcilla",
+   "carbon"
+  ],
+  "propiedad": "construye",
+  "categoria": "recipiente",
+  "descripcion": "Arcilla cocida al fuego: se vuelve dura e impermeable.",
+  "requiere_fuego": true,
+  "tiempo_min": 240,
+  "resultado": {
+   "item": "ceramica",
+   "cantidad": 1
+  },
+  "requiere": {
+   "calor_C": 900
+  }
+ },
+ {
+  "type": "receta",
+  "id": "pozo_a_las_cavernas",
+  "nombre": "pozo a las cavernas",
+  "ingredientes": [
+   "piedra",
+   "madera"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Un pozo apuntalado que baja hasta donde la roca se abre.",
+  "tiempo_min": 1800,
+  "requiere": {
+   "calor_C": 0
+  },
+  "estructura": {
+   "abrigo": 0.0
+  }
+ },
+ {
+  "type": "receta",
+  "id": "boca_a_la_superficie",
+  "nombre": "boca a la superficie",
+  "ingredientes": [
+   "piedra",
+   "madera"
+  ],
+  "propiedad": "construye",
+  "categoria": "refugio",
+  "descripcion": "Un tiro de salida apuntalado que sube hasta la luz.",
+  "tiempo_min": 1800,
+  "requiere": {
+   "calor_C": 0
+  },
+  "estructura": {
+   "abrigo": 0.0
+  }
+ }
+]

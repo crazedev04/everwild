@@ -1,0 +1,44 @@
+[
+ {
+  "type": "temperamento",
+  "id": "audacia",
+  "bajo": "se asusta con facilidad",
+  "alto": "es audaz y se arriesga"
+ },
+ {
+  "type": "temperamento",
+  "id": "cautela",
+  "bajo": "actua sin pensarlo mucho",
+  "alto": "es prudente y mira antes de actuar"
+ },
+ {
+  "type": "temperamento",
+  "id": "sociabilidad",
+  "bajo": "prefiere estar solo",
+  "alto": "busca la compañia de otros"
+ },
+ {
+  "type": "temperamento",
+  "id": "curiosidad",
+  "bajo": "se conforma con lo conocido",
+  "alto": "es muy curioso"
+ },
+ {
+  "type": "temperamento",
+  "id": "agresividad",
+  "bajo": "evita los conflictos",
+  "alto": "se enoja rapido y se enfrenta"
+ },
+ {
+  "type": "temperamento",
+  "id": "empatia",
+  "bajo": "le cuesta ponerse en el lugar del otro",
+  "alto": "se preocupa por los demas"
+ },
+ {
+  "type": "temperamento",
+  "id": "resiliencia",
+  "bajo": "se desanima rapido",
+  "alto": "aguanta y no se rinde"
+ }
+]

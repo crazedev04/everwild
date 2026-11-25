@@ -1,0 +1,10 @@
+[
+ {"type": "estructura", "id": "boca_de_caverna", "nombre": "boca de caverna",
+  "provee": {"lleva_a": "cavernas"}, "radio_m": 15.0,
+  "natural": {"biomas": ["montana", "nieve"], "cada_km2": 0.25, "minimo": 2, "maximo": 24,
+              "separacion_m": 1200.0}},
+ {"type": "estructura", "id": "pozo_a_las_cavernas", "nombre": "pozo a las cavernas",
+  "provee": {"lleva_a": "cavernas"}, "radio_m": 10.0},
+ {"type": "estructura", "id": "boca_a_la_superficie", "nombre": "boca a la superficie",
+  "provee": {"lleva_a": "mundo"}, "radio_m": 10.0}
+]

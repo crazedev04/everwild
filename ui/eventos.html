@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mundo Vivo — Crónica de Sucesos</title>
+<link rel="stylesheet" href="/ui/estilo.css">
+<style>
+  body { overflow-y: scroll; overflow-anchor: none; background: #03070d; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 20px 80px; }
+  .cab { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; border-bottom: 1px solid #0d1a28; padding-bottom: 10px; }
+  .cab h2 { font: 700 24px/1.1 var(--font-display); margin: 0; color: var(--gold); letter-spacing: 0.5px; text-transform: uppercase; }
+  #resumen { color: var(--text-dim); font-size: 11.5px; font-family: var(--font-mono); }
+
+  .filtros {
+    position: sticky; top: 0; z-index: 20; background: #03070d;
+    padding: 12px 0 10px; margin-bottom: 10px; border-bottom: 1px solid #0d1a28;
+    display: grid; gap: 8px;
+  }
+  .fila { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .fila input[type=search] { flex: 1; min-width: 240px; border-radius: 0; }
+
+  .tipos { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tipos button {
+    border-radius: 0; padding: 4px 10px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    background: #07101a; color: var(--text-dim); border: 1px solid #0d1a28;
+  }
+  .tipos button:hover { border-color: var(--border-strong); color: var(--text-muted); }
+  .tipos button .c { color: var(--text-dim); margin-left: 4px; font-family: var(--font-mono); font-size: 10px; }
+  .tipos button[aria-pressed=true] {
+    background: var(--gold); color: #0a0700; border-color: var(--gold); font-weight: 700;
+  }
+
+  .dia { margin-top: 24px; }
+  .dia-cab {
+    display: flex; align-items: baseline; gap: 12px; position: sticky; top: 96px;
+    background: #050d16; padding: 6px 12px;
+    z-index: 10; border-radius: 0; border: 1px solid #0d1a28; border-left: 3px solid var(--gold);
+  }
+  .dia-cab h3 { font: 700 16px var(--font-display); margin: 0; color: var(--gold); letter-spacing: 0.3px; }
+  .dia-cab span { color: var(--text-dim); font-size: 11.5px; font-family: var(--font-mono); }
+
+  .linea { position: relative; margin: 6px 0 0 10px; padding-left: 18px; border-left: 1px solid #0d1a28; }
+  .ev {
+    position: relative; display: grid; grid-template-columns: 50px 1fr auto; gap: 4px 12px;
+    padding: 6px 10px; margin: 2px 0; border-radius: 0; background: #07101a;
+    border-left: 2px solid transparent; transition: background .1s, border-color .1s;
+  }
+  .ev:hover { background: #0a1520; border-left-color: var(--border-strong); }
+  .ev::before {
+    content: ""; position: absolute; left: -22px; top: 12px; width: 7px; height: 7px;
+    border-radius: 0; background: #03070d; border: 1px solid var(--border-strong);
+  }
+  .ev.imp-3::before { border-color: var(--emerald); background: var(--emerald); }
+  .ev.imp-4::before { border-color: var(--gold); background: var(--gold); }
+  .ev.imp-5::before { border-color: var(--crimson); background: var(--crimson); }
+
+  .ev .h { color: var(--text-dim); font-family: var(--font-mono); font-size: 11px; padding-top: 1px; }
+  .ev .txt { min-width: 0; overflow-wrap: anywhere; font-weight: 500; color: var(--text-main); font-size: 12.5px; }
+  .ev.imp-1 .txt { color: var(--text-muted); }
+  .ev .det { grid-column: 2 / 4; color: var(--text-dim); font-size: 11px; }
+  .etq {
+    align-self: start; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 0;
+    background: #03070d; border: 1px solid var(--border-subtle); color: var(--text-dim); white-space: nowrap;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .ev.imp-5 .etq { border-color: var(--crimson); color: var(--crimson); }
+  .ev.imp-4 .etq { border-color: var(--gold); color: var(--gold); }
+  .ev.imp-3 .etq { border-color: var(--emerald); color: var(--emerald); }
+
+  summary { list-style: none; cursor: pointer; display: flex; }
+  summary::-webkit-details-marker { display: none; }
+  .grupo-ev { color: var(--text-muted); }
+  .grupo-ev summary { padding: 6px 10px; font-weight: 600; font-size: 11.5px; justify-content: flex-start; gap: 8px; background: #04090e; }
+  .grupo-ev summary::after { content: none; }
+  .grupo-ev summary::before { content: "▸"; color: var(--gold); font-size: 10px; }
+  .grupo-ev[open] summary::before { content: "▾"; }
+  details.grupo-ev { border-top: 0; margin: 2px 0; border: 1px solid #0d1a28; }
+  .vacio { text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 13px; }
+  #mas { display: block; margin: 24px auto 0; border-radius: 0; }
+  @media (max-width: 640px) {
+    .ev { grid-template-columns: 44px 1fr; }
+    .etq { grid-column: 2; justify-self: start; }
+    .dia-cab { top: 140px; }
+  }
+</style>
+</head>
+<body>
+<header class="barra">
+  <h1 class="marca">🌍 Mundo Vivo</h1>
+  <nav><a href="/" id="link-mapa">Mapa</a><a class="activa" href="/eventos">Eventos</a></nav>
+  <select id="sel-mundo" title="Mundo"></select>
+  <span class="espaciador"></span>
+  <label class="suave" style="font-size:12.5px;cursor:pointer"><input type="checkbox" id="chk-auto" checked> Sincronizar en vivo</label>
+</header>
+<main>
+  <div class="cab"><h2>Crónica del Mundo</h2><span id="resumen"></span></div>
+  <div class="filtros">
+    <div class="fila">
+      <input type="search" id="in-buscar" placeholder="Filtrar sucesos por protagonista, causa o palabra clave…">
+      <select id="sel-imp">
+        <option value="1">Todos los registros</option>
+        <option value="2">Relevancia moderada (2+)</option>
+        <option value="3" selected>Sucesos notables (3+)</option>
+        <option value="4">Peligros y catástrofes (4-5)</option>
+      </select>
+    </div>
+    <div class="tipos" id="tipos"></div>
+  </div>
+  <div id="lista"></div>
+  <button id="mas" class="primario">Cargar registros históricos anteriores</button>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  let nombre = null, eventos = [], hayMas = true, tipo = "", ultimo = "";
+  const ROTULOS = { encuentro: "Encuentro", familia: "Familia", ensenanza: "Enseñanza", descubrimiento: "Descubrimiento", mundo_creado: "Forja del Mundo",
+    herida: "Herida", muerte: "Muerte", nacimiento: "Nacimiento", comercio: "Comercio", ataque: "Ataque", conversacion: "Conversación",
+    conflicto: "Conflicto", caza: "Caza", sospecha_simulacion: "⚠ Anolamía Meta-cognitiva", epidemia: "Plaga", milagro: "Bendición", inmigrante: "Inmigrante" };
+  const rotulo = (t) => ROTULOS[t] || (t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, " "));
+  const dos = (n) => (n < 10 ? "0" : "") + n;
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const diaDe = (t) => Math.floor(t / 1440) + 1;
+  const horaDe = (t) => { const m = Math.floor(t % 1440); return dos(Math.floor(m / 60)) + ":" + dos(m % 60); };
+  const ESTACIONES = ["Primavera", "Verano", "Otoño", "Invierno"];
+  const estacionDe = (dia) => ESTACIONES[Math.floor(((dia - 1) % 120) / 30)];
+  async function json(url) { const r = await fetch(url); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+
+  async function cargarMundos() {
+    const lista = await json("/api/mundos"), sel = $("sel-mundo");
+    sel.innerHTML = lista.map((m) => "<option value='" + esc(m.nombre) + "'>" + esc(m.nombre) + "</option>").join("");
+    let pedido = new URLSearchParams(location.search).get("mundo"); try { pedido = pedido || localStorage.getItem("mv_mundo"); } catch (e) {}
+    if (lista.length) { sel.value = lista.some((m) => m.nombre === pedido) ? pedido : lista[0].nombre; nombre = sel.value; }
+  }
+
+  let tipos = [];
+  async function recargar() {
+    if (!nombre) { $("lista").innerHTML = "<div class='vacio'>No hay mundos disponibles. Forjá uno desde la pantalla del mapa.</div>"; $("mas").style.display = "none"; return; }
+    const r = await json("/api/mundos/" + nombre + "/eventos?limite=300" + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    tipos = r.tipos;
+    if (!eventos.length) {
+      eventos = r.eventos;
+      hayMas = r.eventos.length === 300;
+      ultimo = r.eventos.length + ":" + (r.eventos[0] ? r.eventos[0].id : 0) + ":" + tipo;
+      pintar();
+      return;
+    }
+    const primerIdActual = eventos[0] ? eventos[0].id : 0;
+    const primerIdNuevo = r.eventos[0] ? r.eventos[0].id : 0;
+    if (primerIdActual === primerIdNuevo) return; // Nada nuevo arriba
+    const idsActuales = new Set(eventos.map((e) => e.id));
+    const nuevosArriba = r.eventos.filter((e) => !idsActuales.has(e.id));
+    if (nuevosArriba.length) {
+      eventos = nuevosArriba.concat(eventos);
+      ultimo = eventos.length + ":" + primerIdNuevo + ":" + tipo;
+      pintar();
+    }
+  }
+
+  function pintarTipos() {
+    const cont = $("tipos");
+    cont.innerHTML = "<button data-t='' aria-pressed='" + (tipo === "") + "'>Todos</button>" +
+      tipos.map((t) => "<button data-t='" + esc(t) + "' aria-pressed='" + (tipo === t) + "'>" + esc(rotulo(t)) + "</button>").join("");
+  }
+  $("tipos").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (!b) return; tipo = b.dataset.t; ultimo = ""; recargar(); });
+
+  function fila(e) {
+    const det = [];
+    if (e.causa) det.push("Causa: " + esc(e.causa));
+    if (e.resultado) det.push("Resultado: " + esc(e.resultado));
+    if (e.origen === "usuario") det.push("⚡ Obra directa del observador");
+    return "<div class='ev imp-" + e.importancia + "'><span class='h'>" + horaDe(e.t_min) + "</span><span class='txt'>" + esc(e.texto || rotulo(e.tipo)) + "</span>" +
+      "<span class='etq'>" + esc(rotulo(e.tipo)) + "</span>" + (det.length ? "<span class='det'>" + det.join(" · ") + "</span>" : "") + "</div>";
+  }
+
+  function pintar() {
+    pintarTipos();
+    const q = $("in-buscar").value.trim().toLowerCase(), imp = parseInt($("sel-imp").value, 10);
+    const vis = eventos.filter((e) => e.importancia >= imp && (!q || (e.texto || "").toLowerCase().includes(q) || (e.causa || "").toLowerCase().includes(q)));
+    $("mas").style.display = hayMas ? "" : "none";
+    const sc = window.scrollY;
+    if (!eventos.length) { $("resumen").textContent = ""; $("lista").innerHTML = "<div class='vacio'>Sin registros en la crónica aún. Cuando el tiempo fluya, la historia aparecerá aquí.</div>"; return; }
+    if (!vis.length) { $("resumen").textContent = ""; $("lista").innerHTML = "<div class='vacio'>No hay sucesos con los filtros actuales. Ajustá la relevancia a 'Todos'.</div>"; return; }
+    // Save open state of grouped details before re-render
+    const abiertos = new Set();
+    $("lista").querySelectorAll("details.grupo-ev[data-key]").forEach((d) => { if (d.open) abiertos.add(d.dataset.key); });
+    const dias = [];
+    for (const e of vis) { const d = diaDe(e.t_min); let g = dias[dias.length - 1]; if (!g || g.d !== d) dias.push(g = { d, ev: [] }); g.ev.push(e); }
+    $("resumen").textContent = vis.length + " sucesos · " + dias.length + " día" + (dias.length === 1 ? "" : "s") + " de historia";
+    $("lista").innerHTML = dias.map((g) => {
+      const partes = []; let i = 0;
+      while (i < g.ev.length) {
+        const e = g.ev[i]; let j = i;
+        while (j + 1 < g.ev.length && g.ev[j + 1].tipo === e.tipo && g.ev[j + 1].importancia <= 2 && e.importancia <= 2) j++;
+        if (j - i >= 3) {
+          const key = g.ev[i].id + "_" + g.ev[j].id;
+          partes.push("<details class='grupo-ev' data-key='" + key + "'><summary>" + (j - i + 1) + " registros de «" + esc(rotulo(e.tipo)) + "» (" + horaDe(g.ev[j].t_min) + " - " + horaDe(e.t_min) + ")</summary>" + g.ev.slice(i, j + 1).map(fila).join("") + "</details>");
+        } else for (let k = i; k <= j; k++) partes.push(fila(g.ev[k]));
+        i = j + 1;
+      }
+      return "<section class='dia'><div class='dia-cab'><h3>Día " + g.d + "</h3><span>" + estacionDe(g.d) + " · Año " + (Math.floor((g.d - 1) / 120) + 1) + " · " + g.ev.length + " registro" + (g.ev.length === 1 ? "" : "s") + "</span></div><div class='linea'>" + partes.join("") + "</div></section>";
+    }).join("");
+    // Restore open state
+    if (abiertos.size) $("lista").querySelectorAll("details.grupo-ev[data-key]").forEach((d) => { if (abiertos.has(d.dataset.key)) d.open = true; });
+    window.scrollTo(0, sc);
+  }
+
+  $("mas").addEventListener("click", async () => {
+    if (!eventos.length) return;
+    const antes = eventos[eventos.length - 1].id;
+    const r = await json("/api/mundos/" + nombre + "/eventos?limite=300&antes_id=" + antes + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    eventos = eventos.concat(r.eventos); hayMas = r.eventos.length === 300; pintar();
+  });
+  $("sel-mundo").addEventListener("change", (e) => { nombre = e.target.value; $("link-mapa").href = "/?mundo=" + nombre; ultimo = ""; recargar(); });
+  $("in-buscar").addEventListener("input", pintar);
+  $("sel-imp").addEventListener("change", pintar);
+  setInterval(() => { if ($("chk-auto").checked && nombre && !document.hidden) recargar().catch(() => {}); }, 3000);
+  cargarMundos().then(() => { if (nombre) $("link-mapa").href = "/?mundo=" + nombre; return recargar(); })
+    .catch((e) => { $("lista").innerHTML = "<div class='vacio'>Error al cargar crónica: " + esc(e.message) + "</div>"; });
+})();
+</script>
+</body>
+</html>

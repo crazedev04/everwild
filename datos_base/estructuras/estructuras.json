@@ -1,0 +1,12 @@
+[
+ {"type": "estructura", "id": "fogata", "nombre": "fogata",
+  "provee": {"calor_C": 600, "nucleo_m": 6.0, "caida": "cuadratica"}, "radio_m": 20.0,
+  "provisto_por": "motor"},
+ {"type": "estructura", "id": "incendio", "nombre": "incendio",
+  "provee": {"calor_C": 800, "nucleo_m": 4.0, "caida": "cuadratica"}, "radio_m": 8.0,
+  "provisto_por": "motor"},
+ {"type": "estructura", "id": "horno_de_barro", "nombre": "horno de barro",
+  "provee": {"calor_C": 1000, "nucleo_m": 3.0, "caida": "escalon"}, "radio_m": 6.0},
+ {"type": "estructura", "id": "fragua", "nombre": "fragua",
+  "provee": {"calor_C": 1500, "nucleo_m": 3.0, "caida": "escalon"}, "radio_m": 6.0}
+]

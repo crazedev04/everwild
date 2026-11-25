@@ -1,0 +1,17 @@
+[
+ {
+  "type": "objetivos",
+  "id": "respaldo",
+  "recetas": [
+   "taladro_de_fuego",
+   "cuchillo_de_pedernal",
+   "cuerda",
+   "refugio_de_paja",
+   "hacha_de_piedra",
+   "cesta_de_fibra",
+   "lanza_de_pedernal",
+   "cataplasma",
+   "choza_de_barro"
+  ]
+ }
+]

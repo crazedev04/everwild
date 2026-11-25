@@ -1,0 +1,42 @@
+[
+ {
+  "type": "nombres",
+  "id": "fundadores",
+  "F": [
+   "Dalia",
+   "Elena",
+   "Fiona",
+   "Gala",
+   "Irene",
+   "Julia",
+   "Kira",
+   "Lucía",
+   "Mara",
+   "Nora",
+   "Olga",
+   "Paula",
+   "Rita",
+   "Sara",
+   "Tania",
+   "Vera"
+  ],
+  "M": [
+   "Aldo",
+   "Bruno",
+   "Cosme",
+   "Dario",
+   "Emil",
+   "Fausto",
+   "Gael",
+   "Hugo",
+   "Ivo",
+   "Joaquín",
+   "Leo",
+   "Mateo",
+   "Nico",
+   "Omar",
+   "Pablo",
+   "Rafa"
+  ]
+ }
+]

@@ -1,0 +1,13 @@
+[
+ {"type": "fenomeno", "id": "meteorito", "nombre": "una roca caída del cielo",
+  "disparador": {"prob_por_dia": 0.004, "desde_dia": 30},
+  "lugar": {"intentos": 40, "en_tierra": true},
+  "efectos": [
+    {"tipo": "marca", "clave": "crater", "radio_m": 120},
+    {"tipo": "sembrar", "material": "hierro_del_cielo", "radio_m": 250, "cantidad": 6},
+    {"tipo": "encender_fuego", "radio_m": 60, "prob": 0.8},
+    {"tipo": "dano_area", "radio_m": 90, "dano": 60, "causa": "algo que cayó del cielo"},
+    {"tipo": "evento", "texto": "Algo cayó del cielo y abrió un pozo humeante en la tierra.", "importancia": 5},
+    {"tipo": "recuerdo", "radio_m": 4000, "texto": "Viste caer algo del cielo. Dejó un pozo humeante y una piedra que no conocías.", "importancia": 0.95}
+  ]}
+]

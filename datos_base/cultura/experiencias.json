@@ -1,0 +1,120 @@
+[
+ {
+  "type": "experiencia",
+  "id": "muerte_cercana",
+  "motivo": "la muerte de alguien cerca",
+  "mueve": {
+   "empatia": 0.02,
+   "cautela": 0.02
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "quemarse",
+  "motivo": "quemarse",
+  "mueve": {
+   "cautela": 0.03
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "lugar_nuevo",
+  "motivo": "conocer lugares nuevos",
+  "mueve": {
+   "curiosidad": 0.002
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "soledad",
+  "motivo": "la soledad",
+  "mueve": {
+   "sociabilidad": 4e-05
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "buena_charla",
+  "motivo": "las buenas charlas",
+  "mueve": {
+   "sociabilidad": 0.004
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "mala_charla",
+  "motivo": "las malas charlas",
+  "mueve": {
+   "agresividad": 0.005,
+   "sociabilidad": -0.005
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "ensenar",
+  "motivo": "enseñar",
+  "mueve": {
+   "empatia": 0.01
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "inventar",
+  "motivo": "inventar",
+  "mueve": {
+   "curiosidad": 0.03
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "fabricar",
+  "motivo": "fabricar cosas",
+  "mueve": {
+   "curiosidad": 0.01
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "hacer_fuego",
+  "motivo": "hacer fuego",
+  "mueve": {
+   "curiosidad": 0.01
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "ataque_de_animal",
+  "motivo": "los ataques de animales",
+  "mueve": {
+   "cautela": 0.03,
+   "audacia": -0.02
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "cazar_con_exito",
+  "motivo": "cazar con éxito",
+  "mueve": {
+   "audacia": 0.02,
+   "resiliencia": 0.01
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "cazar_y_salir_herido",
+  "motivo": "cazar y salir herido",
+  "mueve": {
+   "audacia": -0.015,
+   "cautela": 0.015
+  }
+ },
+ {
+  "type": "experiencia",
+  "id": "mentir",
+  "motivo": "mentirle a alguien",
+  "mueve": {
+   "empatia": -0.012,
+   "agresividad": 0.006
+  }
+ }
+]

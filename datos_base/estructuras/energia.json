@@ -1,0 +1,24 @@
+[
+ {
+  "type": "estructura",
+  "id": "pila",
+  "nombre": "pila",
+  "provee": {
+   "energia_W": 6,
+   "nucleo_m": 2.0,
+   "caida": "escalon"
+  },
+  "radio_m": 2.0
+ },
+ {
+  "type": "estructura",
+  "id": "dinamo",
+  "nombre": "dinamo",
+  "provee": {
+   "energia_W": 80,
+   "nucleo_m": 3.0,
+   "caida": "escalon"
+  },
+  "radio_m": 6.0
+ }
+]

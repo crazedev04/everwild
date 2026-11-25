@@ -1,0 +1,675 @@
+[
+ {
+  "type": "material",
+  "id": "piedra_rojiza",
+  "nombre": "piedra rojiza",
+  "densidad_kg_m3": 5150,
+  "dureza_mohs": 6,
+  "conductividad_W_mK": 11,
+  "punto_fusion_C": 1200,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "hierro",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "caverna",
+    "roca_viva",
+    "volcan"
+   ],
+   "prob": 0.35,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 6,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_parda",
+  "nombre": "piedra parda",
+  "densidad_kg_m3": 3800,
+  "dureza_mohs": 5,
+  "conductividad_W_mK": 8,
+  "punto_fusion_C": 1200,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "hierro",
+  "recoleccion": {
+   "biomas": [
+    "pantano",
+    "pradera",
+    "caverna"
+   ],
+   "prob": 0.3,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 4,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_pesada_oscura",
+  "nombre": "piedra pesada y oscura",
+  "densidad_kg_m3": 5200,
+  "dureza_mohs": 6,
+  "conductividad_W_mK": 5,
+  "punto_fusion_C": 1250,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "magnetico": true,
+  "mena": "hierro",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 4,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_verdosa",
+  "nombre": "piedra verdosa",
+  "densidad_kg_m3": 4000,
+  "dureza_mohs": 4,
+  "conductividad_W_mK": 3,
+  "punto_fusion_C": 1000,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "cobre",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.25,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 4,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_azulada",
+  "nombre": "piedra azulada",
+  "densidad_kg_m3": 3800,
+  "dureza_mohs": 4,
+  "conductividad_W_mK": 3,
+  "punto_fusion_C": 1000,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "cobre",
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva",
+    "montana"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 3,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_gris_pesada",
+  "nombre": "piedra gris y pesada",
+  "densidad_kg_m3": 6900,
+  "dureza_mohs": 6.5,
+  "conductividad_W_mK": 4,
+  "punto_fusion_C": 700,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "estano",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "playa",
+    "caverna"
+   ],
+   "prob": 0.18,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 3,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_gris_blanda",
+  "nombre": "piedra gris y blanda",
+  "densidad_kg_m3": 7400,
+  "dureza_mohs": 2.5,
+  "conductividad_W_mK": 2.3,
+  "punto_fusion_C": 330,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "plomo",
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_resinosa",
+  "nombre": "piedra resinosa",
+  "densidad_kg_m3": 4050,
+  "dureza_mohs": 3.8,
+  "conductividad_W_mK": 25,
+  "punto_fusion_C": 420,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "zinc",
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.18,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_plateada",
+  "nombre": "piedra plateada",
+  "densidad_kg_m3": 7200,
+  "dureza_mohs": 2.5,
+  "conductividad_W_mK": 1.6,
+  "punto_fusion_C": 960,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "plata",
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.1,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 2
+  }
+ },
+ {
+  "type": "material",
+  "id": "pepita_amarilla",
+  "nombre": "pepita amarilla",
+  "densidad_kg_m3": 19300,
+  "dureza_mohs": 2.5,
+  "conductividad_W_mK": 317,
+  "punto_fusion_C": 1060,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true,
+  "mena": "oro",
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva",
+    "playa"
+   ],
+   "prob": 0.05,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 1
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_opaca_rosada",
+  "nombre": "piedra opaca y rosada",
+  "densidad_kg_m3": 2500,
+  "dureza_mohs": 3,
+  "conductividad_W_mK": 2,
+  "punto_fusion_C": 2050,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "mena": "aluminio",
+  "recoleccion": {
+   "biomas": [
+    "desierto",
+    "sabana"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 4
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_negra",
+  "nombre": "piedra negra",
+  "densidad_kg_m3": 1350,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 0.3,
+  "punto_ignicion_C": 450,
+  "inflamable": true,
+  "lento": true,
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva",
+    "montana"
+   ],
+   "prob": 0.35,
+   "cantidad": [
+    1,
+    3
+   ],
+   "capacidad_zona": 8
+  },
+  "lena": {
+   "minutos_por_unidad": 420.0
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_grasa",
+  "nombre": "piedra grasa",
+  "densidad_kg_m3": 2200,
+  "dureza_mohs": 1.5,
+  "conductividad_W_mK": 25,
+  "punto_fusion_C": 3600,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.15,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_blanca_blanda",
+  "nombre": "piedra blanca y blanda",
+  "densidad_kg_m3": 2700,
+  "dureza_mohs": 3,
+  "conductividad_W_mK": 2.2,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "estructural": true,
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "playa",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.4,
+   "cantidad": [
+    1,
+    3
+   ],
+   "capacidad_zona": 8
+  }
+ },
+ {
+  "type": "material",
+  "id": "barro_blanco",
+  "nombre": "barro blanco",
+  "densidad_kg_m3": 2600,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 0.9,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "moldeable": true,
+  "aglomerante": true,
+  "recoleccion": {
+   "biomas": [
+    "caverna",
+    "roca_viva",
+    "pantano"
+   ],
+   "prob": 0.3,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 6
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_cristalina",
+  "nombre": "piedra cristalina",
+  "densidad_kg_m3": 2650,
+  "dureza_mohs": 7,
+  "conductividad_W_mK": 3,
+  "punto_fusion_C": 1700,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "chispa": true,
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 4,
+   "requiere": {
+    "propiedad": "golpea"
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra_amarilla_quebradiza",
+  "nombre": "piedra amarilla y quebradiza",
+  "densidad_kg_m3": 2070,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 0.2,
+  "punto_fusion_C": 115,
+  "punto_ignicion_C": 250,
+  "inflamable": true,
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "volcan",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.2,
+   "cantidad": [
+    1,
+    1
+   ],
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "type": "material",
+  "id": "costra_blanca",
+  "nombre": "costra blanca",
+  "densidad_kg_m3": 2100,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 0.5,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "conservante": true,
+  "recoleccion": {
+   "biomas": [
+    "desierto",
+    "caverna",
+    "roca_viva"
+   ],
+   "prob": 0.25,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 4
+  }
+ },
+ {
+  "type": "material",
+  "id": "arena",
+  "nombre": "arena",
+  "densidad_kg_m3": 1600,
+  "dureza_mohs": 7,
+  "conductividad_W_mK": 0.3,
+  "punto_fusion_C": 1700,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "playa",
+    "desierto"
+   ],
+   "prob": 0.6,
+   "cantidad": [
+    2,
+    4
+   ],
+   "capacidad_zona": 12
+  }
+ },
+ {
+  "type": "material",
+  "id": "estano",
+  "nombre": "estaño",
+  "densidad_kg_m3": 7300,
+  "calor_especifico_J_kgK": 228,
+  "conductividad_W_mK": 67,
+  "dureza_mohs": 1.5,
+  "punto_ablandamiento_C": 180,
+  "punto_fusion_C": 232,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "plomo",
+  "nombre": "plomo",
+  "densidad_kg_m3": 11300,
+  "calor_especifico_J_kgK": 128,
+  "conductividad_W_mK": 35,
+  "dureza_mohs": 1.5,
+  "punto_ablandamiento_C": 250,
+  "punto_fusion_C": 327,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "zinc",
+  "nombre": "zinc",
+  "densidad_kg_m3": 7140,
+  "calor_especifico_J_kgK": 388,
+  "conductividad_W_mK": 116,
+  "dureza_mohs": 2.5,
+  "punto_ablandamiento_C": 330,
+  "punto_fusion_C": 420,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "plata",
+  "nombre": "plata",
+  "densidad_kg_m3": 10500,
+  "calor_especifico_J_kgK": 235,
+  "conductividad_W_mK": 429,
+  "dureza_mohs": 2.5,
+  "punto_ablandamiento_C": 700,
+  "punto_fusion_C": 962,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "oro",
+  "nombre": "oro",
+  "densidad_kg_m3": 19300,
+  "calor_especifico_J_kgK": 129,
+  "conductividad_W_mK": 317,
+  "dureza_mohs": 2.5,
+  "punto_ablandamiento_C": 800,
+  "punto_fusion_C": 1064,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "laton",
+  "copy-from": "cobre",
+  "nombre": "latón",
+  "dureza_mohs": 3.5,
+  "punto_ablandamiento_C": 650,
+  "punto_fusion_C": 930,
+  "conductividad_W_mK": 109
+ },
+ {
+  "type": "material",
+  "id": "aluminio",
+  "nombre": "aluminio",
+  "densidad_kg_m3": 2700,
+  "calor_especifico_J_kgK": 900,
+  "conductividad_W_mK": 237,
+  "dureza_mohs": 2.75,
+  "punto_ablandamiento_C": 400,
+  "punto_fusion_C": 660,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true,
+  "resistente": true
+ },
+ {
+  "type": "material",
+  "id": "cal",
+  "nombre": "cal",
+  "densidad_kg_m3": 3340,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 0.5,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "aglomerante": true
+ },
+ {
+  "type": "material",
+  "id": "arcilla_refractaria",
+  "copy-from": "arcilla",
+  "nombre": "arcilla refractaria",
+  "densidad_kg_m3": 2300,
+  "punto_fusion_C": 1750,
+  "conductividad_W_mK": 0.9,
+  "envase": false
+ },
+ {
+  "type": "material",
+  "id": "mortero",
+  "nombre": "mortero",
+  "densidad_kg_m3": 2000,
+  "dureza_mohs": 2.5,
+  "conductividad_W_mK": 0.9,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "aglomerante": true,
+  "estructural": true
+ },
+ {
+  "type": "material",
+  "id": "clavo",
+  "nombre": "clavo",
+  "densidad_kg_m3": 7870,
+  "dureza_mohs": 4,
+  "conductividad_W_mK": 80,
+  "punto_fusion_C": 1538,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true,
+  "resistente": true
+ },
+ {
+  "type": "material",
+  "id": "cemento",
+  "nombre": "cemento",
+  "densidad_kg_m3": 2400,
+  "dureza_mohs": 3,
+  "conductividad_W_mK": 1.4,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "aglomerante": true,
+  "estructural": true,
+  "resistente": true,
+  "impermeable": true
+ },
+ {
+  "type": "material",
+  "id": "vidrio",
+  "nombre": "vidrio",
+  "densidad_kg_m3": 2500,
+  "dureza_mohs": 5.5,
+  "conductividad_W_mK": 0.96,
+  "punto_fusion_C": 1450,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "impermeable": true
+ },
+ {
+  "type": "material",
+  "id": "cable",
+  "nombre": "cable forrado",
+  "densidad_kg_m3": 5000,
+  "dureza_mohs": 2,
+  "conductividad_W_mK": 200,
+  "punto_fusion_C": 1085,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "ductil": true,
+  "resistente": true
+ }
+]

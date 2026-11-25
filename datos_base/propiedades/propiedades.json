@@ -1,0 +1,150 @@
+[
+  {"type": "propiedad", "id": "flota",
+   "descripcion": "todos los materiales son menos densos que el agua",
+   "error": "No flota: algún material es más pesado que el agua.",
+   "requiere": {"todos": [{"path": "material.densidad_kg_m3", "op": "<", "valor": 1000}]}},
+
+  {"type": "propiedad", "id": "corta",
+   "descripcion": "alguno de los materiales es duro (dureza Mohs >= 5)",
+   "error": "No corta: ningún material es lo bastante duro.",
+   "requiere": {"alguno": [{"path": "material.dureza_mohs", "op": ">=", "valor": 5}]}},
+
+  {"type": "propiedad", "id": "perfora",
+   "descripcion": "alguno de los materiales aguanta una punta (dureza Mohs >= 3.5)",
+   "error": "No perfora: nada de eso aguanta una punta.",
+   "requiere": {"alguno": [{"path": "material.dureza_mohs", "op": ">=", "valor": 3.5}]}},
+
+  {"type": "propiedad", "id": "arde",
+   "descripcion": "alguno de los materiales es inflamable",
+   "error": "No arde: ningún material es inflamable.",
+   "requiere": {"alguno": [{"path": "material.inflamable", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "ilumina",
+   "descripcion": "algo arde y algo hace que dure (resina, grasa, carbón)",
+   "error": "No ilumina: hace falta algo que arda y algo que arda despacio (resina, grasa).",
+   "requiere": {"todas": [
+     {"alguno": [{"path": "material.inflamable", "op": "==", "valor": true}]},
+     {"alguno": [{"path": "material.lento", "op": "==", "valor": true}]}]}},
+
+  {"type": "propiedad", "id": "enciende",
+   "descripcion": "alguno de los materiales da chispas o brasa al frotarlo",
+   "error": "No enciende: nada de eso da chispas ni brasa.",
+   "requiere": {"alguno": [{"cualquiera": [
+     {"path": "material.chispa", "op": "==", "valor": true},
+     {"path": "material.friccion", "op": "==", "valor": true}]}]}},
+
+  {"type": "propiedad", "id": "conduce",
+   "descripcion": "alguno de los materiales conduce la electricidad",
+   "error": "No conduce: ningún material conduce la electricidad.",
+   "requiere": {"alguno": [{"path": "material.conduce_electricidad", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "abriga",
+   "descripcion": "alguno de los materiales es aislante (guarda el calor del cuerpo)",
+   "error": "No abriga: ningún material guarda el calor.",
+   "requiere": {"alguno": [{"path": "material.aislante", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "ata",
+   "descripcion": "alguno de los materiales es flexible (sirve para atar)",
+   "error": "No ata: ningún material es flexible.",
+   "requiere": {"alguno": [{"path": "material.flexible", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "teje",
+   "descripcion": "alguno de los materiales es fibroso (se puede hilar o tejer)",
+   "error": "No teje: nada de eso se puede hilar.",
+   "requiere": {"alguno": [{"path": "material.fibroso", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "contiene",
+   "descripcion": "alguno de los materiales sirve de envase (se trenza, moldea o cose)",
+   "error": "No contiene: nada de eso sirve de envase.",
+   "requiere": {"alguno": [{"path": "material.envase", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "construye",
+   "descripcion": "alguno de los materiales sirve para levantar paredes o techo",
+   "error": "No construye: nada de eso aguanta como estructura.",
+   "requiere": {"alguno": [{"path": "material.estructural", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "impermeabiliza",
+   "descripcion": "alguno de los materiales repele el agua",
+   "error": "No impermeabiliza: nada de eso repele el agua.",
+   "requiere": {"alguno": [{"path": "material.impermeable", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "protege",
+   "descripcion": "alguno de los materiales resiste golpes",
+   "error": "No protege: nada de eso resiste golpes.",
+   "requiere": {"alguno": [{"path": "material.resistente", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "dispara",
+   "descripcion": "alguno de los materiales es elástico (guarda fuerza al tensarlo)",
+   "error": "No dispara: nada de eso es elástico.",
+   "requiere": {"alguno": [{"path": "material.elastico", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "pega",
+   "descripcion": "alguno de los materiales es adhesivo",
+   "error": "No pega: nada de eso es pegajoso.",
+   "requiere": {"alguno": [{"path": "material.adhesivo", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "cura",
+   "descripcion": "alguno de los materiales es medicinal",
+   "error": "No cura: nada de eso tiene efecto medicinal.",
+   "requiere": {"alguno": [{"path": "material.medicinal", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "conserva",
+   "descripcion": "algo es conservante (sal, ceniza, miel) y algo se puede comer",
+   "error": "No conserva: hace falta un conservante (sal, ceniza, miel) junto a algo comestible.",
+   "requiere": {"todas": [
+     {"alguno": [{"path": "material.conservante", "op": "==", "valor": true}]},
+     {"alguno": [{"path": "material.comestible", "op": "==", "valor": true}]}]}},
+
+  {"type": "propiedad", "id": "alimenta",
+   "descripcion": "alguno de los materiales se puede comer",
+   "error": "No alimenta: nada de eso se puede comer.",
+   "requiere": {"alguno": [{"path": "material.comestible", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "funde",
+   "descripcion": "alguno de los materiales se derrite con bastante calor",
+   "error": "No funde: nada de eso se derrite, por más fuego que se le ponga.",
+   "requiere": {"alguno": [{"path": "material.punto_fusion_C", "op": "existe"}]}},
+
+  {"type": "propiedad", "id": "golpea",
+   "descripcion": "alguno de los materiales es pesado y duro (sirve para un pico o una maza)",
+   "error": "No golpea: nada de eso es lo bastante pesado y duro.",
+   "requiere": {"alguno": [{"todas": [
+     {"path": "material.densidad_kg_m3", "op": ">=", "valor": 2500},
+     {"path": "material.dureza_mohs", "op": ">=", "valor": 5}]}]}},
+
+  {"type": "propiedad", "id": "clava",
+   "descripcion": "alguno de los materiales es dúctil y resistente (se estira en clavo sin quebrarse)",
+   "error": "No clava: nada de eso se estira sin quebrarse.",
+   "requiere": {"alguno": [{"todas": [
+     {"path": "material.ductil", "op": "==", "valor": true},
+     {"path": "material.resistente", "op": "==", "valor": true}]}]}},
+
+  {"type": "propiedad", "id": "mezcla",
+   "descripcion": "alguno de los materiales es aglomerante (une lo demás al secarse)",
+   "error": "No mezcla: nada de eso une al secarse.",
+   "requiere": {"alguno": [{"path": "material.aglomerante", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "muele",
+   "descripcion": "alguno de los materiales es denso y duro (aguanta moler sin desarmarse)",
+   "error": "No muele: nada de eso aguanta moler.",
+   "requiere": {"alguno": [{"todas": [
+     {"path": "material.densidad_kg_m3", "op": ">=", "valor": 2000},
+     {"path": "material.dureza_mohs", "op": ">=", "valor": 6}]}]}},
+
+  {"type": "propiedad", "id": "afila",
+   "descripcion": "alguno de los materiales es durísimo (dureza Mohs >= 7): saca filo",
+   "error": "No afila: nada de eso es más duro que lo que se quiere afilar.",
+   "requiere": {"alguno": [{"path": "material.dureza_mohs", "op": ">=", "valor": 7}]}},
+
+  {"type": "propiedad", "id": "imanta",
+   "descripcion": "alguno de los materiales atrae al hierro por sí solo",
+   "error": "No imanta: nada de eso atrae al hierro.",
+   "requiere": {"alguno": [{"path": "material.magnetico", "op": "==", "valor": true}]}},
+
+  {"type": "propiedad", "id": "aisla",
+   "descripcion": "alguno de los materiales no pasa el calor ni la electricidad",
+   "error": "No aísla: todo eso pasa el calor o la corriente.",
+   "requiere": {"alguno": [{"todas": [
+     {"path": "material.conductividad_W_mK", "op": "<", "valor": 1},
+     {"path": "material.conduce_electricidad", "op": "==", "valor": false}]}]}}
+]

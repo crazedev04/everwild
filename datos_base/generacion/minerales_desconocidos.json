@@ -1,0 +1,44 @@
+[
+ {
+  "type": "generacion_minerales",
+  "id": "minerales_desconocidos",
+  "nombre": "minerales que inventa el mundo",
+  "descripcion": "El espacio de lo posible para los minerales que no están en ningún catálogo. Cada mundo sortea unos pocos de acá con su propia semilla, y de sus propiedades salen invenciones que nadie anticipó. Cambiar lo que puede existir es editar este archivo: no hay nada de esto en el código.",
+  "cantidad": [2, 6],
+  "nombres": {
+   "silabas_inicio": ["ca", "ve", "ri", "mo", "tu", "se", "la", "pe", "nu", "ja", "bo", "qui", "fa", "zu", "ne"],
+   "silabas_fin": ["lita", "rina", "dina", "sita", "mena", "tira", "vena", "nita", "lura", "sena"],
+   "formas": ["piedra %(adj)s", "veta %(adj)s", "roca %(adj)s", "%(inventado)s", "piedra de %(inventado)s"],
+   "adjetivos": ["cerúlea", "lechosa", "cobriza apagada", "jaspeada", "ceniza", "vítrea", "parduzca",
+                 "nacarada", "tiznada", "sanguínea", "ocre", "plomiza", "iridiscente", "mate", "veteada"]
+  },
+  "metal": {
+   "formas": ["metal %(adj)s", "%(inventado)s"],
+   "adjetivos": ["pálido", "oscuro", "rojizo", "blanquecino", "azulado", "amarillento", "grisáceo", "opaco"]
+  },
+  "rangos": {
+   "densidad_kg_m3": [1500, 9000],
+   "dureza_mohs": [1.0, 9.0],
+   "conductividad_W_mK": [0.2, 120.0],
+   "punto_fusion_C": [300, 1500],
+   "prob": [0.05, 0.3],
+   "capacidad_zona": [1, 5]
+  },
+  "probabilidades": {
+   "conduce_electricidad": 0.3,
+   "magnetico": 0.15,
+   "aglomerante": 0.15,
+   "inflamable": 0.1,
+   "ductil": 0.3,
+   "resistente": 0.5
+  },
+  "biomas": ["caverna", "roca_viva", "montana", "volcan"],
+  "requiere_propiedad": "golpea",
+  "metal_rangos": {
+   "densidad_kg_m3": [2000, 12000],
+   "dureza_mohs": [1.5, 8.0],
+   "conductividad_W_mK": [0.5, 400.0],
+   "punto_fusion_C": [400, 1600]
+  }
+ }
+]

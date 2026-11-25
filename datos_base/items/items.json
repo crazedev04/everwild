@@ -1,0 +1,319 @@
+[
+ {
+  "type": "item",
+  "id": "lanza",
+  "nombre": "lanza de punta de piedra",
+  "arma": {
+   "bono_caza": 0.3,
+   "alcance_m": 110.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "lanza_de_pedernal",
+  "nombre": "lanza de pedernal",
+  "arma": {
+   "bono_caza": 0.35,
+   "alcance_m": 110.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "lanza_de_hueso",
+  "nombre": "lanza de punta de hueso",
+  "arma": {
+   "bono_caza": 0.28,
+   "alcance_m": 110.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "arpon",
+  "nombre": "arpón de hueso",
+  "arma": {
+   "bono_caza": 0.3,
+   "alcance_m": 110.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "arco",
+  "nombre": "arco",
+  "arma": {
+   "bono_caza": 0.4,
+   "alcance_m": 350.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "arco_de_tendon",
+  "nombre": "arco de tendón",
+  "arma": {
+   "bono_caza": 0.45,
+   "alcance_m": 400.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "arco_compuesto",
+  "nombre": "arco compuesto",
+  "arma": {
+   "bono_caza": 0.5,
+   "alcance_m": 450.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "cuchillo_de_piedra",
+  "nombre": "cuchillo de piedra",
+  "arma": {
+   "bono_caza": 0.1,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "cuchillo_de_pedernal",
+  "nombre": "cuchillo de pedernal",
+  "arma": {
+   "bono_caza": 0.14,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "cuchillo_de_cuerno",
+  "nombre": "cuchillo de cuerno",
+  "arma": {
+   "bono_caza": 0.12,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "cuchillo_de_acero",
+  "nombre": "cuchillo de acero",
+  "arma": {
+   "bono_caza": 0.18,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "hacha_de_piedra",
+  "nombre": "hacha de piedra",
+  "arma": {
+   "bono_caza": 0.14,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "hacha_de_pedernal",
+  "nombre": "hacha de pedernal",
+  "arma": {
+   "bono_caza": 0.16,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "hacha_de_acero",
+  "nombre": "hacha de acero",
+  "arma": {
+   "bono_caza": 0.2,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "honda",
+  "nombre": "honda",
+  "arma": {
+   "bono_caza": 0.2,
+   "alcance_m": 250.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "boleadoras",
+  "nombre": "boleadoras",
+  "arma": {
+   "bono_caza": 0.22,
+   "alcance_m": 200.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "lazo",
+  "nombre": "trampa de lazo",
+  "arma": {
+   "bono_caza": 0.15,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "red_de_pesca",
+  "nombre": "red de pesca",
+  "arma": {
+   "bono_caza": 0.1,
+   "alcance_m": 70.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "antorcha",
+  "nombre": "antorcha",
+  "antorcha": {
+   "dura_min": 288.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "antorcha_de_resina",
+  "nombre": "antorcha de resina",
+  "antorcha": {
+   "dura_min": 288.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "antorcha_de_grasa",
+  "nombre": "antorcha de grasa",
+  "antorcha": {
+   "dura_min": 288.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "palo",
+  "nombre": "palo",
+  "antorcha": {
+   "dura_min": 144.0
+  }
+ },
+ {
+  "type": "item",
+  "id": "antorcha_encendida",
+  "nombre": "antorcha encendida",
+  "conservacion": {
+   "vida_dias": 0.2
+  }
+ },
+ {
+  "type": "item",
+  "id": "pescado_asado",
+  "nombre": "pescado asado",
+  "conservacion": {
+   "vida_dias": 4.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 26,
+    "energia": 3
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "huevos_cocidos",
+  "nombre": "huevos cocidos",
+  "conservacion": {
+   "vida_dias": 3.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 18,
+    "energia": 2
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "raices_asadas",
+  "nombre": "raices asadas",
+  "conservacion": {
+   "vida_dias": 6.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 20,
+    "energia": 2
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "guiso",
+  "nombre": "guiso",
+  "conservacion": {
+   "vida_dias": 2.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 40,
+    "energia": 6,
+    "sed": -8
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "caldo_de_huesos",
+  "nombre": "caldo de huesos",
+  "conservacion": {
+   "vida_dias": 2.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 24,
+    "energia": 3,
+    "sed": -14
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "carne_cocida",
+  "nombre": "carne cocida",
+  "conservacion": {
+   "vida_dias": 5.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 34,
+    "energia": 4
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "carne_curada",
+  "nombre": "carne curada",
+  "conservacion": {
+   "vida_dias": 40.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 28,
+    "energia": 2
+   }
+  }
+ },
+ {
+  "type": "item",
+  "id": "podrido",
+  "nombre": "podrido",
+  "conservacion": {
+   "vida_dias": null
+  },
+  "alimento": {
+   "podrido": {
+    "hambre": 6,
+    "salud": -14,
+    "riesgo": 0.5
+   }
+  }
+ }
+]

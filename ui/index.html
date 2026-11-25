@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mundo Vivo — Tactical Chronicle UI</title>
+<link rel="stylesheet" href="/ui/estilo.css">
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; font-family: var(--font-sans); }
+  #cuerpo { flex: 1; display: flex; min-height: 0; position: relative; }
+  #lienzo-caja { flex: 1; position: relative; min-width: 0; background: var(--bg-deep); }
+  #lienzo { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; image-rendering: pixelated; touch-action: none; }
+  #lienzo.arrastrando { cursor: grabbing; }
+
+  #vacio { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10; }
+  #vacio.visible { display: flex; }
+  #vacio div { max-width: 420px; background: rgba(13, 22, 36, 0.95); border: 1px solid #1f3248; border-top: 3px solid var(--gold); border-radius: 6px; padding: 28px 24px; box-shadow: var(--shadow-lg); }
+  #vacio h2 { font: 700 22px/1.2 var(--font-display); margin: 0 0 8px; color: var(--gold); }
+  #estado { position: absolute; left: 14px; bottom: 14px; background: rgba(8, 14, 22, 0.9); padding: 5px 12px; border: 1px solid #1f3248; border-radius: 4px; font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); z-index: 15; }
+  #estado:empty { display: none; }
+
+  /* modal nuevo mundo */
+  #nuevo-panel {
+    display: none; position: fixed; inset: 0; background: rgba(3, 7, 12, 0.85);
+    backdrop-filter: blur(6px); z-index: 100; align-items: center; justify-content: center;
+  }
+  #nuevo-panel.visible { display: flex; }
+  .nuevo-caja {
+    background: #0f1a29; border: 1px solid #243850; border-top: 3px solid var(--gold); border-radius: 6px;
+    width: min(440px, 92vw); padding: 26px 30px; box-shadow: 0 16px 48px rgba(0,0,0,0.8); display: flex; flex-direction: column; gap: 14px;
+  }
+  .nuevo-caja h3 { font: 700 20px/1.2 var(--font-display); margin: 0; color: var(--gold); }
+  .nuevo-fila { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted); }
+  .nuevo-fila input, .nuevo-fila select { width: 100%; }
+
+  /* columna lateral — Strategy Game HUD */
+  #lateral { width: clamp(340px, 28vw, 420px); display: flex; flex-direction: column; background: #0b131e;
+    border-left: 1px solid #1a2736; min-height: 0; z-index: 25; }
+
+  /* reloj táctico */
+  #reloj-caja { padding: 14px 16px 12px; border-bottom: 1px solid #162434; background: linear-gradient(180deg, #0e1826 0%, #0b131e 100%); }
+  .reloj-fila { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  #dial { flex: none; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+  .reloj-datos { min-width: 0; }
+  .reloj-datos .linea { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  #r-dia { font: 700 24px/1 var(--font-display); letter-spacing: -0.5px; color: #f8fafc; }
+  #r-hora { font: 600 20px/1 var(--font-mono); color: var(--gold); }
+  #r-sub { color: #8da4be; margin-top: 4px; font-size: 12px; font-weight: 500; }
+  .reloj-pie { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; margin-top: 8px; font-family: var(--font-mono); }
+  #vel-real { text-align: right; color: var(--text-dim); }
+
+  /* pestañas superiores HUD */
+  #tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #192a3e; background: #09111b; padding: 0 6px; }
+  #tabs button {
+    background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    padding: 10px 12px 8px; color: #7e95ad; font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+    cursor: pointer; transition: all 0.15s ease;
+  }
+  #tabs button:hover { color: #e2e8f0; background: rgba(255,255,255,0.02); }
+  #tabs button[aria-selected=true] { color: var(--gold); border-bottom-color: var(--gold); font-weight: 700; }
+  #tabs .n {
+    font-size: 10px; font-family: var(--font-mono); font-weight: 700; margin-left: 5px;
+    padding: 1px 6px; border-radius: 10px; background: rgba(245, 185, 90, 0.12); color: var(--gold);
+  }
+
+  #paneles { flex: 1; overflow-y: auto; overflow-anchor: none; padding: 14px 16px 36px; min-height: 0; }
+  .panel { display: none; }
+  .panel.visible { display: block; animation: panel-fade .15s ease-out; }
+  @keyframes panel-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+
+  .panel h3 {
+    font: 700 13px/1.2 var(--font-sans); margin: 18px 0 10px; color: #f1f5f9; letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #19283a; padding-bottom: 6px;
+  }
+  .panel h3::before { content: ""; display: inline-block; width: 3px; height: 12px; background: var(--gold); border-radius: 1px; }
+  .panel h3:first-child { margin-top: 0; }
+  .nota { font-size: 11.5px; color: #8298b0; margin: 6px 0; line-height: 1.45; }
+
+  /* avisos toast superiores */
+  #avisos { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; width: min(400px, 90%); }
+  .aviso { pointer-events: auto; cursor: pointer; background: rgba(11, 20, 32, 0.96); border: 1px solid #23374e; border-left: 4px solid var(--gold); border-radius: 4px; padding: 8px 14px; width: 100%; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); animation: aviso-entra .2s ease-out; transition: opacity .4s, transform .4s; }
+  .aviso b { font-size: 11px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .aviso.hito { border-left-color: var(--emerald); }
+  .aviso.hito b { color: var(--emerald); }
+  .aviso.sale { opacity: 0; transform: translateY(-6px); }
+  @keyframes aviso-entra { from { opacity: 0; transform: translateY(-8px); } }
+
+  /* familias y aldeas */
+  .aldea { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 12px; background: #101c2b; border: 1px solid #1a2a3e; border-left: 3px solid #2a4362; border-radius: 4px; margin-bottom: 6px; cursor: pointer; transition: all .15s ease; }
+  .aldea:hover { background: #16263b; border-color: #3b5a82; border-left-color: var(--gold); transform: translateX(2px); }
+  .aldea b { font: 600 13px var(--font-sans); color: #f1f5f9; }
+  .aldea .cifras { font-size: 11.5px; color: var(--gold); font-family: var(--font-mono); font-weight: 600; }
+  .aldea .sub { grid-column: 1 / -1; font-size: 11.5px; color: #8da4be; }
+  .aldea .pie { font-size: 10.5px; color: #5e7692; }
+
+  .arbol ul, #arbol ul { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 1px dashed #20344b; }
+  #arbol > ul { padding-left: 0; border-left: 0; }
+  #arbol li { margin: 6px 0; }
+  .pareja { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pers { display: inline-flex; align-items: center; gap: 6px; background: #101c2b; border: 1px solid #1a2a3e; border-radius: 4px; padding: 4px 9px; font-size: 12px; cursor: pointer; transition: all .15s ease; }
+  .pers:hover { border-color: var(--gold); background: #16263b; transform: translateY(-1px); }
+  .pers.muerto { opacity: .45; text-decoration: line-through; filter: grayscale(0.8); }
+  .pers small { color: #8da4be; font-family: var(--font-mono); }
+  .union { color: #f472b6; font-size: 12px; font-weight: bold; }
+
+  /* lista habitantes */
+  #habitantes { display: flex; flex-direction: column; gap: 4px; }
+  .hab { display: grid; grid-template-columns: 8px 1fr 64px; gap: 10px; align-items: center; padding: 8px 12px; background: #111d2d; border: 1px solid #192a3e; border-radius: 4px; cursor: pointer; transition: all .12s ease; }
+  .hab:hover { background: #16263b; border-color: #2a4362; transform: translateX(2px); }
+  .hab.sel { background: #1b2f48; border-color: var(--gold); box-shadow: 0 0 12px rgba(245, 185, 90, 0.25); }
+  .hab.muerto { opacity: .45; filter: grayscale(0.8); }
+  .punto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; box-shadow: 0 0 6px currentColor; }
+  .hab-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .hab-txt b { font-weight: 600; font-size: 13px; color: #f8fafc; }
+  .hab-txt span { font-size: 11px; color: #8da4be; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .mini { display: flex; flex-direction: column; gap: 3px; width: 62px; }
+  .barra-mini { height: 4px; background: rgba(0, 0, 0, 0.65); border-radius: 2px; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.6); }
+  .barra-mini i { display: block; height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+
+  /* ficha habitante */
+  #ficha-cab { display: none; margin-top: 14px; padding: 14px; background: #111e2e; border: 1px solid #223750; border-top: 3px solid var(--gold); border-radius: 6px; }
+  #ficha-cab.visible { display: block; }
+  .fc-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #fc-nombre { font: 700 22px/1.1 var(--font-display); margin: 0; color: var(--gold); }
+  #fc-emo { font-size: 10.5px; padding: 2px 10px; border-radius: 12px; background: rgba(245,185,90,0.15); border: 1px solid var(--gold); color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  #fc-emo:empty { display: none; }
+  #fc-sub { color: #8da4be; font-size: 12px; margin: 5px 0 3px; }
+  #fc-acc { font-size: 12.5px; margin-bottom: 10px; color: #cbd5e1; font-weight: 500; }
+  .estados { display: grid; grid-template-columns: 58px 1fr; gap: 8px 12px; align-items: center; font-size: 12px; font-weight: 600; color: #8da4be; margin-bottom: 8px; }
+  .estados .barra-mini { height: 7px; border-radius: 3px; background: rgba(0,0,0,0.7); box-shadow: inset 0 1px 3px rgba(0,0,0,0.8); }
+  .estados .barra-mini i { border-radius: 3px; }
+  .vista-obs { font-size: 11px; color: #5e7692; margin-top: 8px; font-style: italic; }
+  .ficha-datos { margin: 10px 0 6px; font-size: 12px; display: grid; gap: 4px; background: #0c1622; padding: 10px 12px; border: 1px solid #1a2a3e; border-radius: 4px; }
+
+  details { border-top: 1px solid #162434; padding: 2px 0; }
+  details:first-of-type { margin-top: 10px; }
+  summary { cursor: pointer; padding: 9px 0; font-weight: 700; font-size: 12.5px; list-style: none; display: flex; justify-content: space-between; align-items: center; color: #f1f5f9; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "▸"; color: #5e7692; font-size: 11px; }
+  details[open] > summary::after { content: "▾"; }
+  summary .n { color: var(--gold); font-family: var(--font-mono); font-size: 11px; margin-left: 5px; }
+
+  .lista { list-style: none; margin: 0 0 10px; padding: 0; font-size: 12px; }
+  .lista li { padding: 6px 0 6px 10px; border-left: 2px solid #23374e; margin-bottom: 3px; }
+  .lista .t { display: block; font-size: 10.5px; color: #5e7692; font-family: var(--font-mono); }
+  .lista li.vacia { border-left-color: transparent; color: #8298b0; padding-left: 0; }
+
+  .rel { display: grid; gap: 4px; padding: 6px 0; border-bottom: 1px solid #162434; font-size: 12px; }
+  .rel:last-child { border-bottom: 0; }
+  .rel .fila { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; font-size: 11.5px; color: #8da4be; }
+  .afb { position: relative; height: 5px; background: rgba(0,0,0,0.6); border-radius: 3px; overflow: hidden; }
+  .afb i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .afb.centro::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #2a3f5a; }
+  .rasgo { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; font-size: 12px; padding: 4px 0; text-transform: capitalize; }
+
+  /* sucesos */
+  #feed { font-size: 12px; }
+  .ev { display: grid; grid-template-columns: 60px 1fr; gap: 10px; padding: 6px 10px; border-left: 3px solid #23374e; margin-bottom: 3px; background: #101c2b; border-radius: 0 4px 4px 0; }
+  .ev .h { color: #5e7692; font-size: 11px; font-family: var(--font-mono); padding-top: 1px; }
+  .ev.imp-3 { border-left-color: var(--emerald); } .ev.imp-4 { border-left-color: var(--gold); } .ev.imp-5 { border-left-color: var(--crimson); }
+  #feed:empty::before { content: "Sin registros aún."; color: #8298b0; }
+
+  /* recetas y animales */
+  .receta { padding: 9px 10px; border-bottom: 1px solid #162434; font-size: 12px; background: #0e1927; border-radius: 4px; margin-bottom: 4px; }
+  .receta .formula { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; align-items: center; font-size: 11.5px; color: #8da4be; }
+  .chip { background: #16263b; border-radius: 3px; padding: 2px 8px; color: #e2e8f0; font-size: 11px; white-space: nowrap; border: 1px solid #223750; }
+  .chip.prop { background: transparent; border-color: var(--gold); color: var(--gold); font-weight: 600; }
+  .receta .quien { font-size: 10.5px; color: #5e7692; margin-top: 4px; font-family: var(--font-mono); }
+  .receta.pendiente b { color: #8298b0; font-weight: 500; }
+  .resumen-fauna { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; background: #0e1927; padding: 12px 14px; border-left: 3px solid var(--border-strong); border-radius: 0 4px 4px 0; }
+  .resumen-fauna div { font-size: 12px; color: #8da4be; }
+  .resumen-fauna strong { display: block; font: 700 24px/1.1 var(--font-display); color: var(--gold); }
+  .bicho { display: inline-flex; gap: 5px; align-items: center; margin: 0 4px 4px 0; padding: 3px 9px; background: #111d2d; border: 1px solid #1e3148; border-radius: 12px; font-size: 11.5px; }
+  .bicho.peligro { border-color: var(--crimson); color: var(--crimson); }
+
+  /* pantalla de carga */
+  #carga {
+    position: fixed; inset: 0; z-index: 120; display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px; padding: 24px; text-align: center;
+    background: radial-gradient(ellipse at 50% 35%, #142236, #060a10 75%);
+  }
+  #carga.visible { display: flex; }
+  #carga h2 { font: 700 32px/1.1 var(--font-display); margin: 0; color: var(--gold); letter-spacing: 0.5px; text-shadow: 0 4px 16px rgba(245, 185, 90, 0.3); }
+  #carga-sub { color: #8da4be; font-size: 14px; max-width: 480px; margin: 0; }
+  #carga-etapa { font: 600 17px var(--font-mono); color: var(--emerald); min-height: 24px; }
+  .carga-barra { width: min(480px, 88vw); height: 8px; border-radius: 4px; background: #0c1622; border: 1px solid #1f3248; overflow: hidden; }
+  .carga-barra i { display: block; height: 100%; border-radius: 4px; width: 0; background: linear-gradient(90deg, #4ecba5, #5baaf0); transition: width .4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 10px rgba(78, 203, 165, 0.4); }
+  #carga-pct { font-family: var(--font-mono); color: #8da4be; font-size: 13px; }
+  #carga-tip { color: #5e7692; font-size: 12.5px; max-width: 460px; min-height: 36px; }
+  #carga-error { color: var(--crimson); font-size: 13.5px; max-width: 460px; }
+  #carga-error:empty { display: none; }
+
+  /* mapa: capas y cursor */
+  .capas label { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; font-size: 12px; color: #cbd5e1; }
+  .capas .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  #info { background: #0c1622; border: 1px solid #1b2c40; border-radius: 4px; padding: 10px 12px; min-height: 80px; font-size: 12px; font-family: var(--font-mono); color: #94a3b8; }
+  #info div { margin: 2px 0; }
+  #leyenda { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  #leyenda div { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #cbd5e1; }
+  #leyenda i { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.5); flex: none; }
+
+  /* pestaña ajustes — lista seleccionable limpia */
+  #modulos { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .modulo {
+    display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px;
+    background: #111d2d; border: 1px solid #1a2a3e; border-radius: 4px;
+    cursor: pointer; transition: all 0.15s ease; font-size: 12px; color: #d1dce8; line-height: 1.4;
+  }
+  .modulo:hover { background: #16263b; border-color: #2a4362; }
+  .modulo input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: var(--gold); }
+  .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .campo { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: #8da4be; font-weight: 600; }
+  .campo select { width: 100%; }
+  #cerebro-estado { background: #0c1622; border-left: 3px solid var(--azure); border-radius: 0 4px 4px 0; padding: 10px 12px; font-size: 11.5px; line-height: 1.5; color: #94a3b8; }
+
+  @media (max-width: 860px) {
+    body { overflow: auto; }
+    #cuerpo { flex-direction: column; }
+    #lienzo-caja { min-height: 52vh; flex: none; }
+    #lateral { width: auto; border-left: 0; border-top: 1px solid #162434; }
+    #paneles { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<header class="barra">
+  <h1 class="marca">🌍 Mundo Vivo</h1>
+  <nav><a class="activa" href="/">Mapa</a><a href="/eventos" id="link-eventos">Eventos</a></nav>
+  <div class="grupo">
+    <select id="sel-mundo" title="Mundo activo"></select>
+    <button id="btn-nuevo" class="primario">+ Nuevo mundo</button>
+    <button id="btn-borrar" title="Eliminar el mundo elegido (no se puede deshacer)">Eliminar</button>
+  </div>
+  <span class="espaciador"></span>
+  <select id="sel-dimension" title="Dónde mirar" style="display:none"></select>
+  <span class="suave" id="meta-txt" style="font-family:var(--font-mono);font-size:12px;"></span>
+  <button id="btn-exportar" title="Descargar un paquete .zip con todo el mundo">Exportar .zip</button>
+</header>
+
+<div id="cuerpo">
+  <div id="lienzo-caja">
+    <div id="avisos" aria-live="polite"></div>
+    <div id="feed-flotante" aria-live="polite"></div>
+    <div id="dock-observador" role="toolbar" aria-label="Poderes de intervención">
+      <button class="btn-poder" id="btn-dock-spawn" title="Crear un habitante nómada en el mapa">👤 Inmigrante</button>
+      <button class="btn-poder" id="btn-dock-fuego" title="Encender fuego en el mapa">🔥 Fuego</button>
+      <button class="btn-poder magia" id="btn-dock-curar" title="Sanar y saciar a una persona">✨ Curar</button>
+      <button class="btn-poder peligro" id="btn-dock-infectar" title="Desatar epidemia en una zona">☣️ Plaga</button>
+    </div>
+    <canvas id="lienzo"></canvas>
+    <div id="vacio"><div><h2>No hay mundos generados</h2><p class="suave">Tocá <b>+ Nuevo mundo</b> para forjar un continente con relieve, clima y dinastías vivas.</p></div></div>
+    <div id="estado"></div>
+  </div>
+
+  <aside id="lateral">
+    <section id="reloj-caja" aria-label="Reloj del mundo">
+      <div class="reloj-fila">
+        <svg id="dial" viewBox="0 0 64 64" width="70" height="70" aria-hidden="true">
+          <defs>
+            <clipPath id="dial-noche"><rect x="0" y="32" width="64" height="32"/></clipPath>
+            <clipPath id="dial-mitad"><rect x="0" y="0" width="64" height="32"/></clipPath>
+          </defs>
+          <circle cx="32" cy="32" r="30" fill="#080e16" stroke="#2a3e56" stroke-width="1.5"/>
+          <circle cx="32" cy="32" r="28" fill="#15263d" fill-opacity=".65" clip-path="url(#dial-noche)"/>
+          <circle id="dial-cielo" cx="32" cy="32" r="28" fill="#f3b55a" fill-opacity=".35" clip-path="url(#dial-mitad)"/>
+          <line x1="2" y1="32" x2="62" y2="32" stroke="#2a3e56" stroke-width="1"/>
+          <circle id="dial-sol" cx="32" cy="10" r="5" fill="#f3b55a"/>
+        </svg>
+        <div class="reloj-datos">
+          <div class="linea"><span id="r-dia">Día —</span><span id="r-hora">—</span></div>
+          <div id="r-sub">—</div>
+        </div>
+      </div>
+      <div id="velocidades" class="seg" role="group" aria-label="Velocidad del mundo"></div>
+      <div class="reloj-pie"><span id="conexion"></span><span id="vel-real"></span></div>
+    </section>
+
+    <nav id="tabs" role="tablist">
+      <button role="tab" data-tab="gente">Gente<span class="n" id="tab-n-gente"></span></button>
+      <button role="tab" data-tab="familias">Familias<span class="n" id="tab-n-familias"></span></button>
+      <button role="tab" data-tab="mundo">Mundo</button>
+      <button role="tab" data-tab="recetas">Recetas<span class="n" id="tab-n-recetas"></span></button>
+      <button role="tab" data-tab="animales">Animales<span class="n" id="tab-n-animales"></span></button>
+      <button role="tab" data-tab="ajustes">Ajustes</button>
+    </nav>
+
+    <div id="paneles">
+      <div class="panel" id="p-gente">
+        <div id="habitantes"><span class="suave">Sincronizando clanes…</span></div>
+        <label class="opcion" style="margin-top:14px"><input type="checkbox" id="chk-seguir"> Seguir habitante seleccionado</label>
+        <div class="nota" id="cerebro-txt"></div>
+        <div id="ficha-cab">
+          <div class="fc-fila"><span class="punto" id="fc-punto"></span><h2 id="fc-nombre"></h2><span id="fc-emo"></span></div>
+          <div id="fc-sub"></div>
+          <div id="fc-acc"></div>
+          <div class="estados">
+            <span>Salud</span><div class="barra-mini"><i id="fc-b-salud" style="background:var(--emerald)"></i></div>
+            <span>Agua</span><div class="barra-mini"><i id="fc-b-agua" style="background:var(--azure)"></i></div>
+            <span>Energía</span><div class="barra-mini"><i id="fc-b-energia" style="background:var(--gold)"></i></div>
+            <span>Comida</span><div class="barra-mini"><i id="fc-b-comida" style="background:#d97706"></i></div>
+          </div>
+          <div class="vista-obs">Vista de observador: los habitantes desconocen su bio-telemetría.</div>
+        </div>
+        <div id="ficha"><p class="nota">Seleccioná un habitante en la lista o el mapa para explorar su mente, relaciones y memorias.</p></div>
+      </div>
+
+      <div class="panel" id="p-familias">
+        <h3 class="fam-tit">Aldeas y Asentamientos</h3>
+        <div id="aldeas"><p class="nota">Cargando asentamientos…</p></div>
+        <h3 class="fam-tit">Linajes y Familias</h3>
+        <div id="arbol"></div>
+      </div>
+
+      <div class="panel" id="p-mundo">
+        <h3>Últimos sucesos</h3>
+        <div id="feed"></div>
+        <h3>Bajo el cursor</h3>
+        <div id="info" class="suave">Explorá el mapa con el puntero.</div>
+        <h3>Capas del Cartógrafo</h3>
+        <div class="capas">
+          <div class="dos">
+            <label><input type="radio" name="modo" value="bioma" checked> Biomas</label>
+            <label><input type="radio" name="modo" value="altura"> Altura</label>
+            <label><input type="radio" name="modo" value="temperatura"> Temperatura</label>
+            <label><input type="radio" name="modo" value="humedad"> Humedad</label>
+          </div>
+          <div class="dos" style="margin-top:10px">
+            <label><input type="checkbox" id="chk-relieve" checked> Relieve</label>
+            <label><input type="checkbox" id="chk-rios" checked> Ríos</label>
+            <label><input type="checkbox" id="chk-rasgos" checked> Cascadas y lava</label>
+            <label><input type="checkbox" id="chk-grilla"> Grilla</label>
+            <label><input type="checkbox" id="chk-fauna" checked> Fauna</label>
+          </div>
+        </div>
+        <h3>Leyenda</h3>
+        <div id="leyenda"></div>
+        <p class="nota" style="margin-top:14px">Rueda del ratón: Zoom. Arrastrar: Desplazar. Doble clic: Centrar objetivo.</p>
+      </div>
+
+      <div class="panel" id="p-recetas">
+        <h3>Conocimiento y Tecnología</h3>
+        <p class="nota">Cada tecnología de esta lista surge por experimentación material o deducción de los individuos.</p>
+        <div id="recetas"><p class="nota">Cargando saberes…</p></div>
+      </div>
+
+      <div class="panel" id="p-animales">
+        <h3>Fauna del Continente</h3>
+        <div id="fauna-lista"><p class="nota">—</p></div>
+      </div>
+
+      <div class="panel" id="p-ajustes">
+        <h3>Módulos de Simulación</h3>
+        <div id="modulos"></div>
+        <h3>Modelo de Lenguaje (LLM)</h3>
+        <div style="display:flex;gap:6px"><input id="in-modelo" placeholder="ej. qwen3.5:9b" style="flex:1;min-width:0"><button id="btn-modelo">Guardar</button></div>
+        <p class="nota">Modelos de 4B a 9B recomendados para baja latencia.</p>
+        <h3>Modelo Semántico (Embeddings)</h3>
+        <div style="display:flex;gap:6px"><input id="in-modelo-emb" placeholder="nomic-embed-text" style="flex:1;min-width:0"><button id="btn-modelo-emb">Guardar</button></div>
+        <div class="fila2" style="margin-top:12px">
+          <label class="campo">Tope velocidad al deliberar
+            <select id="sel-tope"><option value="0">Automático (recomendado)</option><option value="3">3×</option><option value="10">10×</option><option value="30">30×</option><option value="100">100×</option><option value="-1">Sin tope</option></select></label>
+          <label class="campo">Hilos paralelos
+            <select id="sel-paralelo"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        </div>
+        <div id="cerebro-estado" class="suave" style="margin-top:14px"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Modal Crear Nuevo Mundo con Nombre -->
+<div id="nuevo-panel" role="dialog" aria-modal="true" aria-labelledby="nuevo-tit">
+  <div class="nuevo-caja">
+    <h3 id="nuevo-tit">Forjar Nuevo Mundo</h3>
+    <div class="nuevo-fila">
+      <label for="in-nombre-nuevo">Nombre del Mundo</label>
+      <input id="in-nombre-nuevo" placeholder="ej. Aethelgard, Tierras_Altas, Continente_Sur">
+    </div>
+    <div class="nuevo-fila">
+      <label for="in-semilla">Semilla Numérica (opcional)</label>
+      <input id="in-semilla" type="number" placeholder="Aleatoria si se deja vacío">
+    </div>
+    <div class="nuevo-fila">
+      <label for="in-tam">Extensión del Territorio</label>
+      <select id="in-tam">
+        <option value="1024">5 km — Rápido (~20 s)</option>
+        <option value="2048" selected>10 km — Continente Estándar (~90 s)</option>
+        <option value="3072">15 km — Inmenso (~3 min)</option>
+      </select>
+    </div>
+    <div class="nuevo-fila">
+      <label for="in-modelo-nuevo">Modelo Cognitivo (opcional)</label>
+      <input id="in-modelo-nuevo" list="lista-modelos" placeholder="ej. qwen3.5:9b">
+      <datalist id="lista-modelos"></datalist>
+    </div>
+    <div class="spawn-botones">
+      <button id="btn-cancelar-nuevo">Cancelar</button>
+      <button class="primario" id="btn-crear">Generar Continente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Spawn Nómada -->
+<div id="modal-spawn" role="dialog" aria-modal="true" aria-labelledby="spawn-tit">
+  <div class="spawn-caja">
+    <h3 id="spawn-tit">Nuevo Habitante Nómada</h3>
+    <p class="suave" style="font-size:12.5px;margin:0">Arriba un forastero con genoma de generación 0 sin lazos consanguíneos, destrabando el linaje reproductivo.</p>
+    <div class="spawn-fila">
+      <label for="sp-nombre">Nombre (opcional)</label>
+      <input type="text" id="sp-nombre" placeholder="Aleatorio si se deja vacío">
+    </div>
+    <div class="spawn-fila">
+      <label for="sp-sexo">Sexo</label>
+      <select id="sp-sexo">
+        <option value="azar">Al azar</option>
+        <option value="F">Femenino (F)</option>
+        <option value="M">Masculino (M)</option>
+      </select>
+    </div>
+    <p class="nota">Confirmá y hacé clic en un área transitable del mapa para situarlo.</p>
+    <div class="spawn-botones">
+      <button id="sp-cancelar">Cancelar</button>
+      <button class="primario" id="sp-confirmar">Elegir en mapa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pantalla de Carga Táctica -->
+<div id="carga" role="status" aria-live="polite">
+  <h2>Creando el Continente</h2>
+  <p id="carga-sub">Calculando tectónica, gradientes de temperatura, cuencas hídricas y biomas primarios. No cierres esta ventana.</p>
+  <div id="carga-etapa"></div>
+  <div class="carga-barra"><i id="carga-barra"></i></div>
+  <div id="carga-pct"></div>
+  <p id="carga-tip"></p>
+  <p id="carga-error"></p>
+</div>
+
+<script src="/ui/sprites.js"></script>
+<script src="/ui/mapa.js"></script>
+<script src="/ui/vivo.js"></script>
+</body>
+</html>

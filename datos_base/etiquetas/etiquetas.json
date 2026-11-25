@@ -1,0 +1,143 @@
+[
+ {
+  "type": "etiqueta",
+  "id": "lena",
+  "nombre": "leña",
+  "valores": [
+   "madera",
+   "palo",
+   "carbon",
+   "paja",
+   "piedra_negra"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "yesca",
+  "nombre": "yesca",
+  "valores": [
+   "paja",
+   "fibra",
+   "hoja_grande",
+   "hilo"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "carne_cruda",
+  "nombre": "carne cruda",
+  "valores": [
+   "carne",
+   "pescado",
+   "huevo"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "piel_animal",
+  "nombre": "pieles",
+  "valores": [
+   "piel",
+   "cuero",
+   "lana"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "punta",
+  "nombre": "puntas",
+  "valores": [
+   "piedra",
+   "pedernal",
+   "hueso",
+   "cuerno",
+   "colmillo"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_hierro",
+  "nombre": "piedras que dan hierro",
+  "valores": [
+   "piedra_rojiza",
+   "piedra_parda",
+   "piedra_pesada_oscura"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_cobre",
+  "nombre": "piedras que dan cobre",
+  "valores": [
+   "piedra_verdosa",
+   "piedra_azulada"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_estano",
+  "nombre": "piedras que dan estaño",
+  "valores": [
+   "piedra_gris_pesada"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_plomo",
+  "nombre": "piedras que dan plomo",
+  "valores": [
+   "piedra_gris_blanda"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_zinc",
+  "nombre": "piedras que dan zinc",
+  "valores": [
+   "piedra_resinosa"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_plata",
+  "nombre": "piedras que dan plata",
+  "valores": [
+   "piedra_plateada"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_de_oro",
+  "nombre": "piedras que dan oro",
+  "valores": [
+   "pepita_amarilla"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "carbon_de_fragua",
+  "nombre": "carbones que alimentan la fragua",
+  "valores": [
+   "carbon",
+   "piedra_negra"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "ligadura",
+  "nombre": "ligaduras",
+  "valores": [
+   "cuerda",
+   "hilo",
+   "tendon",
+   "fibra"
+  ]
+ },
+ {
+  "type": "etiqueta",
+  "id": "mena_desconocida",
+  "nombre": "piedras que nadie conoce",
+  "_comentario": "Vacía a propósito: la llena CADA MUNDO con los minerales que sortea de su semilla (ver src/mundo_vivo/motor/minerales.py). Si un mundo no sorteó ninguno, la receta que la usa simplemente no se puede hacer.",
+  "valores": []
+ }
+]

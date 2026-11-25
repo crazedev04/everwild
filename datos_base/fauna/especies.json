@@ -1,0 +1,1274 @@
+[
+ {
+  "type": "especie",
+  "id": "conejo",
+  "nombre": "conejo",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "bosque_templado",
+   "sabana",
+   "tundra"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 2,
+  "velocidad": 2.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 9,
+  "vida_dias": 900,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1,
+   "cuero": 1
+  },
+  "emoji": "🐇",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "raton",
+  "nombre": "ratón",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "bosque_templado",
+   "selva",
+   "sabana",
+   "desierto"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 0.05,
+  "velocidad": 1.5,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 8,
+  "vida_dias": 300,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🐁",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "ciervo",
+  "nombre": "ciervo",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "bosque_frio",
+   "pradera"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 120,
+  "velocidad": 2.2,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 5,
+  "vida_dias": 5000,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 4,
+   "cuero": 2,
+   "hueso": 2
+  },
+  "emoji": "🦌",
+  "montable": false,
+  "veneno": false,
+  "mutacion": {
+   "prob_por_nacimiento": 0.01,
+   "variantes": [
+    {
+     "a": "ciervo_palido",
+     "temperatura_C": [
+      -99,
+      1
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "type": "especie",
+  "id": "cabra",
+  "nombre": "cabra montés",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "montana",
+   "tundra"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 60,
+  "velocidad": 2.0,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 4,
+  "vida_dias": 4000,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 3,
+   "cuero": 1,
+   "hueso": 1,
+   "lana": 1
+  },
+  "emoji": "🐐",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "oveja",
+  "nombre": "oveja salvaje",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "montana"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 70,
+  "velocidad": 1.4,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 4,
+  "vida_dias": 4000,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 3,
+   "cuero": 1,
+   "lana": 3
+  },
+  "emoji": "🐑",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "vaca",
+  "nombre": "vaca",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "sabana"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 500,
+  "velocidad": 1.2,
+  "peligro": 2,
+  "agresivo": "si_provocado",
+  "densidad": 3,
+  "vida_dias": 6000,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 10,
+   "cuero": 4,
+   "hueso": 4
+  },
+  "emoji": "🐄",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "cerdo",
+  "nombre": "cerdo salvaje",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "selva",
+   "pantano"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 90,
+  "velocidad": 1.6,
+  "peligro": 2,
+  "agresivo": "si_provocado",
+  "densidad": 4,
+  "vida_dias": 4500,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 6,
+   "cuero": 2,
+   "hueso": 2
+  },
+  "emoji": "🐖",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "jabali",
+  "nombre": "jabalí",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "bosque_frio",
+   "selva"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 110,
+  "velocidad": 2.0,
+  "peligro": 5,
+  "agresivo": "si_provocado",
+  "densidad": 3,
+  "vida_dias": 4500,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 6,
+   "cuero": 2,
+   "hueso": 3
+  },
+  "emoji": "🐗",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "caballo",
+  "nombre": "caballo",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "sabana"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 450,
+  "velocidad": 3.2,
+  "peligro": 2,
+  "agresivo": "no",
+  "densidad": 3,
+  "vida_dias": 9000,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 8,
+   "cuero": 3,
+   "hueso": 3
+  },
+  "emoji": "🐎",
+  "montable": true,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "camello",
+  "nombre": "camello",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "desierto",
+   "sabana"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 600,
+  "velocidad": 1.6,
+  "peligro": 2,
+  "agresivo": "si_provocado",
+  "densidad": 2,
+  "vida_dias": 9000,
+  "ayuno_dias": 4,
+  "drops": {
+   "carne": 9,
+   "cuero": 3,
+   "hueso": 3
+  },
+  "emoji": "🐪",
+  "montable": true,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "elefante",
+  "nombre": "elefante",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "sabana",
+   "selva"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 4500,
+  "velocidad": 1.4,
+  "peligro": 9,
+  "agresivo": "si_provocado",
+  "densidad": 1,
+  "vida_dias": 20000,
+  "ayuno_dias": 3,
+  "drops": {
+   "carne": 30,
+   "cuero": 8,
+   "hueso": 12
+  },
+  "emoji": "🐘",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "mono",
+  "nombre": "mono",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "selva"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 12,
+  "velocidad": 2.0,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 6,
+  "vida_dias": 5000,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1
+  },
+  "emoji": "🐒",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "gallina",
+  "nombre": "gallina silvestre",
+  "medio": "tierra",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "pradera",
+   "bosque_templado",
+   "selva"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 2,
+  "velocidad": 1.3,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 6,
+  "vida_dias": 1500,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1,
+   "pluma": 2
+  },
+  "emoji": "🐔",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "camaleon",
+  "nombre": "lagarto",
+  "medio": "tierra",
+  "clase": "reptil",
+  "vertebrado": true,
+  "biomas": [
+   "desierto",
+   "sabana",
+   "selva",
+   "playa"
+  ],
+  "dieta": "insectivoro",
+  "peso_kg": 0.2,
+  "velocidad": 1.2,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 6,
+  "vida_dias": 1500,
+  "ayuno_dias": 2,
+  "drops": {},
+  "emoji": "🦎",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "tortuga",
+  "nombre": "tortuga",
+  "medio": "tierra",
+  "clase": "reptil",
+  "vertebrado": true,
+  "biomas": [
+   "playa",
+   "pantano",
+   "selva"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 15,
+  "velocidad": 0.5,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 3,
+  "vida_dias": 20000,
+  "ayuno_dias": 3,
+  "drops": {
+   "carne": 2,
+   "hueso": 2
+  },
+  "emoji": "🐢",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "rana",
+  "nombre": "rana",
+  "medio": "tierra",
+  "clase": "anfibio",
+  "vertebrado": true,
+  "biomas": [
+   "pantano",
+   "selva"
+  ],
+  "dieta": "insectivoro",
+  "peso_kg": 0.05,
+  "velocidad": 1.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 8,
+  "vida_dias": 500,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🐸",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "zorro",
+  "nombre": "zorro",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "bosque_frio",
+   "pradera",
+   "tundra"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 7,
+  "velocidad": 2.6,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 2,
+  "vida_dias": 3000,
+  "ayuno_dias": 5,
+  "drops": {
+   "cuero": 1,
+   "carne": 1
+  },
+  "emoji": "🦊",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "conejo",
+   "raton",
+   "gallina",
+   "pato"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "lobo",
+  "nombre": "lobo",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_frio",
+   "tundra",
+   "bosque_templado",
+   "montana"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 40,
+  "velocidad": 2.8,
+  "peligro": 5,
+  "agresivo": "siempre",
+  "densidad": 1.5,
+  "vida_dias": 4500,
+  "ayuno_dias": 7,
+  "drops": {
+   "cuero": 2,
+   "carne": 2,
+   "hueso": 2
+  },
+  "emoji": "🐺",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "ciervo",
+   "conejo",
+   "oveja",
+   "cabra",
+   "jabali"
+  ],
+  "mutacion": {
+   "prob_por_nacimiento": 0.012,
+   "variantes": [
+    {
+     "a": "lobo_blanco",
+     "temperatura_C": [
+      -99,
+      -2
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "type": "especie",
+  "id": "leon",
+  "nombre": "león",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "sabana"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 180,
+  "velocidad": 3.0,
+  "peligro": 8,
+  "agresivo": "siempre",
+  "densidad": 1,
+  "vida_dias": 5500,
+  "ayuno_dias": 9,
+  "drops": {
+   "cuero": 3,
+   "carne": 3,
+   "hueso": 3
+  },
+  "emoji": "🦁",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "caballo",
+   "vaca",
+   "ciervo",
+   "cerdo",
+   "cabra"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "tigre",
+  "nombre": "tigre",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "selva"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 200,
+  "velocidad": 3.0,
+  "peligro": 9,
+  "agresivo": "siempre",
+  "densidad": 1,
+  "vida_dias": 5500,
+  "ayuno_dias": 9,
+  "drops": {
+   "cuero": 3,
+   "carne": 3,
+   "hueso": 3
+  },
+  "emoji": "🐅",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "cerdo",
+   "jabali",
+   "ciervo",
+   "mono"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "oso",
+  "nombre": "oso",
+  "medio": "tierra",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_frio",
+   "bosque_templado",
+   "montana"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 250,
+  "velocidad": 1.8,
+  "peligro": 9,
+  "agresivo": "si_provocado",
+  "densidad": 1,
+  "vida_dias": 8000,
+  "ayuno_dias": 10,
+  "drops": {
+   "cuero": 4,
+   "carne": 6,
+   "hueso": 4
+  },
+  "emoji": "🐻",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "ciervo",
+   "conejo",
+   "cabra"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "serpiente",
+  "nombre": "serpiente",
+  "medio": "tierra",
+  "clase": "reptil",
+  "vertebrado": true,
+  "biomas": [
+   "selva",
+   "desierto",
+   "pantano",
+   "sabana",
+   "pradera"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 3,
+  "velocidad": 1.0,
+  "peligro": 4,
+  "agresivo": "si_provocado",
+  "densidad": 4,
+  "vida_dias": 3000,
+  "ayuno_dias": 12,
+  "drops": {
+   "cuero": 1
+  },
+  "emoji": "🐍",
+  "montable": false,
+  "veneno": true,
+  "presas": [
+   "raton",
+   "rana",
+   "conejo",
+   "camaleon"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "cocodrilo",
+  "nombre": "cocodrilo",
+  "medio": "tierra",
+  "clase": "reptil",
+  "vertebrado": true,
+  "biomas": [
+   "pantano",
+   "playa"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 400,
+  "velocidad": 1.2,
+  "peligro": 9,
+  "agresivo": "siempre",
+  "densidad": 1,
+  "vida_dias": 12000,
+  "ayuno_dias": 14,
+  "drops": {
+   "cuero": 4,
+   "carne": 5,
+   "hueso": 3
+  },
+  "emoji": "🐊",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "ciervo",
+   "cerdo",
+   "pato",
+   "pez"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "arana",
+  "nombre": "araña",
+  "medio": "tierra",
+  "clase": "aracnido",
+  "vertebrado": false,
+  "biomas": [
+   "selva",
+   "bosque_templado",
+   "desierto",
+   "pradera"
+  ],
+  "dieta": "insectivoro",
+  "peso_kg": 0.01,
+  "velocidad": 0.8,
+  "peligro": 2,
+  "agresivo": "si_provocado",
+  "densidad": 10,
+  "vida_dias": 200,
+  "ayuno_dias": 1,
+  "drops": {
+   "fibra": 1
+  },
+  "emoji": "🕷️",
+  "montable": false,
+  "veneno": true
+ },
+ {
+  "type": "especie",
+  "id": "escorpion",
+  "nombre": "escorpión",
+  "medio": "tierra",
+  "clase": "aracnido",
+  "vertebrado": false,
+  "biomas": [
+   "desierto"
+  ],
+  "dieta": "insectivoro",
+  "peso_kg": 0.02,
+  "velocidad": 0.8,
+  "peligro": 3,
+  "agresivo": "si_provocado",
+  "densidad": 6,
+  "vida_dias": 400,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🦂",
+  "montable": false,
+  "veneno": true
+ },
+ {
+  "type": "especie",
+  "id": "hormiga",
+  "nombre": "hormigas",
+  "medio": "tierra",
+  "clase": "insecto",
+  "vertebrado": false,
+  "biomas": [
+   "pradera",
+   "bosque_templado",
+   "selva",
+   "sabana"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 0.001,
+  "velocidad": 0.6,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 10,
+  "vida_dias": 100,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🐜",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "abeja",
+  "nombre": "abejas",
+  "medio": "aire",
+  "clase": "insecto",
+  "vertebrado": false,
+  "biomas": [
+   "pradera",
+   "bosque_templado",
+   "selva",
+   "sabana"
+  ],
+  "dieta": "herbivoro",
+  "peso_kg": 0.001,
+  "velocidad": 2.5,
+  "peligro": 1,
+  "agresivo": "si_provocado",
+  "densidad": 6,
+  "vida_dias": 60,
+  "ayuno_dias": 1,
+  "drops": {
+   "miel": 2
+  },
+  "emoji": "🐝",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "aguila",
+  "nombre": "águila",
+  "medio": "aire",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "montana",
+   "tundra",
+   "pradera"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 5,
+  "velocidad": 4.0,
+  "peligro": 3,
+  "agresivo": "no",
+  "densidad": 1.5,
+  "vida_dias": 6000,
+  "ayuno_dias": 6,
+  "drops": {
+   "pluma": 3,
+   "carne": 1
+  },
+  "emoji": "🦅",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "conejo",
+   "raton",
+   "gallina",
+   "pez"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "buho",
+  "nombre": "búho",
+  "medio": "aire",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "bosque_frio"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 2,
+  "velocidad": 3.0,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 2,
+  "vida_dias": 5000,
+  "ayuno_dias": 6,
+  "drops": {
+   "pluma": 2
+  },
+  "emoji": "🦉",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "raton",
+   "conejo"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "cuervo",
+  "nombre": "cuervo",
+  "medio": "aire",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "bosque_templado",
+   "bosque_frio",
+   "pradera",
+   "tundra"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 1,
+  "velocidad": 3.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 4,
+  "vida_dias": 4000,
+  "ayuno_dias": 2,
+  "drops": {
+   "pluma": 1
+  },
+  "emoji": "🐦‍⬛",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "pato",
+  "nombre": "pato",
+  "medio": "aire",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "lago",
+   "pantano",
+   "rio"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 1.5,
+  "velocidad": 2.5,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 5,
+  "vida_dias": 2500,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1,
+   "pluma": 2
+  },
+  "emoji": "🦆",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "gaviota",
+  "nombre": "gaviota",
+  "medio": "aire",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "playa",
+   "oceano"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 1,
+  "velocidad": 3.5,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 3,
+  "vida_dias": 3000,
+  "ayuno_dias": 4,
+  "drops": {
+   "pluma": 1
+  },
+  "emoji": "🕊️",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "pez",
+   "cangrejo"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "murcielago",
+  "nombre": "murciélago",
+  "medio": "aire",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "selva",
+   "montana",
+   "bosque_templado"
+  ],
+  "dieta": "insectivoro",
+  "peso_kg": 0.03,
+  "velocidad": 3.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 6,
+  "vida_dias": 2500,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🦇",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "pinguino",
+  "nombre": "pingüino",
+  "medio": "tierra",
+  "clase": "ave",
+  "vertebrado": true,
+  "biomas": [
+   "nieve",
+   "tundra"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 20,
+  "velocidad": 1.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 4,
+  "vida_dias": 6000,
+  "ayuno_dias": 4,
+  "drops": {
+   "carne": 2,
+   "pluma": 2,
+   "cuero": 1
+  },
+  "emoji": "🐧",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "pez"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "pez",
+  "nombre": "pez",
+  "medio": "agua",
+  "clase": "pez",
+  "vertebrado": true,
+  "biomas": [
+   "lago",
+   "rio",
+   "oceano"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 1.5,
+  "velocidad": 2.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 40,
+  "vida_dias": 1500,
+  "ayuno_dias": 2,
+  "drops": {
+   "carne": 1,
+   "hueso": 1
+  },
+  "emoji": "🐟",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "salmon",
+  "nombre": "salmón",
+  "medio": "agua",
+  "clase": "pez",
+  "vertebrado": true,
+  "biomas": [
+   "rio",
+   "lago"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 5,
+  "velocidad": 2.5,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 5,
+  "vida_dias": 1800,
+  "ayuno_dias": 4,
+  "drops": {
+   "carne": 2,
+   "hueso": 1
+  },
+  "emoji": "🐠",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "pez"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "tiburon",
+  "nombre": "tiburón",
+  "medio": "agua",
+  "clase": "pez",
+  "vertebrado": true,
+  "biomas": [
+   "oceano",
+   "oceano_profundo"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 300,
+  "velocidad": 3.0,
+  "peligro": 9,
+  "agresivo": "siempre",
+  "densidad": 0.8,
+  "vida_dias": 12000,
+  "ayuno_dias": 10,
+  "drops": {
+   "carne": 6,
+   "hueso": 3,
+   "cuero": 2
+  },
+  "emoji": "🦈",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "pez",
+   "pulpo",
+   "cangrejo"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "ballena",
+  "nombre": "ballena",
+  "medio": "agua",
+  "clase": "mamifero",
+  "vertebrado": true,
+  "biomas": [
+   "oceano_profundo",
+   "oceano"
+  ],
+  "dieta": "filtrador",
+  "peso_kg": 30000,
+  "velocidad": 1.5,
+  "peligro": 2,
+  "agresivo": "no",
+  "densidad": 0.8,
+  "vida_dias": 30000,
+  "ayuno_dias": 6,
+  "drops": {
+   "carne": 40,
+   "hueso": 20
+  },
+  "emoji": "🐋",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "pulpo",
+  "nombre": "pulpo",
+  "medio": "agua",
+  "clase": "molusco",
+  "vertebrado": false,
+  "biomas": [
+   "oceano",
+   "oceano_profundo"
+  ],
+  "dieta": "carnivoro",
+  "peso_kg": 8,
+  "velocidad": 1.5,
+  "peligro": 1,
+  "agresivo": "si_provocado",
+  "densidad": 3,
+  "vida_dias": 2500,
+  "ayuno_dias": 6,
+  "drops": {
+   "carne": 2
+  },
+  "emoji": "🐙",
+  "montable": false,
+  "veneno": false,
+  "presas": [
+   "cangrejo",
+   "pez"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "cangrejo",
+  "nombre": "cangrejo",
+  "medio": "agua",
+  "clase": "crustaceo",
+  "vertebrado": false,
+  "biomas": [
+   "playa",
+   "oceano",
+   "rio"
+  ],
+  "dieta": "omnivoro",
+  "peso_kg": 0.5,
+  "velocidad": 0.8,
+  "peligro": 1,
+  "agresivo": "no",
+  "densidad": 16,
+  "vida_dias": 1500,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1,
+   "hueso": 1
+  },
+  "emoji": "🦀",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "medusa",
+  "nombre": "medusa",
+  "medio": "agua",
+  "clase": "cnidario",
+  "vertebrado": false,
+  "biomas": [
+   "oceano"
+  ],
+  "dieta": "filtrador",
+  "peso_kg": 1,
+  "velocidad": 0.6,
+  "peligro": 2,
+  "agresivo": "si_provocado",
+  "densidad": 5,
+  "vida_dias": 300,
+  "ayuno_dias": 1,
+  "drops": {},
+  "emoji": "🪼",
+  "montable": false,
+  "veneno": true
+ },
+ {
+  "type": "especie",
+  "id": "almeja",
+  "nombre": "almeja",
+  "medio": "agua",
+  "clase": "molusco",
+  "vertebrado": false,
+  "biomas": [
+   "playa",
+   "oceano",
+   "lago"
+  ],
+  "dieta": "filtrador",
+  "peso_kg": 0.2,
+  "velocidad": 0.0,
+  "peligro": 0,
+  "agresivo": "no",
+  "densidad": 8,
+  "vida_dias": 3000,
+  "ayuno_dias": 1,
+  "drops": {
+   "carne": 1,
+   "hueso": 1
+  },
+  "emoji": "🐚",
+  "montable": false,
+  "veneno": false
+ },
+ {
+  "type": "especie",
+  "id": "lobo_blanco",
+  "copy-from": "lobo",
+  "nombre": "lobo blanco",
+  "mutacion": null,
+  "frio_min": -45.0,
+  "biomas": [
+   "tundra",
+   "nieve",
+   "bosque_frio"
+  ]
+ },
+ {
+  "type": "especie",
+  "id": "ciervo_palido",
+  "copy-from": "ciervo",
+  "nombre": "ciervo pálido",
+  "mutacion": null,
+  "frio_min": -30.0,
+  "biomas": [
+   "bosque_frio",
+   "tundra"
+  ]
+ }
+]

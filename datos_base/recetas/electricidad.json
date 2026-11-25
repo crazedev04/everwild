@@ -1,0 +1,22 @@
+[
+ {"type": "receta", "id": "cable", "nombre": "cable forrado",
+  "ingredientes": ["cobre", "cuero"], "propiedad": "conduce", "categoria": "metal",
+  "descripcion": "Un hilo de cobre forrado: lleva la corriente de un lado a otro sin quemar la mano.",
+  "tiempo_min": 60, "resultado": {"item": "cable", "cantidad": 2}},
+
+ {"type": "receta", "id": "pila", "nombre": "pila",
+  "ingredientes": ["cobre", "zinc", "costra_blanca"], "propiedad": "conduce", "categoria": "metal",
+  "descripcion": "Dos metales distintos metidos en salmuera: entre ellos corre algo que no se ve.",
+  "tiempo_min": 120, "estructura": {"abrigo": 0.0}},
+
+ {"type": "receta", "id": "dinamo", "nombre": "dinamo",
+  "ingredientes": ["cable", "hierro", "madera", "piedra_pesada_oscura"], "propiedad": "imanta",
+  "categoria": "metal",
+  "descripcion": "Una bobina girando contra una piedra que atrae al hierro. Mientras gira, da corriente.",
+  "tiempo_min": 600, "requiere": {"calor_C": 1200}, "estructura": {"abrigo": 0.0}},
+
+ {"type": "receta", "id": "lampara", "nombre": "lámpara",
+  "ingredientes": ["vidrio", "cable"], "propiedad": "conduce", "categoria": "metal",
+  "descripcion": "Un hilo de metal encerrado en vidrio que se pone al blanco sin quemarse.",
+  "tiempo_min": 180, "requiere": {"energia_W": 50}}
+]

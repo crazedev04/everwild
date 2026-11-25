@@ -1,0 +1,333 @@
+[
+ {
+  "type": "bioma",
+  "id": "oceano_profundo",
+  "nombre": "Océano profundo",
+  "color": "#14305a",
+  "id_numerico": 0,
+  "velocidad": null,
+  "combustible": 0.0
+ },
+ {
+  "type": "bioma",
+  "id": "oceano",
+  "nombre": "Océano",
+  "color": "#1d4f8f",
+  "id_numerico": 1,
+  "velocidad": null,
+  "combustible": 0.0
+ },
+ {
+  "type": "bioma",
+  "id": "playa",
+  "nombre": "Playa",
+  "color": "#e5d8a3",
+  "id_numerico": 2,
+  "velocidad": 1.0,
+  "combustible": 0.02
+ },
+ {
+  "type": "bioma",
+  "id": "desierto",
+  "nombre": "Desierto",
+  "color": "#d9b36a",
+  "id_numerico": 3,
+  "velocidad": 1.25,
+  "combustible": 0.1,
+  "clasificacion": {
+   "prioridad": 40,
+   "rangos": {
+    "temperatura_C": [
+     9,
+     20
+    ],
+    "humedad": [
+     -1,
+     0.14
+    ]
+   }
+  },
+  "clasificacion_extra": [
+   {
+    "prioridad": 45,
+    "rangos": {
+     "temperatura_C": [
+      20,
+      99
+     ],
+     "humedad": [
+      -1,
+      0.18
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "type": "bioma",
+  "id": "sabana",
+  "nombre": "Sabana",
+  "color": "#b9b45a",
+  "id_numerico": 4,
+  "velocidad": 1.0,
+  "combustible": 0.75,
+  "clasificacion": {
+   "prioridad": 60,
+   "rangos": {
+    "temperatura_C": [
+     20,
+     99
+    ],
+    "humedad": [
+     0.18,
+     0.42
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "pradera",
+  "nombre": "Pradera",
+  "color": "#8fbf5a",
+  "id_numerico": 5,
+  "velocidad": 1.0,
+  "combustible": 0.7,
+  "clasificacion": {
+   "prioridad": 10,
+   "rangos": {
+    "temperatura_C": [
+     9,
+     20
+    ],
+    "humedad": [
+     0.14,
+     0.38
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "bosque_templado",
+  "nombre": "Bosque templado",
+  "color": "#3f8f4a",
+  "id_numerico": 6,
+  "velocidad": 1.3,
+  "combustible": 0.8,
+  "clasificacion": {
+   "prioridad": 50,
+   "rangos": {
+    "temperatura_C": [
+     9,
+     20
+    ],
+    "humedad": [
+     0.38,
+     9
+    ]
+   }
+  },
+  "clasificacion_extra": [
+   {
+    "prioridad": 65,
+    "rangos": {
+     "temperatura_C": [
+      20,
+      99
+     ],
+     "humedad": [
+      0.42,
+      0.62
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "type": "bioma",
+  "id": "selva",
+  "nombre": "Selva",
+  "color": "#1a6e36",
+  "id_numerico": 7,
+  "velocidad": 1.7,
+  "combustible": 0.9,
+  "clasificacion": {
+   "prioridad": 70,
+   "rangos": {
+    "temperatura_C": [
+     20,
+     99
+    ],
+    "humedad": [
+     0.62,
+     9
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "pantano",
+  "nombre": "Pantano",
+  "color": "#5a7a58",
+  "id_numerico": 8,
+  "velocidad": 2.2,
+  "combustible": 0.15,
+  "clasificacion": {
+   "prioridad": 90,
+   "rangos": {
+    "elevacion_m": [
+     -9999,
+     150
+    ],
+    "humedad": [
+     0.58,
+     9,
+     "abierto"
+    ],
+    "temperatura_C": [
+     4,
+     99,
+     "abierto"
+    ],
+    "dist_agua": [
+     -1,
+     4
+    ],
+    "pendiente": [
+     -1,
+     10
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "bosque_frio",
+  "nombre": "Bosque frío",
+  "color": "#3c6e5e",
+  "id_numerico": 9,
+  "velocidad": 1.4,
+  "combustible": 0.6,
+  "clasificacion": {
+   "prioridad": 30,
+   "rangos": {
+    "temperatura_C": [
+     2,
+     9
+    ],
+    "humedad": [
+     0.3,
+     9
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "tundra",
+  "nombre": "Tundra",
+  "color": "#9aa79a",
+  "id_numerico": 10,
+  "velocidad": 1.2,
+  "combustible": 0.25,
+  "clasificacion": {
+   "prioridad": 20,
+   "rangos": {
+    "temperatura_C": [
+     2,
+     9
+    ]
+   }
+  },
+  "clasificacion_extra": [
+   {
+    "prioridad": 80,
+    "rangos": {
+     "temperatura_C": [
+      -8,
+      2
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "type": "bioma",
+  "id": "nieve",
+  "nombre": "Nieve",
+  "color": "#f1f4f8",
+  "id_numerico": 11,
+  "velocidad": 2.0,
+  "combustible": 0.0,
+  "clasificacion": {
+   "prioridad": 110,
+   "rangos": {
+    "elevacion_m": [
+     2650,
+     99999,
+     "abierto"
+    ]
+   }
+  },
+  "clasificacion_extra": [
+   {
+    "prioridad": 115,
+    "rangos": {
+     "temperatura_C": [
+      -999,
+      -8
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "type": "bioma",
+  "id": "montana",
+  "nombre": "Montaña",
+  "color": "#8a8580",
+  "id_numerico": 12,
+  "velocidad": 1.8,
+  "combustible": 0.05,
+  "clasificacion": {
+   "prioridad": 100,
+   "rangos": {
+    "elevacion_m": [
+     2000,
+     99999,
+     "abierto"
+    ]
+   }
+  }
+ },
+ {
+  "type": "bioma",
+  "id": "volcan",
+  "nombre": "Volcán",
+  "color": "#5a3a35",
+  "id_numerico": 13,
+  "velocidad": 2.5,
+  "combustible": 0.2
+ },
+ {
+  "type": "bioma",
+  "id": "lago",
+  "nombre": "Lago",
+  "color": "#3a74b8",
+  "id_numerico": 14,
+  "velocidad": null,
+  "combustible": 0.0
+ },
+ {
+  "type": "bioma",
+  "id": "sendero_tierra",
+  "nombre": "Sendero",
+  "color": "#b9a17a",
+  "id_numerico": 103,
+  "velocidad": 0.75,
+  "combustible": 0.1,
+  "_comentario": "No se CLASIFICA: no hay rangos de temperatura ni humedad que lo produzcan. Lo abre el paso repetido de la gente (ver src/mundo_vivo/motor/senderos.py). id_numerico 103: los 15 originales ocupan 0-14 y todo bioma NUEVO va desde 100 (las cavernas tomaron 100-102)."
+ }
+]

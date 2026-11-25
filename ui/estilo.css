@@ -1,0 +1,425 @@
+/* ==========================================================================
+   Mundo Vivo — Sistema Visual Obsidian Field Guide (Tactical Chronicle UI)
+   Diseño de alta fidelidad: tipografías técnicas + humanist display, paleta profunda,
+   elevación de capas con glassmorphism sutil y componentes reactivos.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Fondo y elevación de superficies */
+  --bg-deep: #080d14;
+  --bg-surface: #0e1722;
+  --bg-surface-elevated: #152232;
+  --bg-surface-active: #1d2e42;
+  --bg-glass: rgba(14, 23, 34, 0.85);
+
+  /* Bordes */
+  --border-subtle: #1c2b3d;
+  --border-strong: #2a3e56;
+  --border-focus: #e5a950;
+
+  /* Tipografía y jerarquía de texto */
+  --text-main: #f1f4f8;
+  --text-muted: #8fa2b8;
+  --text-dim: #546a82;
+
+  /* Acentos y estados semánticos */
+  --gold: #f3b55a;
+  --gold-glow: rgba(243, 181, 90, 0.35);
+  --gold-ink: #161004;
+  --emerald: #4ecba5;
+  --crimson: #f06a6a;
+  --azure: #5baaf0;
+  --amethyst: #a78bfa;
+
+  /* Tipografías */
+  --font-display: "Cinzel", "Iowan Old Style", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
+
+  /* Compatibility aliases — keep old var names resolving in vivo.js */
+  --ok: var(--emerald);
+  --agua: var(--azure);
+  --acento: var(--gold);
+  --mal: var(--crimson);
+  --alerta: var(--gold);
+  --suave: var(--text-muted);
+  --apagado: var(--text-dim);
+  --texto: var(--text-main);
+  --fondo: var(--bg-deep);
+  --panel: var(--bg-surface);
+  --panel2: var(--bg-surface-elevated);
+  --panel3: var(--bg-surface-active);
+  --borde: var(--border-subtle);
+  --borde2: var(--border-strong);
+  --serif: var(--font-display);
+  --sans: var(--font-sans);
+  --radio: var(--radius-sm);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-deep);
+  color: var(--text-main);
+  font: 13.5px/1.55 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enlaces y focus */
+a { color: var(--gold); text-decoration: none; transition: color .15s ease; }
+a:hover { color: #ffd699; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Controles de entrada universales */
+button, select, input {
+  font: inherit;
+  color: var(--text-main);
+  background: #0f1a28;
+  border: 1px solid #1e324a;
+  border-radius: 4px;
+  padding: 7px 11px;
+  transition: all .15s ease;
+}
+input::placeholder { color: var(--text-dim); }
+input:focus, select:focus {
+  border-color: var(--gold);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(245, 185, 90, 0.2);
+}
+input[type=checkbox], input[type=radio] { accent-color: var(--gold); cursor: pointer; }
+
+button {
+  cursor: pointer;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+button:hover {
+  background: #16263b;
+  border-color: #2e4a6e;
+}
+button:active { transform: translateY(1px); }
+button.primario {
+  background: var(--gold);
+  color: #0a0700;
+  border-color: var(--gold);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 185, 90, 0.25);
+}
+button.primario:hover {
+  background: #f8c372;
+  box-shadow: 0 4px 14px rgba(245, 185, 90, 0.4);
+}
+
+.suave { color: var(--text-muted); }
+.espaciador { flex: 1; }
+
+/* Scrollbar refinado */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ==========================================================================
+   Header / Barra Superior Táctica
+   ========================================================================== */
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 0 18px;
+  background: #09111b;
+  border-bottom: 1px solid #1a2736;
+  min-height: 48px;
+  z-index: 30;
+  flex-wrap: wrap;
+}
+
+.marca {
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--gold);
+  text-shadow: 0 0 12px rgba(245, 185, 90, 0.3);
+}
+
+.barra nav {
+  display: flex;
+  gap: 4px;
+  background: #060c13;
+  border: 1px solid #162434;
+  border-radius: 4px;
+  padding: 3px;
+  margin: 0 4px;
+}
+.barra nav a {
+  padding: 5px 14px;
+  border-radius: 3px;
+  color: #7e95ad;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  transition: all .15s ease;
+}
+.barra nav a:hover { color: #f1f5f9; background: rgba(255,255,255,0.04); }
+.barra nav a.activa {
+  background: #142236;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.grupo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Controles Segmentados (Velocidades)
+   ========================================================================== */
+.seg {
+  display: flex;
+  border: 1px solid #1a2a3e;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #09121d;
+}
+.seg button {
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 10px;
+  color: #7e95ad;
+  border-right: 1px solid #1a2a3e;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  min-width: 36px;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover {
+  color: #f1f5f9;
+  background: #142236;
+}
+.seg button.primario {
+  background: var(--gold);
+  color: #0b0700;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(245, 185, 90, 0.35);
+  border-color: transparent;
+}
+
+/* ==========================================================================
+   Barras de Estado
+   ========================================================================== */
+.barra-mini {
+  height: 5px;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
+}
+.barra-mini i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width .3s ease;
+}
+
+/* dock — game HUD bar flotante */
+#dock-observador {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: rgba(10, 18, 29, 0.94);
+  border: 1px solid #223750;
+  border-top: 2px solid var(--gold);
+  border-radius: 6px;
+  padding: 5px 8px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+  z-index: 25;
+}
+.btn-poder {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid #1f334a;
+  background: #132236;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.btn-poder:hover {
+  background: #1b2f4a;
+  border-color: #3b5a82;
+  color: #fff;
+}
+.btn-poder.activo {
+  background: var(--gold);
+  color: #0b0700;
+  border-color: var(--gold);
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(245, 185, 90, 0.4);
+}
+.btn-poder.peligro:hover { border-color: var(--crimson); color: var(--crimson); }
+.btn-poder.peligro.activo {
+  background: var(--crimson);
+  color: #fff;
+  border-color: var(--crimson);
+  box-shadow: 0 0 14px rgba(240, 106, 106, 0.4);
+}
+.btn-poder.magia:hover { border-color: var(--emerald); color: var(--emerald); }
+.btn-poder.magia.activo {
+  background: var(--emerald);
+  color: #030f09;
+  border-color: var(--emerald);
+  box-shadow: 0 0 14px rgba(78, 203, 165, 0.4);
+}
+
+/* feed flotante HUD ticker */
+#feed-flotante {
+  position: absolute;
+  bottom: 76px;
+  left: 16px;
+  width: min(320px, 90vw);
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 3px;
+  pointer-events: none;
+  z-index: 20;
+}
+.feed-item {
+  pointer-events: auto;
+  background: rgba(3,7,12,0.95);
+  border: 0;
+  border-left: 2px solid var(--gold);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  color: var(--text-main);
+  display: flex;
+  gap: 7px;
+  animation: feed-entra .2s ease-out;
+  cursor: pointer;
+  transition: background .1s;
+}
+.feed-item:hover { background: #0a1420; }
+.feed-item.imp-4 { border-left-color: var(--gold); }
+.feed-item.imp-5 { border-left-color: var(--crimson); }
+.feed-item.imp-3 { border-left-color: var(--emerald); }
+.feed-item .h { color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; }
+
+@keyframes feed-entra {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* modal spawn */
+#modal-spawn {
+  position: fixed;
+  inset: 0;
+  background: rgba(2,4,8,0.85);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#modal-spawn.visible { display: flex; }
+
+.spawn-caja {
+  background: #07101a;
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--gold);
+  width: min(420px, 92vw);
+  padding: 22px 24px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.spawn-caja h3 {
+  font: 700 18px/1.2 var(--font-display);
+  margin: 0;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.spawn-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.spawn-fila input, .spawn-fila select { width: 100%; }
+.spawn-botones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* acciones de ficha habitante */
+.acciones-ficha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #0d1a28;
+}
+.acciones-ficha button {
+  font-size: 11px;
+  padding: 4px 10px;
+  background: #07101a;
+  border: 1px solid var(--border-strong);
+  border-radius: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+.acciones-ficha button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: #0a1520;
+}

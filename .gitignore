@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+pruebas_cerebro/resultados/*
+!pruebas_cerebro/resultados/.gitkeep
+datos/*
+!datos/.gitkeep

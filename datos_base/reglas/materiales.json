@@ -1,0 +1,915 @@
+[
+ {
+  "type": "material",
+  "id": "madera",
+  "nombre": "madera seca",
+  "densidad_kg_m3": 600,
+  "calor_especifico_J_kgK": 1700,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 2,
+  "punto_ignicion_C": 300,
+  "inflamable": true,
+  "conduce_electricidad": false,
+  "rigido": true,
+  "estructural": true,
+  "resistente": true,
+  "recoleccion": {
+   "prob": 0.7,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 8
+  },
+  "lena": {
+   "minutos_por_unidad": 150.0
+  }
+ },
+ {
+  "type": "material",
+  "id": "piedra",
+  "nombre": "piedra",
+  "densidad_kg_m3": 2700,
+  "calor_especifico_J_kgK": 800,
+  "conductividad_W_mK": 2.5,
+  "dureza_mohs": 6,
+  "punto_fusion_C": 1200,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "estructural": true,
+  "resistente": true,
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "tundra",
+    "volcan",
+    "desierto",
+    "playa",
+    "nieve"
+   ],
+   "prob": 0.8,
+   "cantidad": [
+    1,
+    3
+   ],
+   "capacidad_zona": 12
+  }
+ },
+ {
+  "type": "material",
+  "id": "hierro",
+  "nombre": "hierro",
+  "densidad_kg_m3": 7870,
+  "calor_especifico_J_kgK": 449,
+  "conductividad_W_mK": 80,
+  "dureza_mohs": 4,
+  "punto_ablandamiento_C": 900,
+  "punto_fusion_C": 1538,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "resistente": true,
+  "ductil": true,
+  "chispa": true
+ },
+ {
+  "type": "material",
+  "id": "acero",
+  "copy-from": "hierro",
+  "nombre": "acero",
+  "dureza_mohs": 5,
+  "punto_ablandamiento_C": 850,
+  "punto_fusion_C": 1450
+ },
+ {
+  "type": "material",
+  "id": "cobre",
+  "nombre": "cobre",
+  "densidad_kg_m3": 8960,
+  "calor_especifico_J_kgK": 385,
+  "conductividad_W_mK": 400,
+  "dureza_mohs": 3,
+  "punto_ablandamiento_C": 600,
+  "punto_fusion_C": 1085,
+  "inflamable": false,
+  "conduce_electricidad": true,
+  "resistente": true,
+  "ductil": true
+ },
+ {
+  "type": "material",
+  "id": "bronce",
+  "copy-from": "cobre",
+  "nombre": "bronce",
+  "dureza_mohs": 3.5,
+  "punto_ablandamiento_C": 700,
+  "punto_fusion_C": 950,
+  "conductividad_W_mK": 50,
+  "resistente": true
+ },
+ {
+  "type": "material",
+  "id": "agua",
+  "nombre": "agua",
+  "densidad_kg_m3": 1000,
+  "calor_especifico_J_kgK": 4186,
+  "conductividad_W_mK": 0.6,
+  "dureza_mohs": 0,
+  "punto_ebullicion_C": 100,
+  "inflamable": false,
+  "conduce_electricidad": true
+ },
+ {
+  "type": "material",
+  "id": "cuero",
+  "nombre": "cuero curtido",
+  "densidad_kg_m3": 900,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 1,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "aislante": true,
+  "flexible": true,
+  "impermeable": true,
+  "resistente": true,
+  "envase": true,
+  "conservacion": {
+   "vida_dias": 90.0
+  },
+  "abrigo": 0.22
+ },
+ {
+  "type": "material",
+  "id": "hueso",
+  "nombre": "hueso",
+  "densidad_kg_m3": 1900,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 3.5,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "resistente": true,
+  "conservacion": {
+   "vida_dias": null
+  }
+ },
+ {
+  "type": "material",
+  "id": "carne",
+  "nombre": "carne",
+  "densidad_kg_m3": 1050,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "comestible": true,
+  "conservacion": {
+   "vida_dias": 1.5
+  },
+  "cocina": {
+   "resultado": "carne_cocida",
+   "minutos": 25.0
+  },
+  "curado": {
+   "resultado": "carne_curada",
+   "minutos": 180.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 22,
+    "salud": -2,
+    "riesgo": 0.18
+   }
+  }
+ },
+ {
+  "type": "material",
+  "id": "lana",
+  "nombre": "lana",
+  "densidad_kg_m3": 300,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "conduce_electricidad": false,
+  "aislante": true,
+  "flexible": true,
+  "punto_ignicion_C": 250,
+  "fibroso": true,
+  "conservacion": {
+   "vida_dias": null
+  },
+  "abrigo": 0.22
+ },
+ {
+  "type": "material",
+  "id": "pluma",
+  "nombre": "plumas",
+  "densidad_kg_m3": 100,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.04,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "conduce_electricidad": false,
+  "aislante": true,
+  "punto_ignicion_C": 250,
+  "impermeable": true,
+  "conservacion": {
+   "vida_dias": null
+  },
+  "abrigo": 0.22
+ },
+ {
+  "type": "material",
+  "id": "fibra",
+  "nombre": "fibra vegetal",
+  "densidad_kg_m3": 500,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "conduce_electricidad": false,
+  "flexible": true,
+  "punto_ignicion_C": 250,
+  "fibroso": true,
+  "trenzable": true,
+  "envase": true,
+  "recoleccion": {
+   "biomas": [
+    "pradera",
+    "sabana",
+    "bosque_templado",
+    "selva",
+    "pantano"
+   ],
+   "prob": 0.8,
+   "cantidad": [
+    2,
+    4
+   ],
+   "capacidad_zona": 12
+  },
+  "conservacion": {
+   "vida_dias": 120.0
+  },
+  "abrigo": 0.22
+ },
+ {
+  "type": "material",
+  "id": "miel",
+  "nombre": "miel",
+  "densidad_kg_m3": 1400,
+  "calor_especifico_J_kgK": 1800,
+  "conductividad_W_mK": 0.15,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "conduce_electricidad": false,
+  "comestible": true,
+  "conservante": true,
+  "medicinal": true
+ },
+ {
+  "id": "palo",
+  "nombre": "palos y ramas",
+  "densidad_kg_m3": 500,
+  "dureza_mohs": 2,
+  "inflamable": true,
+  "punto_ignicion_C": 300,
+  "friccion": true,
+  "rigido": true,
+  "estructural": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "bosque_templado",
+    "selva",
+    "bosque_frio",
+    "sabana",
+    "pradera",
+    "pantano",
+    "tundra"
+   ],
+   "prob": 0.9,
+   "cantidad": [
+    2,
+    5
+   ],
+   "capacidad_zona": 14
+  },
+  "lena": {
+   "minutos_por_unidad": 150.0
+  }
+ },
+ {
+  "id": "pedernal",
+  "nombre": "pedernal",
+  "densidad_kg_m3": 2600,
+  "dureza_mohs": 7,
+  "inflamable": false,
+  "chispa": true,
+  "conduce_electricidad": false,
+  "type": "material",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "tundra",
+    "playa"
+   ],
+   "prob": 0.35,
+   "capacidad_zona": 4
+  }
+ },
+ {
+  "id": "pirita",
+  "nombre": "pirita",
+  "densidad_kg_m3": 5000,
+  "dureza_mohs": 6,
+  "inflamable": false,
+  "chispa": true,
+  "conduce_electricidad": false,
+  "type": "material",
+  "recoleccion": {
+   "biomas": [
+    "montana",
+    "volcan"
+   ],
+   "prob": 0.2,
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "id": "resina",
+  "nombre": "resina de árbol",
+  "densidad_kg_m3": 1100,
+  "dureza_mohs": 1,
+  "inflamable": true,
+  "punto_ignicion_C": 280,
+  "lento": true,
+  "adhesivo": true,
+  "impermeable": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "bosque_templado",
+    "selva",
+    "bosque_frio"
+   ],
+   "prob": 0.4,
+   "capacidad_zona": 3
+  }
+ },
+ {
+  "id": "paja",
+  "nombre": "paja y pasto seco",
+  "densidad_kg_m3": 100,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 230,
+  "flexible": true,
+  "aislante": true,
+  "fibroso": true,
+  "trenzable": true,
+  "envase": true,
+  "estructural": true,
+  "yesca": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "pradera",
+    "sabana",
+    "desierto"
+   ],
+   "prob": 0.85,
+   "cantidad": [
+    2,
+    5
+   ],
+   "capacidad_zona": 14
+  },
+  "lena": {
+   "minutos_por_unidad": 150.0
+  }
+ },
+ {
+  "id": "arcilla",
+  "nombre": "arcilla",
+  "densidad_kg_m3": 1800,
+  "dureza_mohs": 2,
+  "inflamable": false,
+  "moldeable": true,
+  "envase": true,
+  "estructural": true,
+  "aglomerante": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "prob": 0.7,
+   "cantidad": [
+    2,
+    4
+   ],
+   "capacidad_zona": 12
+  }
+ },
+ {
+  "id": "ceramica",
+  "nombre": "arcilla cocida",
+  "densidad_kg_m3": 2000,
+  "dureza_mohs": 5,
+  "inflamable": false,
+  "impermeable": true,
+  "resistente": true,
+  "envase": true,
+  "estructural": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "ladrillo",
+  "nombre": "ladrillo de adobe",
+  "densidad_kg_m3": 1900,
+  "dureza_mohs": 4,
+  "inflamable": false,
+  "resistente": true,
+  "estructural": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "hilo",
+  "nombre": "hilo retorcido",
+  "densidad_kg_m3": 600,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 250,
+  "flexible": true,
+  "fibroso": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "cuerda",
+  "nombre": "cuerda",
+  "densidad_kg_m3": 700,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 250,
+  "flexible": true,
+  "fibroso": true,
+  "resistente": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "tela",
+  "nombre": "tela tejida",
+  "densidad_kg_m3": 500,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 250,
+  "flexible": true,
+  "aislante": true,
+  "fibroso": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "piel",
+  "nombre": "piel sin curtir",
+  "densidad_kg_m3": 900,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "flexible": true,
+  "aislante": true,
+  "envase": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "conservacion": {
+   "vida_dias": 20.0
+  }
+ },
+ {
+  "id": "tendon",
+  "nombre": "tendones",
+  "densidad_kg_m3": 1000,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "flexible": true,
+  "elastico": true,
+  "adhesivo": true,
+  "fibroso": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "grasa",
+  "nombre": "grasa animal",
+  "densidad_kg_m3": 900,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 300,
+  "lento": true,
+  "impermeable": true,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "conservacion": {
+   "vida_dias": 40.0
+  },
+  "alimento": {
+   "cocinado": {
+    "hambre": 26,
+    "energia": 5
+   }
+  }
+ },
+ {
+  "id": "sal",
+  "nombre": "sal",
+  "densidad_kg_m3": 2160,
+  "dureza_mohs": 2,
+  "inflamable": false,
+  "conservante": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "playa",
+    "desierto"
+   ],
+   "prob": 0.6,
+   "capacidad_zona": 10
+  }
+ },
+ {
+  "id": "ceniza",
+  "nombre": "ceniza",
+  "densidad_kg_m3": 600,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "conservante": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "prob": 0.9,
+   "cantidad": [
+    1,
+    3
+   ]
+  }
+ },
+ {
+  "id": "carbon",
+  "nombre": "carbón vegetal",
+  "densidad_kg_m3": 400,
+  "dureza_mohs": 1,
+  "inflamable": true,
+  "punto_ignicion_C": 350,
+  "lento": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "prob": 0.3,
+   "cantidad": [
+    1,
+    2
+   ]
+  },
+  "lena": {
+   "minutos_por_unidad": 150.0
+  }
+ },
+ {
+  "id": "hoja_grande",
+  "nombre": "hojas grandes",
+  "densidad_kg_m3": 300,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 250,
+  "flexible": true,
+  "impermeable": true,
+  "envase": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "selva",
+    "bosque_templado",
+    "pantano"
+   ],
+   "prob": 0.8,
+   "cantidad": [
+    2,
+    4
+   ],
+   "capacidad_zona": 10
+  }
+ },
+ {
+  "id": "cuerno",
+  "nombre": "cuerno",
+  "densidad_kg_m3": 1300,
+  "dureza_mohs": 5,
+  "inflamable": false,
+  "resistente": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "colmillo",
+  "nombre": "colmillo",
+  "densidad_kg_m3": 1800,
+  "dureza_mohs": 5.5,
+  "inflamable": false,
+  "resistente": true,
+  "type": "material",
+  "conduce_electricidad": false
+ },
+ {
+  "id": "frutos",
+  "nombre": "frutos silvestres",
+  "densidad_kg_m3": 900,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "bosque_templado",
+    "selva",
+    "pradera"
+   ],
+   "prob": 0.5,
+   "capacidad_zona": 24
+  },
+  "conservacion": {
+   "vida_dias": 6.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 22,
+    "sed": -8
+   }
+  }
+ },
+ {
+  "id": "raiz",
+  "nombre": "raíces comestibles",
+  "densidad_kg_m3": 1000,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "pradera",
+    "sabana",
+    "bosque_templado",
+    "tundra"
+   ],
+   "prob": 0.5,
+   "capacidad_zona": 24
+  },
+  "conservacion": {
+   "vida_dias": 25.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 20
+   }
+  }
+ },
+ {
+  "id": "pescado",
+  "nombre": "pescado",
+  "densidad_kg_m3": 1050,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "prob": 0.15,
+   "capacidad_zona": 20
+  },
+  "conservacion": {
+   "vida_dias": 1.0
+  },
+  "cocina": {
+   "resultado": "carne_cocida",
+   "minutos": 25.0
+  },
+  "curado": {
+   "resultado": "carne_curada",
+   "minutos": 180.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 20,
+    "salud": -2,
+    "riesgo": 0.15
+   }
+  }
+ },
+ {
+  "id": "huevo",
+  "nombre": "huevos",
+  "densidad_kg_m3": 1030,
+  "dureza_mohs": 0,
+  "inflamable": false,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "playa",
+    "pradera",
+    "pantano"
+   ],
+   "prob": 0.25,
+   "capacidad_zona": 10
+  },
+  "conservacion": {
+   "vida_dias": 6.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 16,
+    "riesgo": 0.08
+   }
+  }
+ },
+ {
+  "id": "hierba_medicinal",
+  "nombre": "hierbas medicinales",
+  "densidad_kg_m3": 300,
+  "dureza_mohs": 0,
+  "inflamable": true,
+  "punto_ignicion_C": 250,
+  "medicinal": true,
+  "comestible": true,
+  "type": "material",
+  "conduce_electricidad": false,
+  "recoleccion": {
+   "biomas": [
+    "pradera",
+    "bosque_templado",
+    "selva",
+    "pantano"
+   ],
+   "prob": 0.45,
+   "capacidad_zona": 6
+  },
+  "conservacion": {
+   "vida_dias": 8.0
+  }
+ },
+ {
+  "type": "material",
+  "id": "hierro_del_cielo",
+  "nombre": "hierro del cielo",
+  "copy-from": "hierro",
+  "recoleccion": {
+   "biomas": [],
+   "prob": 0.5,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 0
+  }
+ },
+ {
+  "type": "material",
+  "id": "hongo_visionario",
+  "nombre": "hongo de las visiones",
+  "copy-from": "hierba_medicinal",
+  "recoleccion": {
+   "biomas": [
+    "selva",
+    "bosque_templado",
+    "pantano"
+   ],
+   "prob": 0.12,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 4
+  },
+  "conservacion": {
+   "vida_dias": 10.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 4,
+    "riesgo": 0.1
+   }
+  },
+  "psicoactivo": {
+   "dura_min": 420,
+   "nombre_efecto": "el mundo late y los colores gritan",
+   "emociones": {
+    "alegria": 0.5,
+    "miedo": 0.25
+   },
+   "rasgos": {
+    "curiosidad": 0.22,
+    "cautela": -0.15
+   },
+   "alucina": 0.45,
+   "inventiva": 0.45,
+   "riesgo": 0.08
+  }
+ },
+ {
+  "type": "material",
+  "id": "cactus_amargo",
+  "nombre": "cactus amargo",
+  "copy-from": "hierba_medicinal",
+  "recoleccion": {
+   "biomas": [
+    "desierto"
+   ],
+   "prob": 0.18,
+   "cantidad": [
+    1,
+    2
+   ],
+   "capacidad_zona": 5
+  },
+  "conservacion": {
+   "vida_dias": 60.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 6,
+    "sed": -10,
+    "riesgo": 0.12
+   }
+  },
+  "psicoactivo": {
+   "dura_min": 600,
+   "nombre_efecto": "el desierto respira y el tiempo se estira",
+   "emociones": {
+    "alegria": 0.3,
+    "tristeza": 0.2
+   },
+   "rasgos": {
+    "curiosidad": 0.3,
+    "audacia": 0.15
+   },
+   "alucina": 0.55,
+   "inventiva": 0.5,
+   "riesgo": 0.15
+  }
+ },
+ {
+  "type": "material",
+  "id": "baya_del_sueno",
+  "nombre": "baya del sueño",
+  "copy-from": "frutos",
+  "recoleccion": {
+   "biomas": [
+    "bosque_frio",
+    "tundra"
+   ],
+   "prob": 0.15,
+   "cantidad": [
+    1,
+    3
+   ],
+   "capacidad_zona": 6
+  },
+  "conservacion": {
+   "vida_dias": 5.0
+  },
+  "alimento": {
+   "crudo": {
+    "hambre": 8,
+    "energia": -10,
+    "riesgo": 0.05
+   }
+  },
+  "psicoactivo": {
+   "dura_min": 240,
+   "nombre_efecto": "los párpados pesan y las cosas se mueven solas",
+   "emociones": {
+    "tristeza": 0.3
+   },
+   "rasgos": {
+    "cautela": 0.2,
+    "audacia": -0.2
+   },
+   "alucina": 0.25,
+   "inventiva": 0.1,
+   "riesgo": 0.04
+  }
+ }
+]

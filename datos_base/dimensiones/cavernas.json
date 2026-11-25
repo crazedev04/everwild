@@ -1,0 +1,15 @@
+[
+ {"type": "dimension", "id": "cavernas", "nombre": "Cavernas", "generador": "cavernas",
+  "tamano": {"ancho": 512, "alto": 512},
+  "preset": {
+    "densidad_roca": 0.47,
+    "pasadas": 5,
+    "profundidad_m": -400.0,
+    "relieve_m": 70.0,
+    "temperatura_C": 12.0,
+    "humedad": 0.78,
+    "quantil_agua": 0.08,
+    "quantil_hongal": 0.30
+  },
+  "cielo": {"dia_noche": false, "estaciones": false}}
+]

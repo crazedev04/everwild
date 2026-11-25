@@ -1,0 +1,117 @@
+[
+ {"type": "receta", "id": "pico_de_acero", "nombre": "pico de acero",
+  "ingredientes": ["palo", "acero", "cuerda"], "propiedad": "golpea", "categoria": "herramienta",
+  "descripcion": "Muerde la roca donde el de piedra rebota.", "tiempo_min": 90},
+
+ {"type": "receta", "id": "piedra_de_moler", "nombre": "piedra de moler",
+  "ingredientes": ["piedra"], "propiedad": "muele", "categoria": "herramienta",
+  "descripcion": "Dos piedras y paciencia: el grano se vuelve harina.", "tiempo_min": 120},
+
+ {"type": "receta", "id": "piedra_de_afilar", "nombre": "piedra de afilar",
+  "ingredientes": ["piedra_cristalina"], "propiedad": "afila", "categoria": "herramienta",
+  "descripcion": "Le devuelve el filo a lo que ya está hecho.", "tiempo_min": 45},
+
+ {"type": "receta", "id": "aguja_imantada", "nombre": "aguja imantada",
+  "ingredientes": ["piedra_pesada_oscura", "hierro"], "propiedad": "imanta", "categoria": "herramienta",
+  "descripcion": "Frotada contra esa piedra, la aguja siempre apunta al mismo lado.", "tiempo_min": 60,
+  "requiere": {"calor_C": 1200}},
+
+ {"type": "receta", "id": "mango_aislante", "nombre": "mango forrado",
+  "ingredientes": ["madera", "cuero"], "propiedad": "aisla", "categoria": "herramienta",
+  "descripcion": "Un mango que no transmite el calor: se agarra lo que está al rojo.", "tiempo_min": 40},
+
+ {"type": "receta", "id": "clavo_de_hierro", "nombre": "clavo de hierro",
+  "ingredientes": ["hierro"], "propiedad": "clava", "categoria": "metal",
+  "descripcion": "Se estira al rojo y se corta: une madera con madera sin atar nada.", "tiempo_min": 30,
+  "requiere": {"calor_C": 1200}, "resultado": {"item": "clavo", "cantidad": 4}},
+
+ {"type": "receta", "id": "fundir_plomo", "nombre": "plomo fundido",
+  "ingredientes": ["#mena_de_plomo", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Esa piedra gris chorrea un metal blando apenas se la calienta.", "tiempo_min": 60,
+  "requiere": {"calor_C": 400}, "resultado": {"item": "plomo", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_zinc", "nombre": "zinc fundido",
+  "ingredientes": ["#mena_de_zinc", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "De la piedra resinosa sale un metal blanco y quebradizo.", "tiempo_min": 60,
+  "requiere": {"calor_C": 420}, "resultado": {"item": "zinc", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_estano", "nombre": "estaño fundido",
+  "ingredientes": ["#mena_de_estano", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "La piedra gris y pesada se deshace en un metal que se dobla con la mano.", "tiempo_min": 75,
+  "requiere": {"calor_C": 700}, "resultado": {"item": "estano", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_cobre", "nombre": "cobre fundido",
+  "ingredientes": ["#mena_de_cobre", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "La piedra verdosa suelta un metal rojizo que se martilla sin romperse.", "tiempo_min": 90,
+  "requiere": {"calor_C": 1000}, "resultado": {"item": "cobre", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_plata", "nombre": "plata fundida",
+  "ingredientes": ["#mena_de_plata", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Un metal blanco que no se oscurece con los años.", "tiempo_min": 90,
+  "requiere": {"calor_C": 960}, "resultado": {"item": "plata", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_oro", "nombre": "oro fundido",
+  "ingredientes": ["#mena_de_oro", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Pesa como ninguna otra cosa y no se arruina nunca.", "tiempo_min": 90,
+  "requiere": {"calor_C": 1060}, "resultado": {"item": "oro", "cantidad": 1}},
+
+ {"type": "receta", "id": "fundir_hierro", "nombre": "hierro fundido",
+  "ingredientes": ["#mena_de_hierro", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Hace falta un fuego que ponga la piedra al blanco. Lo que sale aguanta todo.", "tiempo_min": 120,
+  "requiere": {"calor_C": 1200}, "resultado": {"item": "hierro", "cantidad": 1}},
+
+ {"type": "receta", "id": "bronce_fundido", "nombre": "bronce",
+  "ingredientes": ["cobre", "estano"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Juntos dan algo mucho más duro que cualquiera de los dos por separado.", "tiempo_min": 90,
+  "requiere": {"calor_C": 950}, "resultado": {"item": "bronce", "cantidad": 2}},
+
+ {"type": "receta", "id": "laton_fundido", "nombre": "latón",
+  "ingredientes": ["cobre", "piedra_resinosa"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Cobre con piedra resinosa: queda dorado y no se pica.", "tiempo_min": 90,
+  "requiere": {"calor_C": 1000}, "resultado": {"item": "laton", "cantidad": 2}},
+
+ {"type": "receta", "id": "acero_forjado", "nombre": "acero",
+  "ingredientes": ["hierro", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "El hierro aguanta más si come carbón en la fragua.", "tiempo_min": 150,
+  "requiere": {"calor_C": 1400}, "resultado": {"item": "acero", "cantidad": 1}},
+
+ {"type": "receta", "id": "vidrio_fundido", "nombre": "vidrio",
+  "ingredientes": ["arena", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "La arena se vuelve líquida y al enfriarse deja pasar la luz.", "tiempo_min": 120,
+  "requiere": {"calor_C": 1500}, "resultado": {"item": "vidrio", "cantidad": 1}},
+
+ {"type": "receta", "id": "cal_viva", "nombre": "cal",
+  "ingredientes": ["piedra_blanca_blanda", "#carbon_de_fragua"], "propiedad": "arde", "categoria": "metal",
+  "descripcion": "La piedra blanca cocida se deshace en un polvo que después agarra como roca.", "tiempo_min": 90,
+  "requiere": {"calor_C": 900}, "resultado": {"item": "cal", "cantidad": 2}},
+
+ {"type": "receta", "id": "barro_refractario", "nombre": "arcilla refractaria",
+  "ingredientes": ["barro_blanco"], "propiedad": "mezcla", "categoria": "refugio",
+  "descripcion": "El barro blanco amasado aguanta el fuego donde el común se raja.", "tiempo_min": 60,
+  "resultado": {"item": "arcilla_refractaria", "cantidad": 2}},
+
+ {"type": "receta", "id": "mortero", "nombre": "mortero",
+  "ingredientes": ["cal", "arena"], "propiedad": "mezcla", "categoria": "refugio",
+  "descripcion": "Cal y arena: pega las piedras entre sí y no se suelta más.", "tiempo_min": 45,
+  "resultado": {"item": "mortero", "cantidad": 2}},
+
+ {"type": "receta", "id": "cemento_cocido", "nombre": "cemento",
+  "ingredientes": ["cal", "arena", "arcilla"], "propiedad": "mezcla", "categoria": "metal",
+  "descripcion": "Cocido muy caliente y molido: endurece hasta bajo la lluvia.", "tiempo_min": 150,
+  "requiere": {"calor_C": 1450}, "resultado": {"item": "cemento", "cantidad": 2}},
+
+ {"type": "receta", "id": "fundir_piedra_rara", "nombre": "fundir una piedra rara",
+  "ingredientes": ["#mena_desconocida", "#carbon_de_fragua"], "propiedad": "funde", "categoria": "metal",
+  "descripcion": "Nadie sabe qué va a salir de esta piedra hasta que se derrite.", "tiempo_min": 120,
+  "requiere": {"calor_C": "@mena"}, "resultado": {"desde_mena": true, "cantidad": 1}},
+
+ {"type": "receta", "id": "casa_de_piedra", "nombre": "casa de piedra",
+  "ingredientes": ["piedra", "mortero", "madera"], "propiedad": "construye", "categoria": "refugio",
+  "descripcion": "Paredes de piedra tomadas con mortero: lo primero que dura más que quien lo hizo.",
+  "tiempo_min": 2400, "estructura": {"abrigo": 0.8}},
+
+ {"type": "receta", "id": "calle_empedrada", "nombre": "calle empedrada",
+  "ingredientes": ["cemento", "piedra"], "propiedad": "construye", "categoria": "refugio",
+  "descripcion": "Piedra asentada en cemento: se camina parejo llueva o no.",
+  "tiempo_min": 600, "estructura": {"abrigo": 0.0}}
+]

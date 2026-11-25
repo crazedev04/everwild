@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mundo-vivo",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-u", "-m", "mundo_vivo", "--datos", "/tmp/claude-1000/-home-cracken-Mimundo-mundo-vivo/157beea0-b2db-4d07-889c-1274077b91e0/scratchpad/dn", "servir", "--puerto", "8791"],
+      "port": 8791,
+      "env": { "PYTHONPATH": "src", "MUNDO_VIVO_CEREBRO": "cognitivo", "COGNITIVE_ENGINE_SRC": "/home/cracken/Mimundo/Cognitive Engine/src" }
+    }
+  ]
+}

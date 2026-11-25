@@ -1,0 +1,13 @@
+[
+ {"type": "dimension", "id": "mundo", "nombre": "Mundo", "generador": "continental",
+  "preset": {
+    "altura_max_m": 3000.0,
+    "profundidad_max_m": 3000.0,
+    "quantil_mar": 0.55,
+    "quantil_rio": 0.95,
+    "umbral_lago_m": 8.0,
+    "umbral_cascada_m": 100.0,
+    "volcanes": {"altura_min_m": 1200, "crater_m": -250.0, "radio_celdas": 6}
+  },
+  "cielo": {"dia_noche": true, "estaciones": true}}
+]
