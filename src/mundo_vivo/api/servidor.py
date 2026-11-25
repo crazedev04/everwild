@@ -296,8 +296,10 @@ def crear_app(dir_datos: Path) -> FastAPI:
         crudos = cargar(nombre, dim)[2]
         if capa not in crudos:
             raise HTTPException(404, "Capa desconocida.")
-        return Response(crudos[capa], media_type="application/octet-stream",
-                        headers={"Cache-Control": "no-cache"})
+        raw = crudos[capa]
+        comp = zlib.compress(raw, level=1)
+        return Response(comp, media_type="application/octet-stream",
+                        headers={"Cache-Control": "public, max-age=86400", "Content-Encoding": "deflate"})
 
     @app.get("/api/mundos/{nombre}/eventos")
     def api_eventos(nombre: str, tipo: Optional[str] = None, actor: Optional[int] = None,

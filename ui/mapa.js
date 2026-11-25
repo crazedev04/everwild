@@ -28,7 +28,13 @@
     if (!r.ok) throw new Error((await r.text()) || r.status);
     return r.json();
   }
-  async function bin(url, Tipo) { const r = await fetch(url); return new Tipo(await r.arrayBuffer()); }
+  async function bin(url, Tipo) {
+    const r = await fetch(url);
+    const ds = new DecompressionStream("deflate");
+    const piped = r.body.pipeThrough(ds);
+    const buf = await new Response(piped).arrayBuffer();
+    return new Tipo(buf);
+  }
 
   window.MV_abrirMapa = (nombre, dim) => abrirMundo(nombre, dim);
 
@@ -82,39 +88,62 @@
     if (!estado.offscreen) estado.offscreen = document.createElement("canvas");
     estado.offscreen.width = w; estado.offscreen.height = h; estado.mini = null;
     const octx = estado.offscreen.getContext("2d");
-    const img = octx.createImageData(w, h), d = img.data;
+    const img = octx.createImageData(w, h);
+    const data32 = new Uint32Array(img.data.buffer);
     const relieve = $("chk-relieve").checked, rios = $("chk-rios").checked, rasgos = $("chk-rasgos").checked;
     const modo = estado.modo;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x, p = i * 4;
-        let rgb;
-        if (modo === "bioma") rgb = estado.pal[c.bioma[i]] || [255, 0, 255];
-        else if (modo === "altura") rgb = rampa(RAMPA_ALTURA, (c.elev[i] + 3000) / 6000 >= 0.5 ? 0.5 + (c.elev[i] / 3000) * 0.5 : (c.elev[i] + 3000) / 6000);
-        else if (modo === "temperatura") rgb = rampa(RAMPA_TEMP, (c.temp[i] + 20) / 55);
-        else rgb = rampa(RAMPA_HUM, c.hum[i] / 255);
-        let r = rgb[0], g = rgb[1], b = rgb[2];
-        // textura por celda: sin esto el terreno son manchones planos de un solo color. Es ruido determinista
-        // (misma celda = mismo grano siempre), más fuerte en lo que de cerca se ve irregular (pasto, bosque, piedra).
-        if (modo === "bioma") {
-          let n = (x * 374761393 + y * 668265263) | 0;
-          n = (n ^ (n >> 13)) * 1274126177 | 0;
-          const v = ((n ^ (n >> 16)) & 1023) / 1023 - 0.5;
-          const grano = c.agua[i] ? 0.05 : 0.16;      // el agua casi no granula; la tierra sí
-          const k = 1 + v * grano;
-          r *= k; g *= k; b *= k;
+    const pal = estado.pal || {};
+    const bioma = c.bioma, agua = c.agua, elev = c.elev, rasg = c.rasgos, temp = c.temp, hum = c.hum;
+
+    // Cache pre-calculado de paleta a 32-bit little-endian
+    const pal32 = new Uint32Array(256);
+    for (let b = 0; b < 256; b++) {
+      const rgb = pal[b] || [255, 0, 255];
+      pal32[b] = (255 << 24) | (rgb[2] << 16) | (rgb[1] << 8) | rgb[0];
+    }
+
+    let i = 0;
+    if (modo === "bioma" && !relieve && !rasgos && !rios) {
+      // Camino hiper-rápido: copia directa de memoria en un solo pase
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++, i++) {
+          data32[i] = pal32[bioma[i]];
         }
-        if (relieve && c.elev[i] >= 0) {
-          const e = (xx, yy) => c.elev[Math.max(0, Math.min(h - 1, yy)) * w + Math.max(0, Math.min(w - 1, xx))];
-          const s = Math.max(0.6, Math.min(1.4, 1 + (-(e(x + 1, y) - e(x - 1, y)) / 2 - (e(x, y + 1) - e(x, y - 1)) / 2) / 60));
-          r *= s; g *= s; b *= s;
+      }
+    } else {
+      for (let y = 0; y < h; y++) {
+        const yTop = Math.max(0, y - 1) * w, yBot = Math.min(h - 1, y + 1) * w, yRow = y * w;
+        for (let x = 0; x < w; x++, i++) {
+          let rgb;
+          if (modo === "bioma") rgb = pal[bioma[i]] || [255, 0, 255];
+          else if (modo === "altura") rgb = rampa(RAMPA_ALTURA, (elev[i] + 3000) / 6000 >= 0.5 ? 0.5 + (elev[i] / 3000) * 0.5 : (elev[i] + 3000) / 6000);
+          else if (modo === "temperatura") rgb = rampa(RAMPA_TEMP, (temp[i] + 20) / 55);
+          else rgb = rampa(RAMPA_HUM, hum[i] / 255);
+          let r = rgb[0], g = rgb[1], b = rgb[2];
+
+          if (modo === "bioma") {
+            let n = (x * 374761393 + y * 668265263) | 0;
+            n = (n ^ (n >> 13)) * 1274126177 | 0;
+            const v = ((n ^ (n >> 16)) & 1023) * 0.0009775 - 0.5;
+            const k = 1 + v * (agua[i] ? 0.05 : 0.16);
+            r *= k; g *= k; b *= k;
+          }
+          if (relieve && elev[i] >= 0) {
+            const xL = Math.max(0, x - 1), xR = Math.min(w - 1, x + 1);
+            const dx = (elev[yRow + xR] - elev[yRow + xL]) * 0.5;
+            const dy = (elev[yBot + x] - elev[yTop + x]) * 0.5;
+            let s = 1 - (dx + dy) * 0.0166667;
+            if (s < 0.6) s = 0.6; else if (s > 1.4) s = 1.4;
+            r *= s; g *= s; b *= s;
+          }
+          if (rios && agua[i] === 3) { r = 74; g = 144; b = 217; }
+          if (rasgos) {
+            const rg = rasg[i];
+            if (rg & 1) { r = 255; g = 255; b = 255; }
+            if (rg & 2) { r = 255; g = 90; b = 31; }
+          }
+          data32[i] = (255 << 24) | ((b | 0) << 16) | ((g | 0) << 8) | (r | 0);
         }
-        if (rios && c.agua[i] === 3) { r = 74; g = 144; b = 217; }
-        if (rasgos) {
-          if (c.rasgos[i] & 1) { r = 255; g = 255; b = 255; }
-          if (c.rasgos[i] & 2) { r = 255; g = 90; b = 31; }
-        }
-        d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255;
       }
     }
     octx.putImageData(img, 0, 0);
