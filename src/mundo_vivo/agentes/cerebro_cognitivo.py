@@ -241,6 +241,10 @@ class CerebroCognitivo(Cerebro):
         self._ultima_charla: dict[int, float] = {}
         self._ultimo_tick: dict[int, float] = {}
         self._charlas = 0
+        # Recuperar los cerebros persistidos de este mundo antes de la primera decisión, para que
+        # la continuidad (memorias, pericia, ids) esté lista sin esperar a que cada habitante
+        # decida por primera vez.
+        self.recuperar_cerebros()
         # Las creencias de la decisión que se está resolviendo, por habitante: {id: (t, creencias)}.
         # `_anotar_decision` las necesita para el registro de entrenamiento y antes las volvía a
         # calcular, o sea el doble de la consulta más cara del puente por cada decisión de cada
@@ -624,7 +628,11 @@ class CerebroCognitivo(Cerebro):
                 cerebro.position = tuple(posicion)
             if datos.get("current_goal_id") is not None:
                 cerebro.decision_engine.state.goal_id = datos["current_goal_id"]
-            self._cerebros_restaurados += 1
+            # Contar como restauración solo si el cerebro no se recuperó de forma anticipada al
+            # abrir el mundo (recuperar_cerebros en __init__), para no duplicar el conteo entre la
+            # recuperación eager y la perezosa por habitante.
+            if identidad.brain_id not in self._adapter.service.scheduler._brains:
+                self._cerebros_restaurados += 1
         self._cerebros[h.id] = cerebro
         # Registro a través del adaptador (no del scheduler): conserva el brain_id
         # y los componentes a medida, y evita duplicados.
@@ -676,6 +684,36 @@ class CerebroCognitivo(Cerebro):
                 self._guardados_fallidos += 1
                 self._ultimo_error_guardando = f"save(muerte): {exc}"[:120]
             self._adapter.service.scheduler.unregister_brain(cerebro.identity.brain_id)
+
+    # ------------------------------------------------------------------ recuperación / continuidad
+
+    def list_brain_ids(self) -> list[str]:
+        """Ids de todos los cerebros persistidos para este mundo.
+
+        Útil para saber qué cerebros hay en disco antes de decidir qué recuperar.
+        """
+        try:
+            return list(self._repo.list_brain_ids())
+        except Exception as exc:
+            self._restauraciones_fallidas += 1
+            self._ultimo_error_restaurando = f"list: {exc}"[:120]
+            return []
+
+    def recuperar_cerebros(self) -> list[str]:
+        """Recupera todos los cerebros persistidos de este mundo y los registra en el scheduler.
+
+        No duplica: el scheduler descarta ids ya registrados y `recover_brains` saltea los
+        archivados. Se llama al abrir un mundo para que la continuidad esté lista antes de la
+        primera decisión. Devuelve los brain_id recuperados.
+        """
+        try:
+            recuperados = self._adapter.service.recover_brains()
+            self._cerebros_restaurados += len(recuperados)
+            return list(recuperados)
+        except Exception as exc:
+            self._restauraciones_fallidas += 1
+            self._ultimo_error_restaurando = f"recover: {exc}"[:120]
+            return []
 
     # ------------------------------------------------------------------ percepción
 

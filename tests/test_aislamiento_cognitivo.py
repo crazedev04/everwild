@@ -123,6 +123,44 @@ class TestAislamientoCognitivo(unittest.TestCase):
         self.assertEqual(ca2._repo.load("%s:d0:h1" % uid)["identity"].name, "A1")
         con.close()
 
+    def test_11_list_brain_ids_devuelve_los_creados(self):
+        _, a = self._mundo(semilla=1)
+        ca = CerebroCognitivo(a)
+        uid = ca._world_uid
+        ca._adapter.service.create_brain(brain_id="%s:d0:h1" % uid, name="A1")
+        ca._adapter.service.create_brain(brain_id="%s:d0:h2" % uid, name="A2")
+        ids = set(ca.list_brain_ids())
+        self.assertIn("%s:d0:h1" % uid, ids)
+        self.assertIn("%s:d0:h2" % uid, ids)
+        a.close()
+
+    def test_12_recuperar_cerebros_al_reabrir_no_duplica(self):
+        ruta, a = self._mundo(semilla=3)
+        ca = CerebroCognitivo(a)
+        uid = ca._world_uid
+        ca._adapter.service.create_brain(brain_id="%s:d0:h1" % uid, name="A1")
+        antes = ca._adapter.service.scheduler.brain_count
+        a.close()
+        con = db.abrir(ruta)
+        ca2 = CerebroCognitivo(con)  # __init__ recupera automáticamente
+        despues = ca2._adapter.service.scheduler.brain_count
+        self.assertEqual(despues, antes)  # no duplica al recuperar
+        self.assertEqual(ca2.list_brain_ids(), ["%s:d0:h1" % uid])
+        con.close()
+
+    def test_13_recuperar_cerebros_automatico_al_abrir_mundo(self):
+        ruta, a = self._mundo(semilla=4)
+        uid = mundo_io.world_uid(a)
+        ca = CerebroCognitivo(a)
+        ca._adapter.service.create_brain(brain_id="%s:d0:h1" % uid, name="A1")
+        a.close()
+        # Reabrir: el nuevo puente recupera solo en __init__ sin llamada explícita.
+        con = db.abrir(ruta)
+        ca2 = CerebroCognitivo(con)
+        self.assertEqual(ca2.list_brain_ids(), ["%s:d0:h1" % uid])
+        self.assertEqual(ca2._cerebros_restaurados, 1)
+        con.close()
+
     def test_10_legacy_no_se_toca(self):
         # La base compartida legacy no se crea ni se usa: cada mundo abre la suya.
         _, a = self._mundo(semilla=1)

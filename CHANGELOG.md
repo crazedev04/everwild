@@ -61,6 +61,11 @@
   - Acceso al plan activo via `decision_engine.plan_manager.active_plan` (retrocompatible con fallback a `state.plan`).
 - **Persistencia de cerebros cognitivos** en `cerebros_cognitivos.db` (mismo directorio que el mundo). Se guarda en cada ciclo de `guardar()` y al olvidar un habitante fallecido. No interfiere con la base principal del mundo; si falla, registra el error sin tumbar la simulación.
 - **28 tests** de integración pasando, incluido ciclo de 20 días simulados sin muertes con agua al alcance.
+- **Recuperación de cerebros al abrir el mundo (E2)**: `CerebroCognitivo` expone `list_brain_ids()` y
+  `recuperar_cerebros()`. Al abrir un mundo, los cerebros persistidos se recuperan en el scheduler
+  antes de la primera decisión, así la continuidad (memorias, pericia, ids) está lista sin esperar a
+  que cada habitante decida. No duplica: el scheduler descarta ids ya registrados y saltea los
+  archivados.
 
 ### Arreglado
 
