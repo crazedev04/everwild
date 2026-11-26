@@ -259,7 +259,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.ajustes["modulos"]["fauna"] = False      # una simulación pelada no puebla fauna hasta que se pide
         from ..registro import Registro
         self.registro = Registro.cargar()      # todo el contenido del mundo sale de acá
-        self._compilar_materiales()            # y se compila a tablas planas para el bucle
+        self._compilar_materiales()            # materiales, armas, antorchas, leña
+        self._compilar_estructures()           # estructuras que proveen calor/energía
+        self._compilar_objetives()             # objetivos de respaldo
         self._compilar_conservacion()
         self._compilar_alimentos()
         self._compilar_fenomenos()

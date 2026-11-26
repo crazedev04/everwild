@@ -14,7 +14,7 @@ from mundo_vivo.agentes.cerebro_cognitivo import (
     CerebroCognitivo,
     motor_cognitivo_disponible,
 )
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 
 # Tipos internos que `Simulacion._aplicar` sabe ejecutar y que este puente puede emitir.
