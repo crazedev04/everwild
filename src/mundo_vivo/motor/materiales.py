@@ -150,12 +150,12 @@ class MaterialesMixin:
             return False, "Aca no encontrás eso. Lo que hay: %s." % (", ".join(sorted(disp)) or "nada util")
         h.accion, h.detalle, h.hasta = "juntando", mat, self.t + TIEMPO_JUNTAR_MIN
         h.camino = []
-        if self.rng.random() > disp[mat]:
+        if self.rng_materiales.random() > disp[mat]:
             return True, "Buscaste %s un rato pero no encontraste." % mat
         lo, hi = self.cant_rec.get(mat, (1, 2))
-        n = self.rng.randint(lo, hi)
+        n = self.rng_materiales.randint(lo, hi)
         if self.modulo("atributos") and self.atributo(h, "fuerza") > 0.5:   # brazos fuertes rinden mas
-            n += int(self.rng.random() < (self.atributo(h, "fuerza") - 0.5) * 1.2)
+            n += int(self.rng_materiales.random() < (self.atributo(h, "fuerza") - 0.5) * 1.2)
         n = min(n, max(1, int(self.restante(h.x, h.y, mat))))
         self._gastar_recurso(h.x, h.y, mat, n)
         self._ganar_item(h, mat, n)

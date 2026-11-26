@@ -101,7 +101,7 @@ class VidaMixin:
     # --------------------------------------------------------- paso de vida
     def _vida(self, h, paso: float) -> None:
         # vejez
-        if self.t - h.nacimiento_min > VEJEZ_MIN and self.rng.random() < paso / (3 * ANIO_MIN):
+        if self.t - h.nacimiento_min > VEJEZ_MIN and self.rng_vida.random() < paso / (3 * ANIO_MIN):
             self._morir(h, "vejez")
             return
         # parto
@@ -144,10 +144,10 @@ class VidaMixin:
         if gm is None:
             return
         g = heredar(gm, gp, self.semilla * 7919 + int(self.t))
-        sexo = "F" if self.rng.random() < self._prob_hija() else "M"
+        sexo = "F" if self.rng_vida.random() < self._prob_hija() else "M"
         usados = {x.nombre for x in self.habitantes.values()}
         pool = [n for n in (NOMBRES_F if sexo == "F" else NOMBRES_M) if n not in usados] or ["Nuevo%d" % (len(self.habitantes) + 1)]
-        nombre = self.rng.choice(pool)
+        nombre = self.rng_vida.choice(pool)
         if self.al_nacer is not None:
             nuevo = self.al_nacer(self, madre, padre, g, sexo, nombre)
         else:
@@ -250,8 +250,8 @@ class VidaMixin:
             if not self.modulo("memoria"):
                 return
             # Un lugar inventado, en un rumbo cualquiera. El que escucha se lo cree igual que a lo verdadero.
-            ang = self.rng.random() * 6.2832
-            d = self.celdas(self.rng.uniform(400.0, 2000.0))
+            ang = self.rng_vida.random() * 6.2832
+            d = self.celdas(self.rng_vida.uniform(400.0, 2000.0))
             fx, fy = h.x + math.cos(ang) * d, h.y + math.sin(ang) * d
             o.marcar_lugar("agua", fx, fy, "se lo contaron", self.t, radio=self.celdas(300.0))
             self._recuerdo(o, "%s te contó que hay agua hacia allá." % h.nombre, 0.5,
@@ -261,7 +261,7 @@ class VidaMixin:
                          importancia=2, datos={"a": o.id})
             return
         # contar / advertir: se pasa un lugar que el que habla SÍ conoce
-        tipo = "peligro" if intencion == "advertir" else self.rng.choice(("agua", "comida", "refugio"))
+        tipo = "peligro" if intencion == "advertir" else self.rng_vida.choice(("agua", "comida", "refugio"))
         propios = h.lugares.get(tipo) or []
         if not propios:
             return

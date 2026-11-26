@@ -50,7 +50,7 @@ class FenomenosMixin:
             d = f.get("disparador") or {}
             if dia < float(d.get("desde_dia", 0)):
                 continue
-            if self.rng.random() >= float(d.get("prob_por_dia", 0)) * dt / MIN_DIA:
+            if self.rng_fenomenos.random() >= float(d.get("prob_por_dia", 0)) * dt / MIN_DIA:
                 continue
             self._disparar_fenomeno(f)
 
@@ -58,8 +58,8 @@ class FenomenosMixin:
         cfg = f.get("lugar") or {}
         t = self.terreno
         for _ in range(int(cfg.get("intentos", 30))):
-            x = self.rng.randrange(t.ancho)
-            y = self.rng.randrange(t.alto)
+            x = self.rng_fenomenos.randrange(t.ancho)
+            y = self.rng_fenomenos.randrange(t.alto)
             if cfg.get("en_tierra", True) and (t.agua[y, x] or not t.caminable(x, y)):
                 continue
             return x, y
@@ -92,7 +92,7 @@ class FenomenosMixin:
                     k = "%d,%d,%s" % (zx, zy, mat)
                     self.depositos[k] = self.depositos.get(k, 0.0) + n
         elif tipo == "encender_fuego":
-            if self.rng.random() < float(e.get("prob", 1.0)):
+            if self.rng_fenomenos.random() < float(e.get("prob", 1.0)):
                 self.encender(x, y, origen="sistema")
         elif tipo == "dano_area":
             for h in self.habitantes.values():

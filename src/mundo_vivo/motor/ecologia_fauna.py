@@ -83,15 +83,15 @@ class EcologiaFaunaMixin:
                     continue
                 ataca = False
                 if e["agresivo"] == "siempre" and a.hambre > 0.5:
-                    ataca = self.rng.random() < 0.6
+                    ataca = self.rng_fauna.random() < 0.6
                 elif a.provocado_hasta > self.t:
-                    ataca = self.rng.random() < 0.6
+                    ataca = self.rng_fauna.random() < 0.6
                 elif e["veneno"] and dd < 1.0:
-                    ataca = self.rng.random() < 0.08          # lo pisó sin querer
+                    ataca = self.rng_fauna.random() < 0.08          # lo pisó sin querer
                 if not ataca:
                     continue
                 a.ataque_hasta = self.t + 60.0
-                dmg = e["peligro"] * self.rng.uniform(1.0, 2.5) * (1.3 if e["veneno"] else 1.0) * (1.0 - self.proteccion_de(h))
+                dmg = e["peligro"] * self.rng_fauna.uniform(1.0, 2.5) * (1.3 if e["veneno"] else 1.0) * (1.0 - self.proteccion_de(h))
                 self._dano(h, dmg, "ataque de %s" % e["nombre"], "ataque_animal",
                            "%s fue atacad%s por un animal: %s." % (h.nombre, "a" if h.sexo == "F" else "o", e["nombre"]),
                            mio="Te atacó un animal (%s) cerca de (%d, %d). Mejor evitar ese lugar." % (e["nombre"], int(h.x), int(h.y)))
@@ -153,21 +153,21 @@ class EcologiaFaunaMixin:
         h.camino, h.accion, h.detalle, h.hasta = [], "cazando", e["nombre"], self.t + 10.0
         chance = 0.25 + bono - 0.05 * min(6.0, e["velocidad"]) - 0.015 * min(10.0, e["peligro"]) + 0.1
         chance = max(0.05, min(0.9, chance))
-        if self.rng.random() < chance:
+        if self.rng_fauna.random() < chance:
             self.fauna.matar(a, "cazado por personas")
             botin = {}
             drops = dict(e["drops"])
             if drops.get("carne"):                       # lo que además se aprovecha de un animal grande
                 pesado = e["peso_kg"] >= 40
                 for extra, p in (("grasa", 0.6 if pesado else 0.2), ("tendon", 0.4 if pesado else 0.1), ("piel", 0.5 if pesado else 0.15)):
-                    if self.rng.random() < p:
+                    if self.rng_fauna.random() < p:
                         drops[extra] = 1
-                if a.sp in ("ciervo", "cabra", "vaca") and self.rng.random() < 0.5:
+                if a.sp in ("ciervo", "cabra", "vaca") and self.rng_fauna.random() < 0.5:
                     drops["cuerno"] = 1
-                if a.sp in ("elefante", "jabali") and self.rng.random() < 0.6:
+                if a.sp in ("elefante", "jabali") and self.rng_fauna.random() < 0.6:
                     drops["colmillo"] = 1
             for item, n in drops.items():
-                cant = max(1, int(round(n * self.rng.uniform(0.7, 1.3))))
+                cant = max(1, int(round(n * self.rng_fauna.uniform(0.7, 1.3))))
                 self._ganar_item(h, item, cant)
                 botin[item] = cant
             txt = ", ".join("%d de %s" % (v, k) for k, v in botin.items()) or "nada que aprovechar"
@@ -181,8 +181,8 @@ class EcologiaFaunaMixin:
             return True, "Cazaste %s: conseguiste %s." % (e["nombre"], txt)
         a.huye_hasta = self.t + 40.0
         texto = "Se te escapó %s." % e["nombre"]
-        if (e["agresivo"] != "no" or e["peligro"] >= 4) and self.rng.random() < 0.5:
-            dmg = e["peligro"] * self.rng.uniform(1.2, 3.0)
+        if (e["agresivo"] != "no" or e["peligro"] >= 4) and self.rng_fauna.random() < 0.5:
+            dmg = e["peligro"] * self.rng_fauna.uniform(1.2, 3.0)
             self._dano(h, dmg, "ataque de %s" % e["nombre"], "ataque_animal",
                        "%s fue herid%s por %s al intentar cazarlo." % (h.nombre, "a" if h.sexo == "F" else "o", e["nombre"]),
                        mio="Intentaste cazar (%s) y te lastimó." % e["nombre"])
@@ -211,7 +211,7 @@ class EcologiaFaunaMixin:
         if dist > 1.8:
             return self._acercarse_a(h, a, "se acerca a un %s" % e["nombre"])
         h.camino, h.hasta, h.accion, h.detalle = [], self.t + 5.0, "esperando", "intenta montar"
-        if self.rng.random() < 0.6:
+        if self.rng_fauna.random() < 0.6:
             h.montura, a.jinete = a.id, h.id
             self._evento("monta", "%s montó un %s." % (h.nombre, e["nombre"]), h, importancia=3, datos={"animal": a.sp})
             self._recuerdo(h, "Montaste un %s: ahora vas mucho más rápido." % e["nombre"], 0.8)

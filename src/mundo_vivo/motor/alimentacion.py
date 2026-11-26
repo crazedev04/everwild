@@ -101,9 +101,9 @@ class AlimentacionMixin:
         if v.get("salud"):
             h.salud = min(100.0, h.salud + float(v["salud"]))
         h.accion, h.detalle, h.hasta = "comiendo", item, self.t + COMER_MIN
-        enfermo = float(v.get("riesgo", 0)) > 0 and self.rng.random() < float(v["riesgo"])
+        enfermo = float(v.get("riesgo", 0)) > 0 and self.rng_alimentacion.random() < float(v["riesgo"])
         if enfermo:
-            h.salud -= self.rng.uniform(6.0, 16.0)
+            h.salud -= self.rng_alimentacion.uniform(6.0, 16.0)
             self._evento("enfermo", "%s se descompuso por comer %s." % (h.nombre, item), h,
                          causa="comida en mal estado", importancia=3)
             self._recuerdo(h, "Comiste %s y te cayó mal." % item, 0.8, "semantica")

@@ -196,7 +196,7 @@ class CerebroHibrido(Cerebro):
         if p and sim.t - p["t"] <= 360:
             o = sim.habitantes.get(p["de"])
             if o is not None and o.vivo and (not solo_urgente or sim.t - p["t"] > 90):
-                return {"tipo": "responder_propuesta", "acepta": sim.rng.random() < 0.85}
+                return {"tipo": "responder_propuesta", "acepta": sim.rng_cerebro.random() < 0.85}
         ganas = self.ganas_de_familia(sim, h)
         if ganas < (1.6 if solo_urgente else 1.0) or sim.t - getattr(h, "ultima_prop_t", -1e9) < 2 * 1440:
             return None
@@ -365,7 +365,7 @@ class CerebroHibrido(Cerebro):
         # El hambre va DESPUÉS de la sed (que mata en horas) y ANTES del cansancio. Y usa el mismo umbral con
         # el que el motor lo despierta, para no caer en el bucle de despertarse y volver a dormirse.
         if h.energia <= 12 and not sed_mortal:
-            return {"tipo": "dormir", "min": sim.rng.randint(300, 480)}
+            return {"tipo": "dormir", "min": sim.rng_cerebro.randint(300, 480)}
         if h.sed >= umbral_sed or sed_mortal:
             if sim.terreno.agua_adyacente(int(h.x), int(h.y)):
                 return {"tipo": "beber"}
@@ -376,7 +376,7 @@ class CerebroHibrido(Cerebro):
             if b:
                 return b
         if (h.energia <= umbral_sueno or (reloj.es_noche(sim.t) and h.energia < noche_sueno)) and not sed_mortal:
-            return {"tipo": "dormir", "min": sim.rng.randint(240, 420)}
+            return {"tipo": "dormir", "min": sim.rng_cerebro.randint(240, 420)}
         return None
 
     def _nino(self, sim: Simulacion, h: HabitanteSim) -> dict:
@@ -818,7 +818,7 @@ class CerebroHibrido(Cerebro):
             motivos.append((2, "ata", "Muchas cosas se te caen o se te sueltan; algo que las una ayudaría."))
         if not motivos:
             return []
-        sim.rng.shuffle(motivos)                       # desempata al azar...
+        sim.rng_cerebro.shuffle(motivos)                       # desempata al azar...
         motivos.sort(key=lambda m: -m[0])              # ...pero la necesidad manda
         motivos = [(p, f) for _, p, f in motivos]
         L = ["Hace %d días que no probás una idea nueva; tus manos quieren hacer algo útil." % max(1, int(dias))]
@@ -865,7 +865,7 @@ class CerebroHibrido(Cerebro):
         elif ac == "beber":
             accion = {"tipo": "beber"}
         elif ac == "dormir":
-            accion = {"tipo": "dormir", "min": sim.rng.randint(240, 420)}
+            accion = {"tipo": "dormir", "min": sim.rng_cerebro.randint(240, 420)}
         elif ac == "esperar":
             accion = {"tipo": "esperar", "min": 10, "motivo": pens[:40]}
         elif ac in ("ir_hacia", "hablar", "proponer_hijo", "ensenar") and a_id is not None:
@@ -906,7 +906,7 @@ class CerebroHibrido(Cerebro):
     def _demo_explorar(self, sim: Simulacion, h: HabitanteSim) -> dict:
         # si hace mucho que está solo y sabe dónde vio a alguien, va a buscarlo antes que seguir alejándose
         aus = sim.ausentes(h) if sim.modulo("percepcion_social") else []
-        if aus and min(a[1] for a in aus) >= 2.0 and sim.rng.random() < 0.6:
+        if aus and min(a[1] for a in aus) >= 2.0 and sim.rng_cerebro.random() < 0.6:
             return {"tipo": "buscar", "a": aus[0][0].id}
         # Todo EN METROS, no en celdas. Con celdas fijas, en un mundo de 5 m por celda se podían alejar 150 m como
         # mucho, y la zona de recursos mide 800: quedaban encerrados en una zona ya vaciada, sin poder salir nunca.
@@ -925,8 +925,8 @@ class CerebroHibrido(Cerebro):
         paso_z = max(1, int(sim.celdas(600.0)))        # el mismo cuadriculado con el que se marcan los lugares vistos
         mejor, mejor_p, primero = None, -1e9, None
         for _ in range(16):
-            dd = sim.rng.uniform(cerca, lejos)
-            a = sim.rng.random() * 2 * math.pi
+            dd = sim.rng_cerebro.uniform(cerca, lejos)
+            a = sim.rng_cerebro.random() * 2 * math.pi
             c = sim.terreno.caminable_cerca(int(h.x + math.cos(a) * dd), int(h.y + math.sin(a) * dd), 3)
             if not c:
                 continue

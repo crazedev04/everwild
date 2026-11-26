@@ -166,7 +166,7 @@ class TestCazaYAtaques(_Base):
     def test_cazar_da_botin_y_cuenta_la_historia(self):
         self.sim.avanzar(5)
         h, a = self._a_pie_de("ciervo")
-        self.sim.rng.seed(1)
+        self.sim.rng_fauna.seed(1)
         ok = False
         for _ in range(40):
             if a.id not in self.sim.fauna.animales:
@@ -966,7 +966,7 @@ class TestTecnologia(_Base):
         h.x, h.y = x + .5, y + .5
         self.assertIn("pedernal", self.sim.disponibles(h))
         self.assertNotIn("hoja_grande", self.sim.disponibles(h))
-        self.sim.rng.seed(1)
+        self.sim.rng_fauna.seed(1)
         for _ in range(40):
             self.sim._accion_juntar(h, {"material": "piedra"})
         self.assertGreater(h.inventario.get("piedra", 0), 0)
@@ -1106,7 +1106,7 @@ class TestAgotamientoYHitos(_Base):
             self.skipTest("sin bosque")
         h = self.sim.habitantes[1]
         h.x, h.y = float(xs[0]) + .5, float(ys[0]) + .5
-        self.sim.rng.seed(3)
+        self.sim.rng_fauna.seed(3)
         for _ in range(60):
             self.sim._accion_juntar(h, {"material": "palo"})
         self.assertNotIn("palo", self.sim.disponibles(h))

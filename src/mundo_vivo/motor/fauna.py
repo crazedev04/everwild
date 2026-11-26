@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import biomas as B
+from .semilla import derivar_semilla
 
 TICK_MIN = 5.0            # cada cuántos minutos del mundo se piensa la fauna
 TICK_MAX = 30.0           # a velocidades altas se agrupan ticks (no se pierde precisión importante)
@@ -54,7 +55,7 @@ class Fauna:
         self.mutaciones: list = []       # variantes que aparecieron (las avisa el motor)
         self.terreno, self.fuego, self.esp = terreno, fuego, especies
         self.temp_fn = None                      # función (x, y) -> °C; la pone la simulación
-        self.rng = random.Random(int(semilla) * 7919 + 13)
+        self.rng = random.Random(derivar_semilla(semilla, "fauna"))
         self.animales: Dict[int, Animal] = {}
         self._sig_id = 1
         self._acum = 0.0
