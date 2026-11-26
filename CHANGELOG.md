@@ -74,6 +74,20 @@
 - **Contadores separados por tipo de falla.** `guardados_fallidos` / `ultimo_error_guardando` y `restauraciones_fallidas` / `ultimo_error_restaurando` salen en el panel; antes un fallo de guardado se mezclaba con los de anotación. `olvidar()` ya no se traga el error al archivar el cerebro de un muerto.
 - **Hugo no bebía aunque tuviera agua pegada.** Con sed ≥ `SED_DESPIERTA`, el árbitro del motor cognitivo podía quedarse con el objetivo vigente (p. ej. `explore_environment`) por hístéresis aunque las otras necesidades quedaran en `NUNCA_CRITICA`. Medido en `artemira`: habitante 4 con sed 100 y `agua_adyacente=True` guardaba `current_goal_id="explore_environment"`. Ahora se fuerza `goal_id=None` y se limpia el plan antes de cada tick mientras la sed sea mortal.
 
+## Sin publicar — L.3: streams RNG independientes por subsistema
+
+### Nuevo
+
+- **RNG independiente por subsistema** en `src/mundo_vivo/motor/simulacion.py`: el RNG compartido `self.rng` se reemplaza por 14 streams derivados con `derivar_semilla(raiz, nombre)`: `cerebro`, `agua`, `rayos`, `derrumbes`, `caídas`, `calor`, `materiales`, `psique`, `fauna`, `objetivos`, `propagacion`, `alimentacion`, `vida` y `fenomenos`. Cada consumidor usa su propio stream; no se interfieren entre sí y cada uno es reproducible dado el mismo par raíz+nombre.
+- **Fuego, Fauna y Clima/Fenomenos** derivan su semilla desde `derivar_semilla(semilla, nombre)` en lugar de fórmulas ad hoc (`int(semilla) & 0x7FFFFFFF`, `int(semilla) * 7919 + 13`). Antes Fauna y Clima compartían la misma semilla y por tanto la misma secuencia aleatoria.
+- **`tests/test_semilla.py`**: 8 pruebas de aislamiento y reproducibilidad (determinismo, nombres distintos → semillas distintas, streams no comparten estado, mismo mundo → misma secuencia, distinto mundo → distinta secuencia).
+
+### Arreglado
+
+- Uso de `sim.rng` en `agentes/cerebro_cognitivo.py`, `agentes/mente.py` y `motor/simulacion.py` (`CerebroDemo`) migrado al stream correspondiente (`rng_cerebro` para decisiones, `rng_agua` para búsqueda de agua, `rng_rayos` para encendido por rayo, `rng_derrumbes` para daño de derrumbe, `rng_caidas` para resbalones).
+- Pruebas de `test_alimentacion.py` y `test_fauna.py` actualizadas para semear `rng_alimentacion` y `rng_fauna` en lugar del eliminado `sim.rng`.
+
+
 Cada actualización lista lo nuevo, lo acordado, lo arreglado y lo que queda pendiente. La versión actual está en `src/mundo_vivo/__init__.py`.
 Las migraciones de base de datos son automáticas y no borran nada: un mundo viejo se abre con la versión nueva y conserva sus recuerdos.
 
