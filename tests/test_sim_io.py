@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 
 from mundo_vivo.persistencia import db, mundo_io, sim_io
+from mundo_vivo.motor.navegacion import Terreno
+from mundo_vivo.motor import biomas as B
 
 
 class TestSimIO(unittest.TestCase):
@@ -50,6 +52,21 @@ class TestSimIO(unittest.TestCase):
                 self.assertAlmostEqual(a, b, delta=0.02)
         self.assertEqual(int(s2.fuego.fuego.sum()), int(sim.fuego.fuego.sum()))
         self.assertGreaterEqual(len(mundo_io.listar_eventos(con, tipo="incendio")), 1)
+        con.close()
+
+    def test_elegir_inicio_tiene_agua_alcanzable_por_astar(self):
+        """P2 habitabilidad: el punto de inicio devuelto por elegir_inicio tiene agua dulce
+        realmente alcanzable por A* (navegación real), no solo cerca geométricamente."""
+        ruta, con = self._mundo()
+        capas = mundo_io.cargar_capas(con, dimension=0)
+        t = Terreno(capas, 50.0)
+        x, y = sim_io.elegir_inicio(capas, tam_celda_m=50.0)
+        presupuesto = sim_io._presupuesto_camino(50.0)
+        orilla = sim_io._orilla_alcanzable(t, x, y, presupuesto)
+        self.assertIsNotNone(orilla, "el inicio debe tener agua dulce alcanzable por A*")
+        ox, oy = orilla
+        # la orilla es tierra con agua dulce adyacente
+        self.assertTrue(t.agua_adyacente(ox, oy), "la orilla debe tener agua dulce adyacente")
         con.close()
 
     def test_muerte_queda_registrada_en_la_base(self):
