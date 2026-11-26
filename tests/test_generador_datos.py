@@ -10,7 +10,7 @@ import unittest
 
 import numpy as np
 
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.persistencia.mundo_io import hash_capas
 from mundo_vivo.registro import Registro
 
@@ -52,8 +52,8 @@ class TestClasificacionEnDatos(unittest.TestCase):
 
     def test_se_puede_correr_el_rango_de_un_bioma_desde_los_datos(self):
         """La prueba de que sirve: con otro umbral, el mapa cambia."""
-        from mundo_vivo.motor import generador
-        tabla = generador.tabla_clima(Registro.cargar())
+        from mundo_vivo.generador.pipeline import tabla_clima
+        tabla = tabla_clima(Registro.cargar())
         self.assertTrue(tabla, "no se armó la tabla de clima")
         prioridades = [p for p, _, _ in tabla]
         self.assertEqual(prioridades, sorted(prioridades), "la tabla tiene que venir ordenada por prioridad")

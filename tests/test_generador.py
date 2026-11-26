@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from mundo_vivo.motor import biomas as B
-from mundo_vivo.motor.generador import _erosion_hidraulica, _erosion_termica, generar_mundo
+from mundo_vivo.generador.pipeline import _erosion_hidraulica, _erosion_termica, generar_mundo
 from mundo_vivo.persistencia.mundo_io import hash_capas
 
 

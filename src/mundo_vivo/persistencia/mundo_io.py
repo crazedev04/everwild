@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from ..motor.generador import DTYPES, VERSION_GENERADOR, generar_mundo
+from ..generador.pipeline import DTYPES, VERSION_GENERADOR, generar_mundo
 from . import db
 
 TAM_CHUNK = 64
