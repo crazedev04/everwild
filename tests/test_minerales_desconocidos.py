@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.minerales import ETIQUETA_MENA
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 from tests.test_calor import _ensenar
@@ -44,12 +44,12 @@ class TestGeneracion(unittest.TestCase):
     def test_no_se_gasta_el_generador_del_mundo(self):
         """El RNG del mundo es sagrado: sortear minerales no puede moverlo."""
         s, _ = _mundo(7)
-        antes = s.rng.random()
+        antes = s.rng_cerebro.random()
         s.generar_minerales_desconocidos()
         s.generar_minerales_desconocidos()
         t, _ = _mundo(7)
-        t.rng.random()
-        self.assertEqual(s.rng.random(), t.rng.random())
+        t.rng_cerebro.random()
+        self.assertEqual(s.rng_cerebro.random(), t.rng_cerebro.random())
         self.assertIsInstance(antes, float)
 
     def test_la_cantidad_y_los_rangos_salen_del_json(self):

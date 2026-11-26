@@ -6,11 +6,28 @@ from mundo_vivo.motor import biomas as B
 from mundo_vivo.motor import reloj
 from mundo_vivo.motor.fenomenos import camino_de_caida
 from mundo_vivo.motor.fuego import Fuego
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.navegacion import Terreno
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 
 _M = generar_mundo(42, 128, 128)
+
+
+def _terreno(agua, bioma=None, tam=50.0):
+    """Terreno chico y determinista para pruebas de navegación (todo pradera y llano por defecto)."""
+    h, w = agua.shape
+    if bioma is None:
+        bioma = np.full((h, w), B.PRADERA, dtype=np.uint8)
+    capas = {
+        "elevacion": np.zeros((h, w), dtype=np.int16),
+        "agua": np.asarray(agua, dtype=np.uint8),
+        "bioma": np.asarray(bioma, dtype=np.uint8),
+        "humedad": np.full((h, w), 128, dtype=np.uint8),
+        "temperatura": np.full((h, w), 15, dtype=np.int8),
+        "caudal": np.zeros((h, w), dtype=np.uint8),
+        "rasgos": np.zeros((h, w), dtype=np.uint8),
+    }
+    return Terreno(capas, tam)
 
 
 class TestReloj(unittest.TestCase):
@@ -47,36 +64,54 @@ class TestNavegacion(unittest.TestCase):
                 return
         self.fail("no se encontró ningún camino de prueba")
 
-    def test_un_viaje_imposible_no_se_reintenta_y_se_olvida_si_cambia_el_mapa(self):
-        """Una búsqueda fallida agota el presupuesto de nodos: es lo más caro que hace el motor.
+    def test_destino_inalcanzable_se_cachea_como_definitivo(self):
+        """Si se agota la lista de abiertos sin llegar, se exploró toda la componente del origen:
+        el destino es GENUINAMENTE inalcanzable y SÍ se cachea como definitivo (P0.2)."""
+        agua = np.zeros((5, 5), dtype=np.uint8)
+        agua[:, 2] = B.AGUA_OCEANO                       # muro intransitable en x=2
+        t = _terreno(agua)
+        origen, destino = (0, 0), (4, 0)                 # pradera a cada lado del muro
+        self.assertTrue(t.caminable(*origen) and t.caminable(*destino))
+        clave = t._clave_fracaso(origen, destino)
+        self.assertIsNone(t.buscar_camino(origen, destino))
+        self.assertIn(clave, t._fracasos, "inalcanzable real: va a la caché de fracasos")
+        self.assertNotIn(clave, t._incompletos)
+        # con presupuesto de sobra NO se rebusca: se devuelve el fracaso recordado (evita trabajo redundante)
+        self.assertIsNone(t.buscar_camino(origen, destino, 10_000_000))
+        # cambiar el mapa olvida los fracasos
+        t.cambiar_bioma(destino[0], destino[1], B.BOSQUE_TEMPLADO)
+        self.assertEqual(t._fracasos, set(), "cambiar el mapa tiene que olvidar los fracasos")
 
-        Medido en un mundo de 2048² con celdas de 5 m: de 36 búsquedas en 3 días simulados, 24
-        fallaron y se llevaron 16,7 de los 19,1 segundos pasados dentro del A*, y eran el MISMO
-        destino reintentado 12 veces. Así que el fracaso se recuerda, con dos condiciones: que no se
-        recuerde un ÉXITO (un camino caduca en cuanto alguien construye algo) y que se olvide todo
-        si el mapa cambia, porque ahí lo imposible puede volverse posible.
-        """
-        ys, xs = np.nonzero(np.isfinite(self.t.costo))
-        origen = (int(xs[0]), int(ys[0]))
-        # un destino caminable al que no se llega: se lo encierra bajando el presupuesto a 1 nodo
-        destino = (int(xs[len(xs) // 2]), int(ys[len(ys) // 2]))
-        self.assertIsNone(self.t.buscar_camino(origen, destino, 1))
-        self.assertEqual(len(self.t._fracasos), 1, "el fracaso tiene que quedar anotado")
+    def test_busqueda_incompleta_no_se_marca_como_imposible(self):
+        """Agotar el presupuesto de nodos dejó la búsqueda INCOMPLETA, no probó imposibilidad:
+        NO va a `_fracasos`, va a `_incompletos`, y puede reconsiderarse (P0.2)."""
+        t = _terreno(np.zeros((2, 20), dtype=np.uint8))  # pasillo recto, todo transitable
+        origen, destino = (0, 0), (19, 0)
+        clave = t._clave_fracaso(origen, destino)
+        self.assertIsNone(t.buscar_camino(origen, destino, 1))
+        self.assertNotIn(clave, t._fracasos, "incompleta NO es inaccesibilidad definitiva")
+        self.assertIn(clave, t._incompletos)
+        # el descarte expira (olvidar_fracasos simula cambio de condiciones): se reconsidera y llega
+        t.olvidar_fracasos()
+        self.assertIsNotNone(t.buscar_camino(origen, destino))
+        self.assertEqual(t._fracasos, set())
 
-        # ahora con presupuesto de sobra: NO se busca de nuevo, se devuelve el fracaso recordado
-        self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
+    def test_un_exito_nunca_se_guarda_como_fracaso(self):
+        """Un camino que SÍ existe no se cachea como fracaso ni como incompleto."""
+        t = _terreno(np.zeros((2, 20), dtype=np.uint8))
+        origen, destino = (0, 0), (19, 0)
+        self.assertTrue(t.buscar_camino(origen, destino))
+        self.assertEqual(t._fracasos, set())
+        self.assertEqual(t._incompletos, set())
 
-        # si el mapa cambia, se olvida y se vuelve a buscar de verdad
-        self.t.cambiar_bioma(destino[0], destino[1], int(self.t.bioma[destino[1], destino[0]]) ^ 1)
-        self.assertEqual(self.t._fracasos, set(), "cambiar el mapa tiene que olvidar los fracasos")
-
-        # un camino que SÍ existe nunca se guarda: no hay nada que caduque
-        alcanzable = next(((int(x), int(y)) for x, y in zip(xs, ys)
-                           if self.t.buscar_camino(origen, (int(x), int(y)))), None)
-        self.assertIsNotNone(alcanzable, "el mapa de prueba no tiene ningún destino alcanzable")
-        self.t.olvidar_fracasos()
-        self.assertTrue(self.t.buscar_camino(origen, alcanzable))
-        self.assertEqual(self.t._fracasos, set(), "un éxito no se guarda en la caché")
+    def test_cambiar_el_mapa_olvida_las_incompletas(self):
+        """`cambiar_bioma` debe vaciar también la caché de incompletas, no sólo la de fracasos."""
+        t = _terreno(np.zeros((2, 20), dtype=np.uint8))
+        t.buscar_camino((0, 0), (19, 0), 1)
+        self.assertTrue(t._incompletos)
+        t.cambiar_bioma(5, 0, B.BOSQUE_TEMPLADO)
+        self.assertEqual(t._incompletos, set())
+        self.assertEqual(t._fracasos, set())
 
 
 class TestFuego(unittest.TestCase):

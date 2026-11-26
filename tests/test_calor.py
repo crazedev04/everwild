@@ -11,7 +11,7 @@ from __future__ import annotations
 import unittest
 
 from mundo_vivo import catalogos
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 
 

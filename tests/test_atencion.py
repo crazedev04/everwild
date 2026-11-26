@@ -5,7 +5,7 @@ import unittest
 
 from mundo_vivo.agentes.genoma import genoma_fundador
 from mundo_vivo.motor.atencion import CUPO_BASE
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 
 

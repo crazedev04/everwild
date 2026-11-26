@@ -13,7 +13,7 @@ import numpy as np
 
 from mundo_vivo.agentes import ajustes as aj
 from mundo_vivo.motor import biomas as B
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.navegacion import Terreno
 from mundo_vivo.persistencia import db, mundo_io, sim_io
 

@@ -166,7 +166,7 @@ class TestCazaYAtaques(_Base):
     def test_cazar_da_botin_y_cuenta_la_historia(self):
         self.sim.avanzar(5)
         h, a = self._a_pie_de("ciervo")
-        self.sim.rng.seed(1)
+        self.sim.rng_fauna.seed(1)
         ok = False
         for _ in range(40):
             if a.id not in self.sim.fauna.animales:
@@ -358,7 +358,7 @@ class TestApiRecetasFauna(unittest.TestCase):
         from mundo_vivo.api.servidor import crear_app
         with tempfile.TemporaryDirectory() as d:
             c = TestClient(crear_app(Path(d)))
-            nombre = crear_mundo_api(c, semilla=9, ancho=128, alto=128)
+            nombre = crear_mundo_api(c, semilla=9, ancho=128, alto=128, tam_celda_m=50)
             ruta = Path(d) / "mundos" / (nombre + ".db")
             con = db.abrir(ruta)
             sim_io.crear_habitantes_iniciales(con, 4)
@@ -874,6 +874,191 @@ class TestAguaAlcanzable(_Base):
                 self.assertIsNotNone(t.buscar_camino(c0, c, 40000), "%s -> %s" % (c0, c))
         self.assertGreater(n, 5)
 
+    def test_agua_cercana_solo_ofrece_orillas_enrutables_con_presupuesto_real(self):
+        """P0.1: la detección no ofrece agua que el A* no pueda cerrar con `nodos_camino` (no 40000)."""
+        import random
+        t = self.sim.terreno
+        h = self.sim.habitantes[1]
+        rnd = random.Random(11)
+        n = 0
+        for _ in range(40):
+            c0 = t.caminable_cerca(rnd.randrange(t.ancho), rnd.randrange(t.alto), 4)
+            if not c0:
+                continue
+            h.x, h.y = c0[0] + 0.5, c0[1] + 0.5
+            c = self.sim.agua_cercana(h, 60)
+            if c is None:
+                continue
+            n += 1
+            self.assertTrue(t.caminable(*c) and t.agua_adyacente(*c))
+            self.assertIsNotNone(
+                t.buscar_camino(c0, c, self.sim.nodos_camino),
+                "%s -> %s no debería ofrecerse sin ruta con el presupuesto real" % (c0, c))
+        self.assertGreater(n, 5)
+
+    def test_agua_cercana_no_se_clava_si_el_presupuesto_no_alcanza(self):
+        """P0.2/P0.3: con presupuesto mínimo no ofrece orilla inalcanzable; devuelve None y no se cuelga."""
+        import random
+        t = self.sim.terreno
+        h = self.sim.habitantes[1]
+        guardado = self.sim.nodos_camino
+        self.sim.nodos_camino = 1
+        try:
+            rnd = random.Random(3)
+            probado = False
+            for _ in range(80):
+                c0 = t.caminable_cerca(rnd.randrange(t.ancho), rnd.randrange(t.alto), 4)
+                if not c0 or t.agua_adyacente(*c0):
+                    continue
+                h.x, h.y = c0[0] + 0.5, c0[1] + 0.5
+                c = self.sim.agua_cercana(h, 60)
+                self.assertTrue(c is None or t.buscar_camino(c0, c, 1) is not None,
+                                "no debe ofrecer una orilla que el A* no cierra con presupuesto 1")
+                probado = True
+                break
+            self.assertTrue(probado, "no se encontró posición de prueba no adyacente al agua")
+        finally:
+            self.sim.nodos_camino = guardado
+
+
+class TestFeedbackAgua(_Base):
+    """P1: el feedback de `ir_al_agua` distingue progreso de llegada y de consumo; el alcance de
+    búsqueda se mide por costo de ruta contra el tiempo hasta la sed crítica (no por distancia)."""
+
+    def _sitio(self, semilla=7):
+        """Sitio transitable NO adyacente al agua pero con orilla alcanzable. Devuelve (h, c0, orilla)."""
+        import numpy as np
+        t = self.sim.terreno
+        h = self.sim.habitantes[1]
+        ys, xs = np.nonzero(np.isfinite(t.costo))
+        for k in range(0, len(xs), 3):
+            x, y = int(xs[k]), int(ys[k])
+            if t.agua_adyacente(x, y):
+                continue
+            h.x, h.y = x + 0.5, y + 0.5
+            h.sed = 30.0
+            c = self.sim.agua_cercana(h, 60)
+            if c is not None and tuple(c) != (x, y):
+                return h, (x, y), c
+        self.skipTest("este mundo no tiene orilla alcanzable no adyacente")
+
+    def test_iniciar_ruta_no_es_llegar_ni_beber(self):
+        s = self.sim
+        h, c0, c = self._sitio()
+        h.sed = 60.0
+        ok, txt = s._aplicar(h, {"tipo": "ir", "destino": c, "luego": "beber"})
+        self.assertTrue(ok)                       # aceptada (contrato CCA: ACCEPTED)
+        self.assertEqual(h.accion, "caminando")   # en marcha, no llegó
+        self.assertAlmostEqual(h.sed, 60.0, places=6)   # no bebió
+        self.assertIn("no bebiste", txt.lower())        # el texto no afirma consumo
+
+    def test_desplazamiento_parcial_no_es_llegada(self):
+        s = self.sim
+        h, c0, c = self._sitio()
+        h.sed = 60.0
+        s._aplicar(h, {"tipo": "ir", "destino": c, "luego": "beber"})
+        self.assertTrue(h.camino)
+        s._mover(h, 1e-3)                          # paso diminuto: no vacía el camino
+        self.assertEqual(h.accion, "caminando")
+        self.assertTrue(h.camino)
+        self.assertAlmostEqual(h.sed, 60.0, places=6)
+
+    def test_estar_en_un_lugar_no_es_beber(self):
+        s = self.sim
+        h, c0, c = self._sitio()
+        h.sed = 60.0
+        ok, txt = s._aplicar(h, {"tipo": "ir", "destino": tuple(c0)})   # ya está ahí, no adyacente
+        self.assertTrue(ok)
+        self.assertEqual(h.accion, "esperando")
+        self.assertAlmostEqual(h.sed, 60.0, places=6)
+        self.assertNotIn("beb", txt.lower())
+
+    def test_beber_reduce_la_sed_y_se_refleja(self):
+        import numpy as np
+        s = self.sim
+        t = s.terreno
+        h = s.habitantes[1]
+        ys, xs = np.nonzero(t.agua > 0)
+        col = None
+        for k in range(len(xs)):
+            cc = t.caminable_cerca(int(xs[k]), int(ys[k]), 2)
+            if cc and t.agua_adyacente(*cc):
+                col = cc
+                break
+        self.assertIsNotNone(col, "el mundo no tiene orilla")
+        h.x, h.y = col[0] + 0.5, col[1] + 0.5
+        h.sed = 80.0
+        ok, txt = s._aplicar(h, {"tipo": "beber"})
+        self.assertTrue(ok)
+        self.assertLess(h.sed, 80.0)
+        self.assertIn("bebiste", txt.lower())
+
+    def test_beber_sin_agua_es_fracaso(self):
+        import numpy as np
+        s = self.sim
+        t = s.terreno
+        h = s.habitantes[1]
+        ys, xs = np.nonzero(np.isfinite(t.costo))
+        col = None
+        for k in range(0, len(xs), 7):
+            x, y = int(xs[k]), int(ys[k])
+            if not t.agua_adyacente(x, y):
+                col = (x, y)
+                break
+        self.assertIsNotNone(col)
+        h.x, h.y = col[0] + 0.5, col[1] + 0.5
+        h.sed = 80.0
+        ok, txt = s._aplicar(h, {"tipo": "beber"})
+        self.assertFalse(ok)
+        self.assertAlmostEqual(h.sed, 80.0, places=6)
+
+    def test_el_presupuesto_de_marcha_se_achica_con_la_sed(self):
+        s = self.sim
+        h = s.habitantes[1]
+        h.sed = 30.0
+        amplio = s._t_marcha_agua(h)
+        h.sed = 89.0
+        chico = s._t_marcha_agua(h)
+        self.assertGreater(amplio, chico)
+        self.assertGreater(chico, 0.0)
+
+    def test_agua_retorno_es_viable_en_tiempo_o_none(self):
+        """Con sed crítica, lo que `agua_cercana` devuelva debe ser recorrible a tiempo; si no, None."""
+        s = self.sim
+        h, c0, c = self._sitio()
+        h.sed = 89.0
+        r = s.agua_cercana(h, 60)
+        if r is not None:
+            ruta = s.terreno.buscar_camino(c0, r, s.nodos_camino)
+            self.assertIsNotNone(ruta)
+            self.assertLessEqual(s._costo_ruta(ruta), s._t_marcha_agua(h) + 1e-6)
+
+    def test_agua_cercana_y_alcanzable_con_sed_baja(self):
+        s = self.sim
+        h, c0, c = self._sitio()          # sed 30: presupuesto amplio
+        self.assertIsNotNone(c)
+        self.assertIsNotNone(s.terreno.buscar_camino(c0, c, s.nodos_camino))
+
+    def test_explorar_sigue_funcionando(self):
+        s = self.sim
+        h, c0, c = self._sitio()
+        ok, txt = s._aplicar(h, {"tipo": "ir", "destino": c, "motivo": "explora"})
+        self.assertTrue(ok)
+        self.assertEqual(h.accion, "caminando")
+        self.assertIn("explor", txt.lower())
+
+    def test_contrato_cca_mapea_ok_a_aceptado_rechazado(self):
+        from types import SimpleNamespace
+        try:
+            from cognitive_engine.adapters.mundo_vivo import MundoVivoAdapter
+            from cognitive_engine.core.contracts import ActionStatus
+        except Exception:
+            self.skipTest("cognitive_engine no disponible en este entorno")
+        a = MundoVivoAdapter()
+        p = SimpleNamespace(proposal_id="p1", brain_id="b1", tick=0)
+        self.assertEqual(a.result_from_world(p, True).status, ActionStatus.ACCEPTED)
+        self.assertEqual(a.result_from_world(p, False, "x").status, ActionStatus.REJECTED)
+
 
 class TestConservacion(_Base):
     def _dar(self, item, n=2):
@@ -966,7 +1151,7 @@ class TestTecnologia(_Base):
         h.x, h.y = x + .5, y + .5
         self.assertIn("pedernal", self.sim.disponibles(h))
         self.assertNotIn("hoja_grande", self.sim.disponibles(h))
-        self.sim.rng.seed(1)
+        self.sim.rng_materiales.seed(1)
         for _ in range(40):
             self.sim._accion_juntar(h, {"material": "piedra"})
         self.assertGreater(h.inventario.get("piedra", 0), 0)
@@ -1106,7 +1291,7 @@ class TestAgotamientoYHitos(_Base):
             self.skipTest("sin bosque")
         h = self.sim.habitantes[1]
         h.x, h.y = float(xs[0]) + .5, float(ys[0]) + .5
-        self.sim.rng.seed(3)
+        self.sim.rng_materiales.seed(3)
         for _ in range(60):
             self.sim._accion_juntar(h, {"material": "palo"})
         self.assertNotIn("palo", self.sim.disponibles(h))

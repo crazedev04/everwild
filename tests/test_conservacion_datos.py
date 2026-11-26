@@ -67,7 +67,7 @@ class TestConservacionEnDatos(unittest.TestCase):
 
 class TestElMotorLoCompila(unittest.TestCase):
     def _sim(self):
-        from mundo_vivo.motor.generador import generar_mundo
+        from mundo_vivo.generador.pipeline import generar_mundo
         from mundo_vivo.motor.simulacion import Simulacion
         m = generar_mundo(7, 128, 128, 50)
         return Simulacion(m["capas"], m["meta"])

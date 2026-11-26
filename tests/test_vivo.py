@@ -15,7 +15,7 @@ class TestVivo(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.app = crear_app(Path(self.tmp.name))
         self.cli = TestClient(self.app)
-        self.nombre = crear_mundo_api(self.cli, semilla=42, ancho=128, alto=128)
+        self.nombre = crear_mundo_api(self.cli, semilla=42, ancho=128, alto=128, tam_celda_m=50)
 
     def tearDown(self):
         self.cli.close()

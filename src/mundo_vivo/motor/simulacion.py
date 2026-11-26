@@ -32,6 +32,7 @@ from .objetivos import ObjetivosMixin
 from .minerales import MineralesMixin
 from .propagacion import PropagacionMixin
 from .psique import PsiqueMixin
+from .semilla import derivar_semilla
 from .senderos import SenderosMixin
 from .tecnologia import TecnologiaMixin
 from .fauna import CLAVES_HABITAT, Fauna
@@ -44,6 +45,9 @@ PASO_MAX = 1.0  # minutos simulados por sub-paso
 # Con esta sed uno se despierta aunque esté durmiendo. El cerebro usa el MISMO número para no volver a dormirse:
 # si se separan, el que duerme se despierta por sed, se vuelve a dormir, y se muere al lado del agua.
 SED_DESPIERTA = 80.0
+SED_SUBE_MIN = 0.11          # sed que sube por minuto despierto (fuente única; antes iba inline en _vida)
+SED_CRITICO = 90.0           # desde esta sed la salud empieza a bajar (fuente única; antes iba inline)
+MARGEN_MARCHA_AGUA = 0.6     # del tiempo disponible hasta la sed crítica, fracción usable para caminar al agua
 
 
 class HabitanteSim:
@@ -177,7 +181,7 @@ class CerebroDemo(Cerebro):
     nombre = "demostración (reglas simples)"
 
     def decidir(self, sim: "Simulacion", h: HabitanteSim) -> dict:
-        rng = sim.rng
+        rng = sim.rng_cerebro
         # Si se está muriendo de sed, el agua primero: la sed mata en horas y un fuego lejano no.
         f = None if h.sed >= SED_DESPIERTA else sim.fuego_cerca(h, sim.r_huir_fuego)
         if f:
@@ -224,6 +228,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.dimension = int(dimension)
         self.ident = ident
         self.meta = meta
+        self.world_uid = meta.get("world_uid")     # identidad persistente del mundo (aislamiento cognitivo)
         self.semilla = int(meta["semilla"] if semilla is None else semilla)
         self.tam_celda_m = float(meta["tam_celda_m"])
         self._calcular_escala()
@@ -232,7 +237,22 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.clima = Clima(self.terreno.ancho, self.terreno.alto, self.semilla, self.fuego.viento)
         self.t = float(t_min)
         self.cerebro = cerebro or CerebroDemo()
-        self.rng = random.Random(self.semilla * 31 + int(t_min))
+        # RNG aislado por subsistema: cada uno deriva de la misma semilla raíz con un nombre estable,
+        # así ningún consumo "roba" números a otro y el mundo es determinista por subsistema.
+        self.rng_cerebro = random.Random(derivar_semilla(self.semilla, "cerebro"))
+        self.rng_agua = random.Random(derivar_semilla(self.semilla, "agua"))
+        self.rng_rayo = random.Random(derivar_semilla(self.semilla, "rayo"))
+        self.rng_derrumbe = random.Random(derivar_semilla(self.semilla, "derrumbe"))
+        self.rng_caida = random.Random(derivar_semilla(self.semilla, "caida"))
+        self.rng_calor = random.Random(derivar_semilla(self.semilla, "calor"))
+        self.rng_materiales = random.Random(derivar_semilla(self.semilla, "materiales"))
+        self.rng_psique = random.Random(derivar_semilla(self.semilla, "psique"))
+        self.rng_fauna = random.Random(derivar_semilla(self.semilla, "fauna"))
+        self.rng_objetivos = random.Random(derivar_semilla(self.semilla, "objetivos"))
+        self.rng_propagacion = random.Random(derivar_semilla(self.semilla, "propagacion"))
+        self.rng_alimentacion = random.Random(derivar_semilla(self.semilla, "alimentacion"))
+        self.rng_vida = random.Random(derivar_semilla(self.semilla, "vida"))
+        self.rng_fenomenos = random.Random(derivar_semilla(self.semilla, "fenomenos"))
         self.habitantes: Dict[int, HabitanteSim] = {}
         self._eventos: List[dict] = []
         self._efectos: List[dict] = []
@@ -256,7 +276,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.ajustes["modulos"]["fauna"] = False      # una simulación pelada no puebla fauna hasta que se pide
         from ..registro import Registro
         self.registro = Registro.cargar()      # todo el contenido del mundo sale de acá
-        self._compilar_materiales()            # y se compila a tablas planas para el bucle
+        self._compilar_materiales()            # materiales, armas, antorchas, leña
+        self._compilar_estructures()           # estructuras que proveen calor/energía
+        self._compilar_objetives()             # objetivos de respaldo
         self._compilar_conservacion()
         self._compilar_alimentos()
         self._compilar_fenomenos()
@@ -351,10 +373,13 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.r_lejos_fuego = self.celdas(320.0)     # a esta distancia del frente ya se considera a salvo
         self.r_agua_cerca = self.celdas(3000.0)
         self.r_agua_lejos = self.celdas(7000.0)
-        # el A* y la BFS cuestan ~(escala)² por viaje físico: el presupuesto de nodos acompaña, con tope
+        # el A* y la BFS cuestan ~(escala)² por viaje físico: el presupuesto de nodos acompaña, con tope.
+        # UNA sola fuente de verdad para los dos: la BFS de `agua_cercana` y el A* de `buscar_camino`
+        # comparten presupuesto, o la detección ofrece agua que el enrutado no puede cerrar (C1 del
+        # informe de auditoría). `nodos_bfs` queda como alias de `nodos_camino` por compatibilidad.
         k = (50.0 / self.tam_celda_m) ** 2
-        self.nodos_bfs = int(min(300_000, 30_000 * k))
         self.nodos_camino = int(min(120_000, 12_000 * k))
+        self.nodos_bfs = self.nodos_camino
 
     # ------------------------------------------------------------------ eventos
     def _evento(self, tipo: str, texto: str, h: Optional[HabitanteSim] = None, x: Optional[float] = None,
@@ -401,17 +426,27 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         return (float(xs[i] + xs0 + 0.5), float(ys[i] + ys0 + 0.5), float(d[i])) if d[i] <= radio else None
 
     def agua_cercana(self, h: HabitanteSim, radio: int = 60) -> Optional[Tuple[int, int]]:
-        """Celda transitable junto al agua más cercana *alcanzable* (BFS desde donde está, sin A* por candidato).
-        Funciona aunque esté parado en una celda empinada o el agua más próxima en línea recta esté aislada."""
+        """Celda transitable junto al agua más cercana *enrutable* (BFS desde donde está).
+
+        La BFS usa el MISMO presupuesto que el A* (`nodos_camino`) y cada orilla candidata se confirma
+        con `buscar_camino` antes de ofrecerla: así la detección nunca devuelve un destino que el
+        enrutado no pueda cerrar (C1). Si la orilla más cercana no tiene ruta dentro del presupuesto,
+        se sigue buscando la siguiente; si se agotan las verificaciones, se devuelve None y el
+        cerebro prueba otra fuente (`buscar_agua_lejos`) o espera y replanifica.
+        """
         from collections import deque
         t = self.terreno
         x0, y0 = int(h.x), int(h.y)
         if t.dentro(x0, y0) and t.agua_adyacente(x0, y0):
             return (x0, y0)
+        presupuesto = self.nodos_camino          # única fuente de verdad (ver _calcular_escala)
+        t_marcha = self._t_marcha_agua(h)        # segundos de marcha que aguanta antes de la sed crítica
+        TOPE_VERIF = 8                           # confirmar a lo sumo 8 orillas; el resto es fallback
         vis = {(x0, y0)}
         q = deque([(x0, y0)])
         n = 0
-        while q and n < self.nodos_bfs:
+        verif = 0
+        while q and n < presupuesto:
             x, y = q.popleft()
             n += 1
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
@@ -424,19 +459,45 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 if dx and dy and (not t.caminable(x + dx, y) or not t.caminable(x, y + dy)):
                     continue                              # igual que el A*: no se cortan esquinas
                 if t.agua_adyacente(*c):
-                    return c
+                    if verif < TOPE_VERIF:
+                        verif += 1
+                        ruta = t.buscar_camino((x0, y0), c, presupuesto)
+                        # alcanzable Y recorrible antes de que la sed se vuelva crítica (P1.2):
+                        # se mide el COSTO real de la ruta (bioma+pendiente+río), no la distancia geométrica.
+                        if ruta is not None and self._costo_ruta(ruta) <= t_marcha:
+                            return c
+                    # orilla no enrutable o lejana en tiempo: se busca otra
+                    continue
                 q.append(c)
         if h.sed >= 55:
             import sys
             print("AGUA-CERCANA-NONE: h=%d sed=%.1f pos=(%d,%d) radio=%d" % (h.id, h.sed, x0, y0, radio), file=sys.stderr, flush=True)
         return None
 
+    def _t_marcha_agua(self, h: HabitanteSim) -> float:
+        """Segundos de marcha que el habitante aguanta antes de que la sed llegue a `SED_CRITICO`.
+
+        Sale del ritmo real de la sed (`SED_SUBE_MIN`) y del margen `MARGEN_MARCHA_AGUA`. Con sed baja
+        da un presupuesto enorme (agua lejana sigue siendo viable); con sed alta se achica y el agua
+        inalcanzable a tiempo se descarta. Justificado por las constantes de `_vida`, no arbitrario."""
+        falta = max(0.0, SED_CRITICO - float(h.sed))
+        minutos = falta / SED_SUBE_MIN
+        return minutos * 60.0 * MARGEN_MARCHA_AGUA
+
+    def _costo_ruta(self, ruta) -> float:
+        """Tiempo de marcha (segundos) de una ruta: suma del costo por celda (bioma x pendiente x río)."""
+        t = self.terreno
+        total = 0.0
+        for cx, cy in ruta:
+            total += float(t.costo[cy, cx])
+        return total
+
     def buscar_agua_lejos(self, h: HabitanteSim) -> Optional[dict]:
         """Si no se conoce agua alcanzable, sale a buscarla lejos (por donde se pueda ir). El motivo NO es «explora»,
         así la sed no corta el viaje en cada paso."""
         for _ in range(10):
-            d = self.rng.uniform(self.celdas(1000.0), self.celdas(2500.0))   # también en metros
-            a = self.rng.random() * 2 * math.pi
+            d = self.rng_agua.uniform(self.celdas(1000.0), self.celdas(2500.0))   # también en metros
+            a = self.rng_agua.random() * 2 * math.pi
             c = self.terreno.caminable_cerca(int(h.x + math.cos(a) * d), int(h.y + math.sin(a) * d), 3)
             if c and self.terreno.buscar_camino((int(h.x), int(h.y)), c, self.nodos_camino):
                 return {"tipo": "ir", "destino": c, "motivo": "busca agua"}
@@ -507,7 +568,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             if h.vivo and math.hypot(h.x - x - 0.5, h.y - y - 0.5) < 0.9:
                 self._dano(h, 70.0, "un rayo", "herida", "Un rayo alcanzó a %s." % h.nombre)
         lluvia = self.clima.lluvia_en(x + 0.5, y + 0.5)
-        if self.terreno.agua[y, x] == 0 and self.rng.random() < 0.35 * self.fuego.comb[y, x] * reloj.sequedad(self.t) * (1 - 0.9 * lluvia) * (1 - 0.95 * float(self.nieve[y, x])):
+        if self.terreno.agua[y, x] == 0 and self.rng_rayo.random() < 0.35 * self.fuego.comb[y, x] * reloj.sequedad(self.t) * (1 - 0.9 * lluvia) * (1 - 0.95 * float(self.nieve[y, x])):
             self.encender(x, y, origen="rayo")
 
     def derrumbe(self, x: int, y: int) -> None:
@@ -525,7 +586,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                          x=x + 0.5, y=y + 0.5, causa="gravedad y lluvia sobre una pendiente",
                          importancia=3 if golpeados else 2, datos={"camino": camino})
         for h in golpeados:
-            self._dano(h, self.rng.uniform(25, 60), "un derrumbe", "herida", "%s fue golpeado por rocas de un derrumbe." % h.nombre, mio="Unas rocas de un derrumbe te golpearon.")
+            self._dano(h, self.rng_derrumbe.uniform(25, 60), "un derrumbe", "herida", "%s fue golpeado por rocas de un derrumbe." % h.nombre, mio="Unas rocas de un derrumbe te golpearon.")
 
     def _dano(self, h: HabitanteSim, cantidad: float, causa: str, tipo: str, texto: str, mio: Optional[str] = None) -> None:
         h.salud -= cantidad
@@ -627,7 +688,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.sed = min(100.0, h.sed + 0.07 * paso)
         else:
             h.energia = max(0.0, h.energia - 0.05 * paso)
-            h.sed = min(100.0, h.sed + 0.11 * paso)
+            h.sed = min(100.0, h.sed + SED_SUBE_MIN * paso)
         # La sed despierta siempre (mata en horas). El hambre sólo si le queda energía para hacer algo:
         # si no, se despierta, no puede ni levantarse, se vuelve a dormir y muere de agotamiento.
         if dormido and (h.sed >= SED_DESPIERTA or (h.hambre >= HAMBRE_DESPIERTA and h.energia > 35.0)):
@@ -640,7 +701,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self._paso_psique(h, paso)
         if self.modulo("frio"):
             self._aplicar_frio(h, paso, dormido)
-        if h.sed >= 90:
+        if h.sed >= SED_CRITICO:
             h.salud -= 0.3 * paso
         if h.energia <= 5:
             h.salud -= 0.1 * paso
@@ -671,13 +732,13 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             if f and (h.accion == "durmiendo" or h.detalle != "huye del fuego"):
                 h.camino, h.hasta, h.accion = [], 0.0, "libre"
         if h.salud <= 0:
-            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= 90 else "hambre" if h.hambre >= 95
+            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= SED_CRITICO else "hambre" if h.hambre >= 95
                         else "agotamiento" if h.energia <= 5 else "frío" if h.frio > 0.4 else "heridas")
             return
         # caídas: caminar por pendientes muy empinadas puede salir mal (gravedad)
         if h.accion == "caminando":
             p = float(self.terreno.pendiente[cy, cx])
-            if p > 0.8 and self.rng.random() < 0.0003 * paso * min(2.0, p):
+            if p > 0.8 and self.rng_caida.random() < 0.0003 * paso * min(2.0, p):
                 self._dano(h, min(25.0, 2.0 + p * 10.0), "una caída por la pendiente", "herida",
                            "%s resbaló y cayó por una pendiente empinada." % h.nombre, mio="Resbalaste y caíste por una pendiente empinada.")
                 if not h.vivo:
@@ -762,7 +823,14 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 return True, "Ya estás ahí."
             if camino:
                 h.camino, h.accion, h.detalle, h.al_llegar = camino, "caminando", it.get("motivo", ""), it.get("luego")
-                texto = {"explora": "Saliste a explorar.", "va al agua": "Fuiste hacia el agua.", "tiene sed": "Fuiste a buscar agua."}.get(it.get("motivo"), "Fuiste hacia %s." % (it.get("motivo") or "otro lado"))
+                # Feedback honesto (P1.1): iniciar la marcha NO es llegar ni beber. El texto lo dice y
+                # el `ok` significa "acción aceptada" (contrato del adaptador CCA: ACCEPTED/REJECTED),
+                # no "necesidad satisfecha". El consumo se refleja aparte, en la acción `beber`.
+                if it.get("luego") == "beber":
+                    texto = "Vas hacia el agua; todavía no bebiste."
+                else:
+                    texto = {"explora": "Saliste a explorar.", "va al agua": "Vas hacia el agua.",
+                             "tiene sed": "Vas a buscar agua."}.get(it.get("motivo"), "Vas hacia tu destino.")
             else:
                 h.accion, h.detalle, h.hasta = "esperando", "no encuentra camino", self.t + 10
                 ok, texto = False, "No encontraste camino."

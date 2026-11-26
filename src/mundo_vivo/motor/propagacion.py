@@ -70,10 +70,10 @@ class PropagacionMixin:
         base = list(celdas)
         n = min(int(MUESTRAS_POR_DIA * dias), max(8, len(base) * 2))
         for _ in range(n):
-            if self.rng.random() >= por_dia:
+            if self.rng_propagacion.random() >= por_dia:
                 continue
-            cx, cy = base[self.rng.randrange(len(base))]
-            nx, ny = cx + self.rng.randint(-1, 1), cy + self.rng.randint(-1, 1)
+            cx, cy = base[self.rng_propagacion.randrange(len(base))]
+            nx, ny = cx + self.rng_propagacion.randint(-1, 1), cy + self.rng_propagacion.randint(-1, 1)
             if (nx, ny) in celdas or not self.terreno.dentro(nx, ny):
                 continue
             if self._colonia_puede(cid, d, nx, ny):
@@ -84,8 +84,8 @@ class PropagacionMixin:
     def _sembrar_colonia(self, cid: str, d: dict) -> None:
         """La primera manchita, en un lugar que le guste."""
         for _ in range(40):
-            x = self.rng.randrange(self.terreno.ancho)
-            y = self.rng.randrange(self.terreno.alto)
+            x = self.rng_propagacion.randrange(self.terreno.ancho)
+            y = self.rng_propagacion.randrange(self.terreno.alto)
             if self._colonia_puede(cid, d, x, y):
                 self.colonias.setdefault(cid, set()).add((x, y))
                 self._evento("colonia", "Apareció %s en la zona." % d.get("nombre", cid),
@@ -131,7 +131,7 @@ class PropagacionMixin:
         if not cos:
             return None
         lo, hi = (cos.get("cantidad") or [1, 1])[:2]
-        return cos["material"], self.rng.randint(int(lo), int(hi))
+        return cos["material"], self.rng_propagacion.randint(int(lo), int(hi))
 
     # --------------------------------------------------------- publicar
     def publico_colonias(self) -> list:

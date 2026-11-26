@@ -7,6 +7,7 @@ import re
 import sqlite3
 import tempfile
 import time
+import uuid
 import zipfile
 import zlib
 from datetime import datetime
@@ -15,7 +16,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from ..motor.generador import DTYPES, VERSION_GENERADOR, generar_mundo
+from ..generador.pipeline import DTYPES, VERSION_GENERADOR, generar_mundo
 from . import db
 
 TAM_CHUNK = 64
@@ -55,6 +56,29 @@ def guardar_meta(con: sqlite3.Connection, **valores) -> None:
 
 def cargar_meta(con: sqlite3.Connection) -> dict:
     return {r["clave"]: json.loads(r["valor"]) for r in con.execute("SELECT clave, valor FROM meta")}
+
+
+WORLD_UID_KEY = "world_uid"
+
+
+def world_uid(con: sqlite3.Connection) -> str:
+    """Identidad persistente e inequívoca del mundo (no la semilla, no el nombre del archivo).
+
+    Se guarda en `meta` y se conserva entre reinicios. Si un mundo viejo no la tiene, se genera una
+    vez y se persiste; a partir de ahí es estable. Dos mundos con la misma semilla tienen `world_uid`
+    distinto. Se usa para namespazar la identidad cognitiva y para la base cognitiva por mundo.
+    """
+    fila = con.execute("SELECT valor FROM meta WHERE clave = ?", (WORLD_UID_KEY,)).fetchone()
+    if fila is not None:
+        try:
+            u = json.loads(fila["valor"])
+            if u:
+                return str(u)
+        except Exception:
+            pass
+    u = uuid.uuid4().hex
+    guardar_meta(con, **{WORLD_UID_KEY: u})
+    return u
 
 
 # -------------------------------------------------------------------- mundo
@@ -190,6 +214,7 @@ def crear_mundo(dir_mundos: Path, semilla: int, ancho: int = ANCHO_POR_DEFECTO, 
     con = db.abrir(ruta, dir_backups=dir_mundos / "backups")
     try:
         guardar_mundo(con, mundo, nombre=ruta.stem)
+        world_uid(con)                                   # identidad cognitiva persistente del mundo
         from ..agentes import ajustes as _aj
         _aj.guardar(con, {"modulos": {"hambre": True}})     # los mundos nuevos nacen con hambre
         registrar_evento(con, 480, "mundo_creado", origen="sistema", importancia=5,

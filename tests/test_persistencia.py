@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.persistencia import db, mundo_io
 from mundo_vivo.persistencia.memoria import MemoriaPrivada
 

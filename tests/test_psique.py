@@ -9,7 +9,7 @@ from __future__ import annotations
 import unittest
 
 from mundo_vivo.agentes.genoma import genoma_fundador
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 from mundo_vivo.registro import Registro
 
@@ -74,7 +74,7 @@ class TestEfecto(unittest.TestCase):
         h.inventario = {"hongo_visionario": 1}
         s._accion_comer(h, {})
         s._eventos.clear()
-        s.rng.seed(3)
+        s.rng_psique.seed(3)
         for _ in range(400):
             s.t += 10.0
             s._paso_psique(h, 10.0)

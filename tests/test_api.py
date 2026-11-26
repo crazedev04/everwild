@@ -12,7 +12,7 @@ except Exception:  # httpx no instalado
     HAY_CLIENTE = False
 
 from mundo_vivo.api.servidor import crear_app
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 
 from .ayuda import crear_mundo_api
 
@@ -31,8 +31,8 @@ class TestAPI(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_eliminar_mundo(self):
-        a = crear_mundo_api(self.c, semilla=1, ancho=64, alto=64)
-        b = crear_mundo_api(self.c, semilla=2, ancho=64, alto=64)
+        a = crear_mundo_api(self.c, semilla=1, ancho=128, alto=128, tam_celda_m=50)
+        b = crear_mundo_api(self.c, semilla=2, ancho=128, alto=128, tam_celda_m=50)
         self.c.get("/api/mundos/%s/meta" % a)                       # llena el caché
         r = self.c.delete("/api/mundos/%s" % a)
         self.assertEqual(r.status_code, 200)
@@ -43,7 +43,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(self.c.get("/ui/vivo.js").headers.get("cache-control"), "no-cache")
 
     def test_familias(self):
-        a = crear_mundo_api(self.c, semilla=3, ancho=64, alto=64)
+        a = crear_mundo_api(self.c, semilla=3, ancho=128, alto=128, tam_celda_m=50)
         r = self.c.get("/api/mundos/%s/familias" % a)
         self.assertEqual(r.status_code, 200)
         d = r.json()
@@ -52,15 +52,15 @@ class TestAPI(unittest.TestCase):
 
     def test_flujo_completo(self):
         self.assertEqual(self.c.get("/api/mundos").json(), [])
-        nombre = crear_mundo_api(self.c, semilla=42, ancho=96, alto=96)
+        nombre = crear_mundo_api(self.c, semilla=42, ancho=128, alto=128, tam_celda_m=50)
         self.assertEqual([m["nombre"] for m in self.c.get("/api/mundos").json()], [nombre])
         meta = self.c.get("/api/mundos/%s/meta" % nombre).json()
-        self.assertEqual((meta["semilla"], meta["ancho"], meta["alto"]), (42, 96, 96))
+        self.assertEqual((meta["semilla"], meta["ancho"], meta["alto"]), (42, 128, 128))
         raw = self.c.get("/api/mundos/%s/capa/bioma" % nombre).content
-        esperado = generar_mundo(42, 96, 96, meta_tam(self.c, nombre))["capas"]["bioma"]
-        self.assertTrue(np.array_equal(np.frombuffer(raw, dtype=np.uint8).reshape(96, 96), esperado))
+        esperado = generar_mundo(42, 128, 128, meta_tam(self.c, nombre))["capas"]["bioma"]
+        self.assertTrue(np.array_equal(np.frombuffer(raw, dtype=np.uint8).reshape(128, 128), esperado))
         elev = np.frombuffer(self.c.get("/api/mundos/%s/capa/elevacion" % nombre).content, dtype="<i2")
-        self.assertEqual(elev.size, 96 * 96)
+        self.assertEqual(elev.size, 128 * 128)
         ev = self.c.get("/api/mundos/%s/eventos" % nombre).json()
         tipos = [e["tipo"] for e in ev["eventos"]]
         self.assertIn("mundo_creado", tipos, "falta el evento de creación del mundo")
@@ -70,7 +70,7 @@ class TestAPI(unittest.TestCase):
 
     def test_la_generacion_informa_su_progreso(self):
         """La pantalla de carga se alimenta de esto: POST devuelve un trabajo y se va preguntando cómo viene."""
-        r = self.c.post("/api/mundos", json={"semilla": 77, "ancho": 64, "alto": 64})
+        r = self.c.post("/api/mundos", json={"semilla": 77, "ancho": 128, "alto": 128, "tam_celda_m": 50})
         self.assertEqual(r.status_code, 200)
         tid = r.json()["trabajo"]
         self.assertEqual(self.c.get("/api/mundos/generando/noexiste").status_code, 404)
@@ -114,7 +114,7 @@ class TestModeloAlCrear(unittest.TestCase):
         from mundo_vivo.persistencia import db
         with tempfile.TemporaryDirectory() as d:
             c = TestClient(crear_app(Path(d)))
-            nombre = crear_mundo_api(c, semilla=5, ancho=64, alto=64, modelo="qwen3.5:9b")
+            nombre = crear_mundo_api(c, semilla=5, ancho=128, alto=128, tam_celda_m=50, modelo="qwen3.5:9b")
             con = db.abrir(Path(d) / "mundos" / (nombre + ".db"))
             try:
                 self.assertEqual(ajustes.obtener(con)["modelo"], "qwen3.5:9b")
@@ -135,7 +135,7 @@ class TestSpawnDeHabitantes(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.c = TestClient(crear_app(Path(self.tmp.name)))
-        self.mundo = crear_mundo_api(self.c, semilla=11, ancho=96, alto=96)
+        self.mundo = crear_mundo_api(self.c, semilla=11, ancho=128, alto=128, tam_celda_m=50)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -171,7 +171,7 @@ class TestSpawnDeHabitantes(unittest.TestCase):
         tam = meta_tam(self.c, self.mundo)
         for _ in range(5):
             d = self.c.post("/api/mundos/%s/habitantes" % self.mundo, json={}).json()
-            self.assertTrue(0 <= d["x"] / tam < 96 and 0 <= d["y"] / tam < 96)
+            self.assertTrue(0 <= d["x"] / tam < 128 and 0 <= d["y"] / tam < 128)
 
     def test_el_nombre_se_puede_elegir_y_se_valida(self):
         d = self.c.post("/api/mundos/%s/habitantes" % self.mundo, json={"nombre": "Zoraida"}).json()

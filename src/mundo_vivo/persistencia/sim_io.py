@@ -14,6 +14,7 @@ import zlib
 import math
 import random
 import uuid
+from collections import deque
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -29,6 +30,17 @@ from .memoria import MemoriaPrivada
 from ..agentes.habito import Habito
 
 MIN_ZONA_CONECTADA = 3000  # celdas transitables conectadas mínimas para el punto de inicio
+# P2 — Habitabilidad del inicio. El punto de partida sólo se acepta si desde él hay una orilla de
+# agua alcanzable por la navegación REAL (A* `buscar_camino`), no basta con que el agua esté cerca
+# geométricamente ni con que una BFS la "vea". Ver docs/IMPLEMENTACION_P2_HABITABILIDAD.md.
+TOPE_ORILLAS = 8          # cuántas orillas candidatas se enrutan por inicio (acotado)
+TOPE_BFS_ORILLA = 4000    # tope de nodos del BFS que busca orillas caminables alrededor del inicio
+RADIO_ORILLA_MIN = 12     # radio mínimo de búsqueda de orilla, en celdas
+RADIO_ORILLA_M = 2000.0   # radio de búsqueda de orilla en metros (acotado además al tamaño del mundo)
+MAX_CANDIDATOS_INICIO = 40  # cuántos candidatos al inicio se validan (acotado; determinista por orden)
+# Vecindad de 8 para el BFS de orillas. El A* (`buscar_camino`) es el que valida de verdad; acá sólo
+# se encuentran orillas caminables cercanas. Se define local para no tocar el módulo de navegación.
+_OFFS8 = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
 # Cuántas trayectorias se guardan por habitante para entrenar futuros cerebros. Son seis JSON por
 # fila: con 2.000 por persona y 20 habitantes quedan ~6 MB, que es de sobra para entrenar y no crece
 # para siempre (sin tope eran 60.989 filas en un solo mundo).
@@ -65,8 +77,61 @@ def clave_dim(clave: str, dimension: int = 0) -> str:
     return clave if not dimension else "d%d:%s" % (int(dimension), clave)
 
 
+def _presupuesto_camino(tam_celda_m: float) -> int:
+    """Presupuesto de expansiones del A* para validar habitabilidad.
+
+    Es el MISMO `nodos_camino` que usa el motor a esta resolución (ver `Simulacion._calcular_escala`):
+    así "habitable en la generación" significa "enrutable dentro del presupuesto de producción", no
+    con un presupuesto distinto que después el motor no tendría.
+    """
+    k = (50.0 / float(tam_celda_m)) ** 2
+    return int(min(120_000, 12_000 * k))
+
+
+def _orilla_alcanzable(t: Terreno, x: int, y: int, presupuesto: int) -> Optional[Tuple[int, int]]:
+    """Celda de orilla caminable alcanzable por A* desde `(x, y)`, o `None`.
+
+    Reutiliza la navegación real (`Terreno.buscar_camino`): no alcanza con que haya agua cerca
+    geométricamente ni con que una BFS la "vea"; la orilla tiene que ser enrutable dentro del
+    presupuesto de producción. Acotado a propósito: el BFS que reúne orillas tiene tope de nodos y
+    radio, y se enrutan como mucho `TOPE_ORILLAS` orillas por inicio.
+    """
+    if not t.caminable(x, y):
+        return None
+    if t.agua_adyacente(x, y):
+        return (x, y)  # ya está en la orilla: puede beber sin caminar
+    ancho, alto = t.ancho, t.alto
+    radio = max(RADIO_ORILLA_MIN, int(RADIO_ORILLA_M / t.tam_celda_m))
+    vistos = {(x, y)}
+    cola = deque([(x, y, 0)])
+    orillas: List[Tuple[int, int]] = []
+    while cola and len(vistos) <= TOPE_BFS_ORILLA:
+        cx, cy, d = cola.popleft()
+        if d >= radio:
+            continue
+        for ax, ay in _OFFS8:
+            nx, ny = cx + ax, cy + ay
+            if 0 <= nx < ancho and 0 <= ny < alto and (nx, ny) not in vistos and t.caminable(nx, ny):
+                vistos.add((nx, ny))
+                if t.agua_adyacente(nx, ny):
+                    orillas.append((nx, ny))
+                else:
+                    cola.append((nx, ny, d + 1))
+    # Orden determinista: orillas más cercanas primero; desempate por coordenada.
+    orillas.sort(key=lambda p: (abs(p[0] - x) + abs(p[1] - y), p[0], p[1]))
+    for o in orillas[:TOPE_ORILLAS]:
+        if t.buscar_camino((x, y), o, presupuesto) is not None:
+            return o
+    return None
+
+
 def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
-    """Punto de inicio: tierra llana y habitable, junto a agua dulce, en una zona grande y conectada."""
+    """Punto de inicio: tierra llana y habitable, junto a agua dulce, en una zona grande y conectada,
+    y con una orilla de agua REALMENTE alcanzable por la navegación (A*).
+
+    Si ningún candidato cumple todo, se rechaza con `ValueError`: ya no se cae silenciosamente a
+    `cand[0]` (que podía ser una componente sin agua a distancia recorrible).
+    """
     t = Terreno(capas, tam_celda_m)
     dulce = (t.agua == B.AGUA_RIO) | (t.agua == B.AGUA_LAGO)
     ys, xs = np.nonzero(dulce)
@@ -95,11 +160,18 @@ def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
         if not cand:
             raise ValueError("No se encontró un lugar habitable junto al agua.")
     cx, cy = t.ancho / 2, t.alto / 2
-    cand = sorted(set(cand), key=lambda p: math.hypot(p[0] - cx, p[1] - cy))
-    for x, y in cand[:40]:
-        if t.componente(x, y) >= MIN_ZONA_CONECTADA:
+    # Orden determinista: más cerca del centro primero; desempate por coordenada (misma semilla y
+    # mismos parámetros => mismo resultado).
+    cand = sorted(set(cand), key=lambda p: (math.hypot(p[0] - cx, p[1] - cy), p[0], p[1]))
+    presupuesto = _presupuesto_camino(tam_celda_m)
+    for x, y in cand[:MAX_CANDIDATOS_INICIO]:
+        if t.componente(x, y) < MIN_ZONA_CONECTADA:
+            continue
+        if _orilla_alcanzable(t, x, y, presupuesto) is not None:
             return x, y
-    return cand[0]
+    raise ValueError(
+        "No se encontró un lugar habitable con acceso real al agua (orilla enrutable por A*)."
+    )
 
 
 def composicion_inicial(rng) -> List[dict]:
@@ -316,6 +388,7 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
 
     El reloj es del mundo, no del mapa: todas las dimensiones arrancan en el mismo minuto."""
     meta = mundo_io.cargar_meta(con)
+    meta["world_uid"] = mundo_io.world_uid(con)     # asegura identidad persistente (la genera si falta)
     d = mundo_io.dimension_por_id(con, dimension) or {}
     capas = mundo_io.cargar_capas(con, dimension=dimension)
     if dimension:

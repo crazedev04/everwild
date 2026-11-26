@@ -3,6 +3,7 @@
 Las coordenadas son celdas (x, y) enteras; una posición continua (1.5, 2.5) está en el centro de la celda (1, 2).
 Costo de moverse = bioma x pendiente x río. Agua profunda, lava, cascadas y paredes son intransitables.
 """
+
 from __future__ import annotations
 
 import heapq
@@ -16,13 +17,26 @@ from . import biomas as B
 
 VEL_CAMINAR_MPS = 1.33  # 4,8 km/h en metros por segundo (constante física, independiente de la resolución)
 PENDIENTE_MAX = 5.0  # más que eso es un acantilado; entre 0.6 y 5.0 se trepa despacio y se puede caer. Subido de 3.0 para que las montañas no corten el mapa.
-_OFFS = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0),
-         (1, 1, math.sqrt(2)), (1, -1, math.sqrt(2)), (-1, 1, math.sqrt(2)), (-1, -1, math.sqrt(2))]
+_OFFS = [
+    (1, 0, 1.0),
+    (-1, 0, 1.0),
+    (0, 1, 1.0),
+    (0, -1, 1.0),
+    (1, 1, math.sqrt(2)),
+    (1, -1, math.sqrt(2)),
+    (-1, 1, math.sqrt(2)),
+    (-1, -1, math.sqrt(2)),
+]
 INF = float("inf")
 # Caché de viajes imposibles (ver `buscar_camino`). El bloque es en CELDAS a propósito: no es una
 # distancia del mundo, es «me moví tan poco que el viaje sigue siendo el mismo».
 BLOQUE_FRACASO = 4
 TOPE_FRACASOS = 4096
+# Caché de búsquedas INCOMPLETAS (agotaron el presupuesto de nodos, no probaron que no haya ruta).
+# Acotada y con recambio: evita repetir en ráfaga el mismo viaje caro, pero NO lo marca como
+# imposible para siempre (a diferencia de `_fracasos`). Ver `buscar_camino` y
+# docs/IMPLEMENTACION_P0_AGUA.md.
+TOPE_INCOMPLETOS = 2048
 # Caché de rutas exitosas (LRU). Un mismo viaje se pide dos veces en la misma decisión: una para
 # comprobar que se puede y otra al aplicarlo. Guardar el camino ahorra el segundo A*.
 TOPE_RUTAS = 256
@@ -74,15 +88,25 @@ class Terreno:
         self.bioma = capas["bioma"]
         self.humedad = capas["humedad"]
         self.temperatura = capas["temperatura"]
-        mult = mult_bioma(self.bioma)   # una vez al construir el terreno, no por tick
+        mult = mult_bioma(self.bioma)  # una vez al construir el terreno, no por tick
         # Costo en segundos para cruzar una celda: distancia (m) / velocidad (m/s), ajustada por bioma y pendiente.
         # VEL_CAMINAR_MPS es la velocidad base en terreno fácil (plano, bioma pradera).
-        costo = (self.tam_celda_m / VEL_CAMINAR_MPS) * mult * (1.0 + 8.0 * np.minimum(self.pendiente, PENDIENTE_MAX) ** 2)
+        costo = (
+            (self.tam_celda_m / VEL_CAMINAR_MPS)
+            * mult
+            * (1.0 + 8.0 * np.minimum(self.pendiente, PENDIENTE_MAX) ** 2)
+        )
         rio = self.agua == B.AGUA_RIO
-        costo[rio] = costo[rio] * np.where(capas["caudal"][rio] > 200, 8.0, 3.0)  # los ríos se vadean (o se nadan)
-        bloqueado = ((self.agua == B.AGUA_OCEANO) | (self.agua == B.AGUA_LAGO) |
-                     ((capas["rasgos"] & B.RASGO_LAVA) > 0) | ((capas["rasgos"] & B.RASGO_CASCADA) > 0) |
-                     (self.pendiente > PENDIENTE_MAX))
+        costo[rio] = costo[rio] * np.where(
+            capas["caudal"][rio] > 200, 8.0, 3.0
+        )  # los ríos se vadean (o se nadan)
+        bloqueado = (
+            (self.agua == B.AGUA_OCEANO)
+            | (self.agua == B.AGUA_LAGO)
+            | ((capas["rasgos"] & B.RASGO_LAVA) > 0)
+            | ((capas["rasgos"] & B.RASGO_CASCADA) > 0)
+            | (self.pendiente > PENDIENTE_MAX)
+        )
         costo[bloqueado] = np.inf
         self.costo = costo
         self._c = _listas_compartiendo_floats(costo)
@@ -92,10 +116,32 @@ class Terreno:
         ok = np.isfinite(costo) & np.isfinite(mult)
         self._factor_terreno = np.full(costo.shape, np.inf)
         np.divide(costo, np.maximum(1e-9, mult), out=self._factor_terreno, where=ok)
-        self._fracasos: set = set()   # viajes que ya se comprobó que no se pueden hacer
-        self._rutas: "OrderedDict" = OrderedDict()   # (ox, oy, dx, dy) -> camino; LRU acotada
+        self._fracasos: set = set()  # viajes que SÍ se comprobó que no se pueden hacer (componente cerrada)
+        self._incompletos: set = set()  # viajes que agotaron el presupuesto: se reintentan, no son definitivos
+        self._rutas: "OrderedDict" = (
+            OrderedDict()
+        )  # (ox, oy, dx, dy) -> camino; LRU acotada
         self._cache_hits: int = 0
         self._cache_misses: int = 0
+        # Máscara booleana precalculada con numpy puro de celdas adyacentes a agua (para BFS ultra-rápido)
+        pad_agua = np.pad(self.agua > 0, 1, mode="constant")
+        ady = np.zeros((self.alto, self.ancho), dtype=bool)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                ady |= pad_agua[
+                    1 + dy : 1 + dy + self.alto, 1 + dx : 1 + dx + self.ancho
+                ]
+        self._agua_ady_mask = ady
+
+    def _establecer_costo_celda(self, x: int, y: int, valor: float) -> None:
+        """Actualiza el costo de una celda en ambas representaciones.
+
+        Punto único autorizado: `self.costo` (array NumPy) y `self._c` (lista
+        compartida para el A*) se escriben siempre juntos. Nunca escribir una
+        sin la otra: el A* seguiría viendo el mapa viejo para siempre.
+        """
+        self.costo[y, x] = valor
+        self._c[y][x] = valor
 
     def cambiar_bioma(self, x: int, y: int, bioma: int) -> None:
         """Cambia el bioma de UNA celda y recalcula su costo.
@@ -110,12 +156,11 @@ class Terreno:
         if not self.dentro(x, y):
             return
         if self.bioma[y, x] == bioma:
-            return                      # nada cambió: no hay por qué olvidar nada
+            return  # nada cambió: no hay por qué olvidar nada
         self.bioma[y, x] = bioma
         f = self._factor_terreno[y, x]
         c = INF if not np.isfinite(f) else float(self._mult_bioma[int(bioma)] * f)
-        self.costo[y, x] = c
-        self._c[y][x] = c
+        self._establecer_costo_celda(x, y, c)
         self.olvidar_fracasos()
         self.olvidar_rutas()
 
@@ -126,7 +171,9 @@ class Terreno:
         return self.dentro(x, y) and self._c[y][x] != INF
 
     def velocidad_en(self, x: float, y: float) -> float:
-        c = self._c[min(self.alto - 1, max(0, int(y)))][min(self.ancho - 1, max(0, int(x)))]
+        c = self._c[min(self.alto - 1, max(0, int(y)))][
+            min(self.ancho - 1, max(0, int(x)))
+        ]
         if c == INF or c <= 0:
             return 0.0
         # c está en segundos por celda. Velocidad = 60 / c celdas por minuto.
@@ -141,7 +188,9 @@ class Terreno:
             return 0.5
         return float(self.humedad[y, x]) / 255.0
 
-    def caminable_cerca(self, x: int, y: int, radio: int = 6) -> Optional[Tuple[int, int]]:
+    def caminable_cerca(
+        self, x: int, y: int, radio: int = 6
+    ) -> Optional[Tuple[int, int]]:
         w, h, c = self.ancho, self.alto, self._c
         if 0 <= x < w and 0 <= y < h and c[y][x] != INF:
             return (x, y)
@@ -164,10 +213,8 @@ class Terreno:
         return None
 
     def agua_adyacente(self, x: int, y: int) -> bool:
-        for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
-                if self.dentro(x + dx, y + dy) and self.agua[y + dy, x + dx] > 0:
-                    return True
+        if 0 <= x < self.ancho and 0 <= y < self.alto:
+            return bool(self._agua_ady_mask[y, x])
         return False
 
     def componente(self, x: int, y: int) -> int:
@@ -181,12 +228,19 @@ class Terreno:
             cx, cy = cola.popleft()
             for ax, ay, _ in _OFFS:
                 nx, ny = cx + ax, cy + ay
-                if 0 <= nx < self.ancho and 0 <= ny < self.alto and (nx, ny) not in visto and c[ny][nx] != INF:
+                if (
+                    0 <= nx < self.ancho
+                    and 0 <= ny < self.alto
+                    and (nx, ny) not in visto
+                    and c[ny][nx] != INF
+                ):
                     visto.add((nx, ny))
                     cola.append((nx, ny))
         return len(visto)
 
-    def zona_conectada(self, x: int, y: int, tope: int = 400000) -> List[Tuple[int, int]]:
+    def zona_conectada(
+        self, x: int, y: int, tope: int = 400000
+    ) -> List[Tuple[int, int]]:
         """Celdas transitables alcanzables desde (x, y), hasta `tope`. Sirve para repartir gente por el mundo
         con la garantía de que puedan llegar unos a otros: en islas distintas no se encontrarían nunca."""
         if not self.caminable(x, y):
@@ -198,20 +252,31 @@ class Terreno:
             cx, cy = cola.popleft()
             for ax, ay, _ in _OFFS:
                 nx, ny = cx + ax, cy + ay
-                if 0 <= nx < self.ancho and 0 <= ny < self.alto and (nx, ny) not in visto and c[ny][nx] != INF:
+                if (
+                    0 <= nx < self.ancho
+                    and 0 <= ny < self.alto
+                    and (nx, ny) not in visto
+                    and c[ny][nx] != INF
+                ):
                     visto.add((nx, ny))
                     cola.append((nx, ny))
         return list(visto)
 
-    def _clave_fracaso(self, origen: Tuple[int, int], destino: Tuple[int, int]) -> Tuple[int, int, int, int]:
+    def _clave_fracaso(
+        self, origen: Tuple[int, int], destino: Tuple[int, int]
+    ) -> Tuple[int, int, int, int]:
         """Clave de la caché de fracasos: el destino exacto y el origen redondeado a un bloque.
 
         El origen va redondeado porque entre un intento y el siguiente la persona se movió unas
         pocas celdas, y para un viaje que no se puede hacer eso no cambia nada. El destino va exacto
         porque es el que decide si hay camino o no.
         """
-        return (int(origen[0]) // BLOQUE_FRACASO, int(origen[1]) // BLOQUE_FRACASO,
-                int(destino[0]), int(destino[1]))
+        return (
+            int(origen[0]) // BLOQUE_FRACASO,
+            int(origen[1]) // BLOQUE_FRACASO,
+            int(destino[0]),
+            int(destino[1]),
+        )
 
     def metricas_cache(self) -> dict:
         """Retorna hits/misses acumulados y tamaño actual de la caché de rutas."""
@@ -231,11 +296,14 @@ class Terreno:
         self._rutas.clear()
 
     def olvidar_fracasos(self) -> None:
-        """Se llama cuando el mapa cambia (ver `cambiar_bioma`): lo imposible puede volverse posible."""
+        """Se llama cuando el mapa cambia (ver `cambiar_bioma`): lo imposible puede volverse posible.
+        Vacía las dos cachés: los fracasos definitivos y las búsquedas incompletas."""
         self._fracasos.clear()
+        self._incompletos.clear()
 
-    def buscar_camino(self, origen: Tuple[int, int], destino: Tuple[int, int],
-                      max_exp: int = 40000) -> Optional[List[Tuple[int, int]]]:
+    def buscar_camino(
+        self, origen: Tuple[int, int], destino: Tuple[int, int], max_exp: int = 40000
+    ) -> Optional[List[Tuple[int, int]]]:
         """Camino de menor costo (sin incluir el origen), o None si no hay.
 
         Una búsqueda que falla es lo más caro que hace el motor: agota el presupuesto de nodos antes
@@ -262,7 +330,7 @@ class Terreno:
             self._cache_hits += 1
             return [tuple(p) for p in cached]
         clave = self._clave_fracaso(origen, destino)
-        if clave in self._fracasos:
+        if clave in self._fracasos or clave in self._incompletos:
             return None
         w, h = self.ancho, self.alto
 
@@ -270,55 +338,89 @@ class Terreno:
             v = c[y][x]
             return 1.0 if v == INF else v
 
-        def heur(x, y):
-            a, b = abs(x - dx), abs(y - dy)
-            # heurística octile en segundos: distancia en celdas × (tam_celda_m / VEL_CAMINAR_MPS).
-            # Admisible: el costo mínimo por celda es tam_celda_m / VEL_CAMINAR_MPS (terreno plano, bioma pradera).
-            octile = max(a, b) + (math.sqrt(2) - 1.0) * min(a, b)
-            return octile * (self.tam_celda_m / VEL_CAMINAR_MPS)
+        # Heuristic constants pre-computed outside the hot loop to avoid
+        # 4M+ Python function-call overhead (was a nested function `heur()`).
+        _SQRT2_M1 = 0.41421356237309503  # math.sqrt(2) - 1
+        _BASE_COST = self.tam_celda_m / VEL_CAMINAR_MPS
 
-        abiertos = [(heur(ox, oy), 0.0, ox, oy)]
+        _a0, _b0 = abs(ox - dx), abs(oy - dy)
+        h0 = (max(_a0, _b0) + _SQRT2_M1 * min(_a0, _b0)) * _BASE_COST
+        abiertos = [(h0, 0.0, ox, oy)]
         g = {(ox, oy): 0.0}
         previo = {}
         expandidos = 0
+
         while abiertos:
             _, gc, x, y = heapq.heappop(abiertos)
+
             if (x, y) == (dx, dy):
                 camino = [(x, y)]
                 while camino[-1] != (ox, oy):
                     camino.append(previo[camino[-1]])
+
                 camino.reverse()
                 ruta = [tuple(p) for p in camino[1:]]
                 self._rutas[clave_ruta] = ruta
+
                 if len(self._rutas) > TOPE_RUTAS:
                     self._rutas.popitem(last=False)
+
                 self._cache_misses += 1
                 return [tuple(p) for p in ruta]
+
             if gc > g.get((x, y), INF) + 1e-9:
                 continue
+
             expandidos += 1
             if expandidos > max_exp:
-                return self._anotar_fracaso(clave)
+                # Presupuesto agotado: la búsqueda quedó INCOMPLETA, no probó que no haya ruta.
+                # No va a `_fracasos` (eso sería marcarla imposible para siempre); va a `_incompletos`,
+                # que se recicla y deja reintentar. Ver docs/IMPLEMENTACION_P0_AGUA.md (P0.2).
+                return self._anotar_incompleto(clave)
+
             cx = costo_en(x, y)
+
             for ax, ay, d in _OFFS:
                 nx, ny = x + ax, y + ay
+
                 if not (0 <= nx < w and 0 <= ny < h):
                     continue
+
                 cn = c[ny][nx]
                 if cn == INF:
                     continue
+
                 if ax and ay and (c[y][nx] == INF or c[ny][x] == INF):
                     continue  # no cortar esquinas
+
                 ng = gc + d * 0.5 * (cx + cn)
+
                 if ng < g.get((nx, ny), INF):
                     g[(nx, ny)] = ng
                     previo[(nx, ny)] = (x, y)
-                    heapq.heappush(abiertos, (ng + heur(nx, ny), ng, nx, ny))
+
+                    _an, _bn = abs(nx - dx), abs(ny - dy)
+                    hn = (max(_an, _bn) + _SQRT2_M1 * min(_an, _bn)) * _BASE_COST
+
+                    heapq.heappush(abiertos, (ng + hn, ng, nx, ny))
+
+        # Se agotó la lista de abiertos sin llegar: se exploró toda la componente alcanzable del origen,
+        # así que el destino es GENUINAMENTE inalcanzable. Esto sí se cachea como definitivo.
         return self._anotar_fracaso(clave)
 
     def _anotar_fracaso(self, clave: Tuple[int, int, int, int]) -> None:
-        """Se acuerda de un viaje que no se pudo hacer. Devuelve None, para usarla en el `return`."""
+        """Se acuerda de un viaje que SÍ no se puede hacer (componente cerrada). Devuelve None."""
         if len(self._fracasos) >= TOPE_FRACASOS:
-            self._fracasos.clear()   # acotada a lo bruto: lo que importa es no reintentar en ráfaga
+            self._fracasos.clear()  # acotada a lo bruto: lo que importa es no reintentar en ráfaga
         self._fracasos.add(clave)
+        return None
+
+    def _anotar_incompleto(self, clave: Tuple[int, int, int, int]) -> None:
+        """Anota una búsqueda que agotó el presupuesto (incompleta), NO un destino imposible.
+
+        Se guarda aparte y con recambio (FIFO bruto al superar el tope): evita repetir en ráfaga el
+        mismo viaje caro, pero deja reintentarlo más tarde o si el mapa cambia. Devuelve None."""
+        if len(self._incompletos) >= TOPE_INCOMPLETOS:
+            self._incompletos.clear()
+        self._incompletos.add(clave)
         return None

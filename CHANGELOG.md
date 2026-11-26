@@ -1,5 +1,50 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Documentación
+
+- **Auditoría de evolución vs BiomeSimulator**: `docs/AUDITORIA_EVOLUCION_MUNDO_VIVO_BIOMESIMULATOR.md` (arquitectura verificada, comparación, UI, investigación de falta de movimiento, checklist E1, roadmap). Solo lectura; sin cambios de código ni datos.
+
+## Sin publicar — E2: recuperación de objetivos inalcanzables y ruptura de bucles
+
+### Nuevo
+
+- **Memoria de fallos por objetivo/destino** (`cognitive_engine/decision/goal_failures.py`): tras `UMBRAL_FALLOS` (3) rechazos del mismo objetivo+destino+motivo, el objetivo entra en cooldown (`COOLDOWN_TICKS` 200 min) y el árbitro baja su prioridad (`FACTOR_COOLDOWN` 0.1). Acotada (64), determinista. Ver `docs/IMPLEMENTACION_E2_RECUPERACION_OBJETIVOS.md`.
+- **Reconsideración**: el cooldown expira, un éxito limpia el historial, y un destino visible lo rehabilita. Nunca prohibición permanente; no penaliza `ir_hacia` globalmente (clave por destino).
+- **Persistencia**: migración CE `v10` (`brains.goal_failures_json`); `save`/`load` conservan los fallos entre reinicios.
+- **Tests**: CE `tests/unit/test_goal_failures.py` (13), MV `tests/test_e2_recuperacion.py` (4, regresión Leo/Paula/Bruno).
+
+### Arreglado
+
+- **Bucle de `satisfy_compania`** (mundo_709356039): `ir_hacia` rechazado 1217 veces sin fallback dejaba a tres habitantes congelados. Ahora el objetivo pierde prioridad y el habitante elige alternativa según su estado real, sin tocar la necesidad de compañía.
+- `test_memetic_persistence.py`: el downgrade a v7 también borra la migración v10.
+
+## Sin publicar — E1: aislamiento cognitivo entre mundos
+
+### Nuevo
+
+- **Identidad persistente por mundo (`world_uid`)**: `mundo_io.world_uid(con)` genera y persiste en `meta` un UUID estable por mundo (no la semilla, no el nombre del archivo). Dos mundos con la misma semilla tienen `world_uid` distinto; sobrevive a reinicios y a la importación. Ver `docs/IMPLEMENTACION_E1_AISLAMIENTO_MUNDOS.md`.
+- **Base cognitiva por mundo**: `CerebroCognitivo` ya no comparte `cerebros_cognitivos.db`; abre `cerebros_<world_uid>.db` junto al mundo. Dos mundos de la misma carpeta nunca abren el mismo repositorio.
+- **`brain_id` namespaced**: la identidad cognitiva pasa a `{world_uid}:d{dim}:h{id}`, así los ids locales (`h1..hN`) no colisionan entre mundos.
+- **Tests de aislamiento** (`tests/test_aislamiento_cognitivo.py`): UID distinto con misma semilla, persistencia tras reabrir, base por mundo distinta, lectura/escritura aislada, concurrencia y recuperación sin mezcla.
+
+### Notas
+
+- La base legacy `cerebros_cognitivos.db` no se toca ni se migra; los mundos viejos sin `world_uid` lo generan una vez al cargar.
+- Un `con` sintético sin tabla `meta` (sólo en tests) cae al archivo compartido legacy, nunca a `:memory:` (que perdería el cerebro al reabrir).
+
+## Sin publicar — P2: habitabilidad del inicio (acceso real al agua)
+
+### Nuevo
+
+- **`elegir_inicio` valida acceso real al agua**: el punto de partida sólo se acepta si desde él hay una orilla de agua alcanzable por la navegación real (`Terreno.buscar_camino`), no por cercanía geométrica. Helpers `_orilla_alcanzable` y `_presupuesto_camino` en `persistencia/sim_io.py`; el presupuesto de A* es el mismo `nodos_camino` del motor a esa resolución. Ver `docs/IMPLEMENTACION_P2_HABITABILIDAD.md`.
+- **Validación acotada y determinista**: BFS de orillas con tope de nodos/radio, ≤8 A* por inicio, ≤`MAX_CANDIDATOS_INICIO` (40) candidatos; orden determinista (misma semilla y parámetros, mismo resultado).
+- **Tests de habitabilidad** (`tests/test_sim_io.py::TestHabitabilidadInicio`): orilla alcanzable aceptada, agua infranqueable rechazada, elección entre candidatos, rechazo explícito sin candidatos, determinismo, y no crear en ubicación rechazada.
+
+### Arreglado
+
+- **Eliminado el `return cand[0]` silencioso**: si ningún candidato es habitable, `elegir_inicio` lanza `ValueError` explícito en vez de aceptar una celda sin agua a distancia recorrible.
+- **Fixtures de test a mundos habitables**: `test_api`, `test_vivo`, `test_semantica` y un test de `test_fauna` pasan a `128×128` a `tam_celda_m=50` (a 5 m esos mundos chicos quedaban bajo `MIN_ZONA_CONECTADA` y sólo pasaban por el fallback eliminado).
+
 ## Sin publicar — Desacoplamiento estructural y modularización total
 
 ### Nuevo

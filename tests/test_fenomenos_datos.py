@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 from mundo_vivo.persistencia import db, mundo_io, sim_io
 
@@ -28,7 +28,7 @@ class TestMeteorito(unittest.TestCase):
 
     def test_deja_crater_siembra_material_y_avisa(self):
         s, _ = _mundo()
-        s.rng.seed(3)
+        s.rng_fenomenos.seed(3)
         s._disparar_fenomeno(s.fenomenos["meteorito"])
         self.assertTrue(s.marcas, "tiene que dejar el cráter")
         self.assertEqual(s.marcas[0]["clave"], "crater")

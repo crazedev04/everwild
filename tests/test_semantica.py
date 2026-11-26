@@ -88,7 +88,7 @@ class TestVectores(unittest.TestCase):
 class _Mundo(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        ruta = mundo_io.crear_mundo(Path(self.tmp.name), 7, 64, 64, tam_celda_m=50)
+        ruta = mundo_io.crear_mundo(Path(self.tmp.name), 7, 128, 128, tam_celda_m=50)
         self.con = db.abrir(ruta)
         sim_io.crear_habitantes_iniciales(self.con, 2)
 

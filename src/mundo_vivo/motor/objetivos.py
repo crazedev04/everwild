@@ -140,7 +140,7 @@ class ObjetivosMixin:
                     return {"tipo": "cazar", "animal": presas[0]["nombre"]}
             return None
         if que == "dormir":
-            return {"tipo": "dormir", "min": self.rng.randint(300, 480)}
+            return {"tipo": "dormir", "min": self.rng_objetivos.randint(300, 480)}
         if que == "calentarse":
             if self.fuente_de_chispa(h) and self.lena_que_lleva(h) >= 2:
                 return {"tipo": "encender"}
