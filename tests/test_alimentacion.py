@@ -41,7 +41,7 @@ class TestAlimentos(_Base):
         self.assertTrue(ok)
         self.assertLess(self.h.hambre, 70.0)
         self.h.inventario, antes = {"podrido": 1}, self.h.salud
-        self.sim.rng.seed(1)
+        self.sim.rng_alimentacion.seed(1)
         self.sim._accion_comer(self.h, {})
         self.assertLess(self.h.salud, antes, "lo podrido tiene que hacer mal")
 

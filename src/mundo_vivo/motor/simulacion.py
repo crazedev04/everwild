@@ -39,6 +39,7 @@ from .vida import ANIO_MIN, VidaMixin
 from .. import catalogos
 from ..agentes import conocimiento as _conocimiento
 from ..reglas import Reglas
+from .semilla import derivar_semilla
 
 PASO_MAX = 1.0  # minutos simulados por sub-paso
 # Con esta sed uno se despierta aunque esté durmiendo. El cerebro usa el MISMO número para no volver a dormirse:
@@ -180,7 +181,7 @@ class CerebroDemo(Cerebro):
     nombre = "demostración (reglas simples)"
 
     def decidir(self, sim: "Simulacion", h: HabitanteSim) -> dict:
-        rng = sim.rng
+        rng = sim.rng_cerebro
         # Si se está muriendo de sed, el agua primero: la sed mata en horas y un fuego lejano no.
         f = None if h.sed >= SED_DESPIERTA else sim.fuego_cerca(h, sim.r_huir_fuego)
         if f:
@@ -236,7 +237,22 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.clima = Clima(self.terreno.ancho, self.terreno.alto, self.semilla, self.fuego.viento)
         self.t = float(t_min)
         self.cerebro = cerebro or CerebroDemo()
-        self.rng = random.Random(self.semilla * 31 + int(t_min))
+        # RNG independiente por subsistema (L.3). Cada stream deriva de la semilla raíz
+        # con `derivar_semilla`, así son reproducibles y no se interfieren entre sí.
+        self.rng_cerebro = random.Random(derivar_semilla(self.semilla, "cerebro"))
+        self.rng_agua = random.Random(derivar_semilla(self.semilla, "agua"))
+        self.rng_rayos = random.Random(derivar_semilla(self.semilla, "rayos"))
+        self.rng_derrumbes = random.Random(derivar_semilla(self.semilla, "derrumbes"))
+        self.rng_caidas = random.Random(derivar_semilla(self.semilla, "caídas"))
+        self.rng_calor = random.Random(derivar_semilla(self.semilla, "calor"))
+        self.rng_materiales = random.Random(derivar_semilla(self.semilla, "materiales"))
+        self.rng_psique = random.Random(derivar_semilla(self.semilla, "psique"))
+        self.rng_fauna = random.Random(derivar_semilla(self.semilla, "fauna"))
+        self.rng_objetivos = random.Random(derivar_semilla(self.semilla, "objetivos"))
+        self.rng_propagacion = random.Random(derivar_semilla(self.semilla, "propagacion"))
+        self.rng_alimentacion = random.Random(derivar_semilla(self.semilla, "alimentacion"))
+        self.rng_vida = random.Random(derivar_semilla(self.semilla, "vida"))
+        self.rng_fenomenos = random.Random(derivar_semilla(self.semilla, "fenomenos"))
         self.habitantes: Dict[int, HabitanteSim] = {}
         self._eventos: List[dict] = []
         self._efectos: List[dict] = []
@@ -477,8 +493,8 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         """Si no se conoce agua alcanzable, sale a buscarla lejos (por donde se pueda ir). El motivo NO es «explora»,
         así la sed no corta el viaje en cada paso."""
         for _ in range(10):
-            d = self.rng.uniform(self.celdas(1000.0), self.celdas(2500.0))   # también en metros
-            a = self.rng.random() * 2 * math.pi
+            d = self.rng_agua.uniform(self.celdas(1000.0), self.celdas(2500.0))   # también en metros
+            a = self.rng_agua.random() * 2 * math.pi
             c = self.terreno.caminable_cerca(int(h.x + math.cos(a) * d), int(h.y + math.sin(a) * d), 3)
             if c and self.terreno.buscar_camino((int(h.x), int(h.y)), c, self.nodos_camino):
                 return {"tipo": "ir", "destino": c, "motivo": "busca agua"}
@@ -549,7 +565,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             if h.vivo and math.hypot(h.x - x - 0.5, h.y - y - 0.5) < 0.9:
                 self._dano(h, 70.0, "un rayo", "herida", "Un rayo alcanzó a %s." % h.nombre)
         lluvia = self.clima.lluvia_en(x + 0.5, y + 0.5)
-        if self.terreno.agua[y, x] == 0 and self.rng.random() < 0.35 * self.fuego.comb[y, x] * reloj.sequedad(self.t) * (1 - 0.9 * lluvia) * (1 - 0.95 * float(self.nieve[y, x])):
+        if self.terreno.agua[y, x] == 0 and self.rng_rayos.random() < 0.35 * self.fuego.comb[y, x] * reloj.sequedad(self.t) * (1 - 0.9 * lluvia) * (1 - 0.95 * float(self.nieve[y, x])):
             self.encender(x, y, origen="rayo")
 
     def derrumbe(self, x: int, y: int) -> None:
@@ -567,7 +583,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                          x=x + 0.5, y=y + 0.5, causa="gravedad y lluvia sobre una pendiente",
                          importancia=3 if golpeados else 2, datos={"camino": camino})
         for h in golpeados:
-            self._dano(h, self.rng.uniform(25, 60), "un derrumbe", "herida", "%s fue golpeado por rocas de un derrumbe." % h.nombre, mio="Unas rocas de un derrumbe te golpearon.")
+            self._dano(h, self.rng_derrumbes.uniform(25, 60), "un derrumbe", "herida", "%s fue golpeado por rocas de un derrumbe." % h.nombre, mio="Unas rocas de un derrumbe te golpearon.")
 
     def _dano(self, h: HabitanteSim, cantidad: float, causa: str, tipo: str, texto: str, mio: Optional[str] = None) -> None:
         h.salud -= cantidad
@@ -719,7 +735,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         # caídas: caminar por pendientes muy empinadas puede salir mal (gravedad)
         if h.accion == "caminando":
             p = float(self.terreno.pendiente[cy, cx])
-            if p > 0.8 and self.rng.random() < 0.0003 * paso * min(2.0, p):
+            if p > 0.8 and self.rng_caidas.random() < 0.0003 * paso * min(2.0, p):
                 self._dano(h, min(25.0, 2.0 + p * 10.0), "una caída por la pendiente", "herida",
                            "%s resbaló y cayó por una pendiente empinada." % h.nombre, mio="Resbalaste y caíste por una pendiente empinada.")
                 if not h.vivo:

@@ -63,8 +63,8 @@ class PsiqueMixin:
             self.sentir(h, canal, float(v))
         for rasgo, delta in (d.get("rasgos") or {}).items():
             self._mover_rasgo_temporal(h, rasgo, float(delta))
-        if float(d.get("riesgo", 0)) > 0 and self.rng.random() < float(d["riesgo"]):
-            h.salud -= self.rng.uniform(5.0, 15.0)
+        if float(d.get("riesgo", 0)) > 0 and self.rng_psique.random() < float(d["riesgo"]):
+            h.salud -= self.rng_psique.uniform(5.0, 15.0)
             self._evento("enfermo", "%s se puso muy mal después de comer %s." % (h.nombre, item), h,
                          causa="una planta fuerte", importancia=3)
         texto = d.get("nombre_efecto") or "todo se vuelve raro"
@@ -97,14 +97,14 @@ class PsiqueMixin:
             return
         d = self.psicoactivos.get(v.get("item")) or {}
         if self.t >= v.get("prox_vision", 0):
-            v["prox_vision"] = self.t + self.rng.uniform(40.0, 120.0)
-            if self.rng.random() < float(d.get("alucina", 0)):
+            v["prox_vision"] = self.t + self.rng_psique.uniform(40.0, 120.0)
+            if self.rng_psique.random() < float(d.get("alucina", 0)):
                 self._alucinar(h)
 
     def _alucinar(self, h) -> None:
         """Una visión queda como recuerdo INFERIDO con certeza baja: la persona la va a recordar, pero el
         sistema sabe que no la vivió. Si la cuenta, el que escucha la recibe como rumor."""
-        texto = self.rng.choice(VISIONES)
+        texto = self.rng_psique.choice(VISIONES)
         self._recuerdo(h, texto, 0.75, "episodica", origen="inferido", certeza=0.2)
         self.sentir(h, "miedo", 0.15)
 

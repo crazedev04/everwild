@@ -1164,7 +1164,7 @@ class CerebroCognitivo(Cerebro):
 
         # Responder propuesta de familia pendiente es una reacción social inmediata
         if h.propuesta and sim.t - h.propuesta.get("t", 0.0) <= 360:
-            return {"tipo": "responder_propuesta", "acepta": sim.rng.random() < 0.85, "motivo": "responder familia"}
+            return {"tipo": "responder_propuesta", "acepta": sim.rng_cerebro.random() < 0.85, "motivo": "responder familia"}
 
         cerebro = self._cerebro_de(sim, h)
         cerebro.needs = self._necesidades(sim, h)
@@ -1293,7 +1293,7 @@ class CerebroCognitivo(Cerebro):
                 cerebro.consolidate_sleep(int(sim.t))
             except Exception:
                 pass
-        return {"tipo": "dormir", "min": sim.rng.randint(240, 420)}
+        return {"tipo": "dormir", "min": sim.rng_cerebro.randint(240, 420)}
 
     def _t_encender(self, sim, h, motivo):
         return {"tipo": "encender"}
@@ -1348,7 +1348,7 @@ class CerebroCognitivo(Cerebro):
             return None
         # El mismo 0,85 que usa el cerebro híbrido, y del mismo generador sembrado: si fueran dos
         # números distintos, dos mundos con la misma semilla no darían la misma familia.
-        return {"tipo": "responder_propuesta", "acepta": sim.rng.random() < 0.85}
+        return {"tipo": "responder_propuesta", "acepta": sim.rng_cerebro.random() < 0.85}
 
     def _t_fabricar(self, sim, h, motivo):
         receta = self._receta_lista(sim, h)
@@ -1430,8 +1430,8 @@ class CerebroCognitivo(Cerebro):
         ancho, alto = sim.terreno.ancho, sim.terreno.alto
         for intento in range(32):
             lejos = sim.celdas(900.0) if intento < 16 else sim.celdas(300.0)
-            d = sim.rng.uniform(sim.celdas(100.0), max(sim.celdas(100.0) + 1.0, lejos))
-            a = sim.rng.random() * 2 * math.pi
+            d = sim.rng_cerebro.uniform(sim.celdas(100.0), max(sim.celdas(100.0) + 1.0, lejos))
+            a = sim.rng_cerebro.random() * 2 * math.pi
             x = min(ancho - 2, max(1, int(h.x + math.cos(a) * d)))
             y = min(alto - 2, max(1, int(h.y + math.sin(a) * d)))
             if (x, y) == (int(h.x), int(h.y)):
@@ -1441,7 +1441,7 @@ class CerebroCognitivo(Cerebro):
                 return c
         # último recurso: caminar en línea recta hasta encontrar tierra
         for intento in range(8):
-            a = sim.rng.random() * 2 * math.pi
+            a = sim.rng_cerebro.random() * 2 * math.pi
             for paso in range(1, 40):
                 x = min(ancho - 2, max(1, int(h.x + math.cos(a) * paso)))
                 y = min(alto - 2, max(1, int(h.y + math.sin(a) * paso)))

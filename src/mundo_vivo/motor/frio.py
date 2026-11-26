@@ -132,8 +132,8 @@ class FrioMixin:
         T0 = self.temp_base_en(h.x, h.y)
         mejor, mt = None, T0 + 2.5
         for _ in range(16):
-            d = self.rng.randint(8, 24)
-            a = self.rng.random() * 2 * math.pi
+            d = self.rng_calor.randint(8, 24)
+            a = self.rng_calor.random() * 2 * math.pi
             c = self.terreno.caminable_cerca(int(h.x + math.cos(a) * d), int(h.y + math.sin(a) * d), 3)
             if c and self.terreno.humedad.shape[0] > c[1]:
                 t = self.temp_base_en(c[0], c[1])

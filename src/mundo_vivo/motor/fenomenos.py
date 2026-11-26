@@ -13,6 +13,8 @@ import random
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from .semilla import derivar_semilla
+
 import numpy as np
 
 from . import biomas as B
@@ -39,7 +41,7 @@ class Tormenta:
 class Clima:
     def __init__(self, ancho: int, alto: int, semilla: int, viento: Tuple[float, float]):
         self.ancho, self.alto = ancho, alto
-        self.rng = random.Random(int(semilla) * 7919 + 13)
+        self.rng = random.Random(derivar_semilla(semilla, "fenomenos"))
         self.viento = viento
         self.tormentas: List[Tormenta] = []
 

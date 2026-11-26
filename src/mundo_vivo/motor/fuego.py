@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from . import biomas as B
+from .semilla import derivar_semilla
 
 K_PROPAGACION = 0.16        # qué tan rápido salta el fuego a un vecino
 CONSUMO_POR_MIN = 0.011     # combustible que consume una celda a intensidad máxima
@@ -51,7 +52,7 @@ class Fuego:
         self.comb = base.copy()
         self.fuego = np.zeros(bioma.shape, dtype=np.uint8)     # intensidad 0..255
         self.quemado = np.zeros(bioma.shape, dtype=np.float32)  # ceniza reciente 0..1
-        self.rng = np.random.default_rng(int(semilla) & 0x7FFFFFFF)
+        self.rng = np.random.default_rng(derivar_semilla(semilla, "calor"))
         ang = ((int(semilla) * 0.6180339887) % 1.0) * 2 * math.pi
         self.viento = (math.cos(ang), math.sin(ang))
         self.version = 0            # sube cuando cambia la ceniza (para refrescar el dibujo)
