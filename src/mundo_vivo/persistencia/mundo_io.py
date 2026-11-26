@@ -86,20 +86,23 @@ def guardar_capas(con: sqlite3.Connection, capas: Dict[str, np.ndarray], dimensi
 
 def cargar_capas(con: sqlite3.Connection, verificar: bool = False, dimension: int = 0) -> Dict[str, np.ndarray]:
     meta = cargar_meta(con)
-    tam = meta["tam_chunk"]
+    tam = meta.get("tam_chunk", TAM_CHUNK)
+    esquema = meta.get("esquema_capas") or {k: np.dtype(v).name for k, v in DTYPES.items()}
     if dimension:
         d = dimension_por_id(con, dimension)
         if d is None:
             raise ValueError("No existe la dimensión %s en este mundo." % dimension)
         w, h, huella = d["ancho"], d["alto"], d["hash_capas"]
     else:
-        w, h, huella = meta["ancho"], meta["alto"], meta.get("hash_capas")
-    capas = {n: np.zeros((h, w), dtype=np.dtype(dt)) for n, dt in meta["esquema_capas"].items()}
+        w, h, huella = meta.get("ancho", 2048), meta.get("alto", 2048), meta.get("hash_capas")
+    capas = {n: np.zeros((h, w), dtype=np.dtype(dt)) for n, dt in esquema.items()}
     for fila in con.execute("SELECT capa, cx, cy, datos FROM capas WHERE dimension = ?", (int(dimension),)):
         n = fila["capa"]
+        if n not in esquema:
+            continue
         x0, y0 = fila["cx"] * tam, fila["cy"] * tam
         sh = (min(tam, h - y0), min(tam, w - x0))
-        dt = np.dtype(meta["esquema_capas"][n]).newbyteorder("<")
+        dt = np.dtype(esquema[n]).newbyteorder("<")
         sub = np.frombuffer(zlib.decompress(fila["datos"]), dtype=dt).reshape(sh)
         capas[n][y0:y0 + sh[0], x0:x0 + sh[1]] = sub
     if verificar and huella and hash_capas(capas) != huella:

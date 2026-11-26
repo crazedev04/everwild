@@ -188,7 +188,8 @@ class CerebroCognitivo(Cerebro):
                 "COGNITIVE_ENGINE_SRC o dejá el proyecto como carpeta hermana de mundo-vivo."
             )
         from cognitive_engine import SQLiteBrainRepository
-        from cognitive_engine.scheduler.scheduler import MultiBrainScheduler
+        from cognitive_engine.adapters.mundo_vivo import MundoVivoAdapter
+        from cognitive_engine.api.service import CognitiveEngineService
 
         self.cliente = None                 # no hay modelo de lenguaje en este cerebro
         self.con = con
@@ -205,8 +206,12 @@ class CerebroCognitivo(Cerebro):
                 cerebros_db = ":memory:"
         else:
             cerebros_db = ":memory:"
-        self._repo = SQLiteBrainRepository(cerebros_db)
-        self._scheduler = MultiBrainScheduler()
+        # Frontera única con CCA: el adaptador concentra registro, tick, traducción,
+        # resultados y persistencia. Mundo Vivo no instancia el scheduler ni el motor.
+        self._adapter = MundoVivoAdapter(
+            service=CognitiveEngineService(repository=SQLiteBrainRepository(cerebros_db))
+        )
+        self._repo = self._adapter.service.repository
         self._cerebros: dict[int, Any] = {}
         self._ultima_propuesta: dict[int, Any] = {}
         self._decisiones = 0
@@ -606,7 +611,14 @@ class CerebroCognitivo(Cerebro):
                 cerebro.decision_engine.state.goal_id = datos["current_goal_id"]
             self._cerebros_restaurados += 1
         self._cerebros[h.id] = cerebro
-        self._scheduler.register_brain(cerebro)
+        # Registro a través del adaptador (no del scheduler): conserva el brain_id
+        # y los componentes a medida, y evita duplicados.
+        self._adapter.ensure_brain(
+            h.id,
+            brain_id=identidad.brain_id,
+            name=h.nombre,
+            factory=lambda _bid, _name, _c=cerebro: _c,
+        )
         return cerebro
 
     def guardar_cerebros(self) -> None:
@@ -648,13 +660,13 @@ class CerebroCognitivo(Cerebro):
             except Exception as exc:
                 self._guardados_fallidos += 1
                 self._ultimo_error_guardando = f"save(muerte): {exc}"[:120]
-            self._scheduler.unregister_brain(cerebro.identity.brain_id)
+            self._adapter.service.scheduler.unregister_brain(cerebro.identity.brain_id)
 
     # ------------------------------------------------------------------ percepción
 
     def _observacion(self, sim: Simulacion, h: HabitanteSim, cerebro: Any) -> Any:
         """Arma la observación: posición propia, agua a la vista y gente cerca, en metros reales."""
-        from cognitive_engine import Observation, PerceivedFact
+        from cognitive_engine import PerceivedFact
 
         hechos: list[Any] = [
             PerceivedFact(
@@ -716,12 +728,13 @@ class CerebroCognitivo(Cerebro):
         dt = max(1.0, t_sim - ultimo_t)
         self._ultimo_tick[h.id] = t_sim
 
-        return Observation(
-            brain_id=cerebro.identity.brain_id,
+        return self._adapter.build_observation(
+            h.id,
             tick=int(sim.t),
-            facts=tuple(hechos),
+            facts=hechos,
             simulation_time=t_sim,
             delta_simulation_time=dt,
+            brain_id=cerebro.identity.brain_id,
         )
 
     # ------------------------------------------------------------------ creencias
@@ -1133,13 +1146,23 @@ class CerebroCognitivo(Cerebro):
 
         creencias = self._creencias(sim, h)
         self._creencias_vigentes[h.id] = (float(sim.t), creencias)
-        propuesta = cerebro.tick(
-            self._observacion(sim, h, cerebro),
-            extra_state=creencias,
+        obs = self._observacion(sim, h, cerebro)
+        propuestas = self._adapter.process(
+            [obs],
+            extra_state_by_brain={cerebro.identity.brain_id: creencias},
+            persist=False,  # el mundo persiste en lote con guardar_cerebros
         )
+        propuesta = propuestas[0] if propuestas else None
+        if propuesta is None:
+            # El cerebro no generó propuesta (durmiendo u omitido): se limpia la
+            # última para no reenviar un resultado ya resuelto, y se espera.
+            self._ultima_propuesta.pop(h.id, None)
+            return {"tipo": "esperar", "min": 10, "motivo": "sin propuesta"}
         self._ultima_propuesta[h.id] = propuesta
         self._decisiones += 1
-        accion = self._traducir(sim, h, propuesta)
+        accion = self._adapter.to_world_action(
+            propuesta, translator=lambda p: self._traducir(sim, h, p)
+        )
 
         # foto para el hábito (igual que el cerebro híbrido)
         if sim.modulo("habitos") and sim.es_adulto(h) and not (accion.get("tipo") == "esperar" and accion.get("motivo") == "pensando"):
@@ -1379,22 +1402,23 @@ class CerebroCognitivo(Cerebro):
         self, sim: Simulacion, h: HabitanteSim, ok: bool, texto: str
     ) -> None:
         """Devuelve al cerebro lo que pasó: de ahí sale el aprendizaje y la replanificación."""
-        from cognitive_engine import ActionResult, ActionStatus
-
         propuesta = self._ultima_propuesta.get(h.id)
         cerebro = self._cerebros.get(h.id)
         if propuesta is None or cerebro is None:
             return
 
-        cerebro.receive_result(
-            ActionResult(
-                proposal_id=propuesta.proposal_id,
-                brain_id=cerebro.identity.brain_id,
-                tick=int(sim.t),
-                status=ActionStatus.ACCEPTED if ok else ActionStatus.REJECTED,
-                rejection_reason=None if ok else (texto or "El entorno no lo permitió."),
+        # Correspondencia propuesta<->resultado: el motor puede reportar el resultado
+        # de una acción que ya se resolvió o fue reemplazada por una propuesta más
+        # nueva (acciones que tardan varios ticks). Solo se entrega si sigue pendiente;
+        # reentregar una propuesta ya resuelta rompe el contrato del cerebro.
+        if cerebro.working_memory.get_pending_proposal(propuesta.proposal_id) is not None:
+            self._adapter.deliver(
+                [
+                    self._adapter.result_from_world(
+                        propuesta, ok, texto or "El entorno no lo permitió."
+                    )
+                ]
             )
-        )
         # Lo que llena la compañía es haber interactuado, no estar cerca.
         if ok and propuesta.action_type in (
             "hablar",

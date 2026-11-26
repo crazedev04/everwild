@@ -44,6 +44,9 @@ PASO_MAX = 1.0  # minutos simulados por sub-paso
 # Con esta sed uno se despierta aunque esté durmiendo. El cerebro usa el MISMO número para no volver a dormirse:
 # si se separan, el que duerme se despierta por sed, se vuelve a dormir, y se muere al lado del agua.
 SED_DESPIERTA = 80.0
+SED_SUBE_MIN = 0.11          # sed que sube por minuto despierto (fuente única; antes iba inline en _vida)
+SED_CRITICO = 90.0           # desde esta sed la salud empieza a bajar (fuente única; antes iba inline)
+MARGEN_MARCHA_AGUA = 0.6     # del tiempo disponible hasta la sed crítica, fracción usable para caminar al agua
 
 
 class HabitanteSim:
@@ -401,17 +404,27 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         return (float(xs[i] + xs0 + 0.5), float(ys[i] + ys0 + 0.5), float(d[i])) if d[i] <= radio else None
 
     def agua_cercana(self, h: HabitanteSim, radio: int = 60) -> Optional[Tuple[int, int]]:
-        """Celda transitable junto al agua más cercana *alcanzable* (BFS desde donde está, sin A* por candidato).
-        Funciona aunque esté parado en una celda empinada o el agua más próxima en línea recta esté aislada."""
+        """Celda transitable junto al agua más cercana *enrutable* (BFS desde donde está).
+
+        La BFS usa el MISMO presupuesto que el A* (`nodos_camino`) y cada orilla candidata se confirma
+        con `buscar_camino` antes de ofrecerla: así la detección nunca devuelve un destino que el
+        enrutado no pueda cerrar (C1). Si la orilla más cercana no tiene ruta dentro del presupuesto,
+        se sigue buscando la siguiente; si se agotan las verificaciones, se devuelve None y el
+        cerebro prueba otra fuente (`buscar_agua_lejos`) o espera y replanifica.
+        """
         from collections import deque
         t = self.terreno
         x0, y0 = int(h.x), int(h.y)
         if t.dentro(x0, y0) and t.agua_adyacente(x0, y0):
             return (x0, y0)
+        presupuesto = self.nodos_camino          # única fuente de verdad (ver _calcular_escala)
+        t_marcha = self._t_marcha_agua(h)        # segundos de marcha que aguanta antes de la sed crítica
+        TOPE_VERIF = 8                           # confirmar a lo sumo 8 orillas; el resto es fallback
         vis = {(x0, y0)}
         q = deque([(x0, y0)])
         n = 0
-        while q and n < self.nodos_bfs:
+        verif = 0
+        while q and n < presupuesto:
             x, y = q.popleft()
             n += 1
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
@@ -424,12 +437,38 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 if dx and dy and (not t.caminable(x + dx, y) or not t.caminable(x, y + dy)):
                     continue                              # igual que el A*: no se cortan esquinas
                 if t.agua_adyacente(*c):
-                    return c
+                    if verif < TOPE_VERIF:
+                        verif += 1
+                        ruta = t.buscar_camino((x0, y0), c, presupuesto)
+                        # alcanzable Y recorrible antes de que la sed se vuelva crítica (P1.2):
+                        # se mide el COSTO real de la ruta (bioma+pendiente+río), no la distancia geométrica.
+                        if ruta is not None and self._costo_ruta(ruta) <= t_marcha:
+                            return c
+                    # orilla no enrutable o lejana en tiempo: se busca otra
+                    continue
                 q.append(c)
         if h.sed >= 55:
             import sys
             print("AGUA-CERCANA-NONE: h=%d sed=%.1f pos=(%d,%d) radio=%d" % (h.id, h.sed, x0, y0, radio), file=sys.stderr, flush=True)
         return None
+
+    def _t_marcha_agua(self, h: HabitanteSim) -> float:
+        """Segundos de marcha que el habitante aguanta antes de que la sed llegue a `SED_CRITICO`.
+
+        Sale del ritmo real de la sed (`SED_SUBE_MIN`) y del margen `MARGEN_MARCHA_AGUA`. Con sed baja
+        da un presupuesto enorme (agua lejana sigue siendo viable); con sed alta se achica y el agua
+        inalcanzable a tiempo se descarta. Justificado por las constantes de `_vida`, no arbitrario."""
+        falta = max(0.0, SED_CRITICO - float(h.sed))
+        minutos = falta / SED_SUBE_MIN
+        return minutos * 60.0 * MARGEN_MARCHA_AGUA
+
+    def _costo_ruta(self, ruta) -> float:
+        """Tiempo de marcha (segundos) de una ruta: suma del costo por celda (bioma x pendiente x río)."""
+        t = self.terreno
+        total = 0.0
+        for cx, cy in ruta:
+            total += float(t.costo[cy, cx])
+        return total
 
     def buscar_agua_lejos(self, h: HabitanteSim) -> Optional[dict]:
         """Si no se conoce agua alcanzable, sale a buscarla lejos (por donde se pueda ir). El motivo NO es «explora»,
@@ -627,7 +666,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.sed = min(100.0, h.sed + 0.07 * paso)
         else:
             h.energia = max(0.0, h.energia - 0.05 * paso)
-            h.sed = min(100.0, h.sed + 0.11 * paso)
+            h.sed = min(100.0, h.sed + SED_SUBE_MIN * paso)
         # La sed despierta siempre (mata en horas). El hambre sólo si le queda energía para hacer algo:
         # si no, se despierta, no puede ni levantarse, se vuelve a dormir y muere de agotamiento.
         if dormido and (h.sed >= SED_DESPIERTA or (h.hambre >= HAMBRE_DESPIERTA and h.energia > 35.0)):
@@ -640,7 +679,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self._paso_psique(h, paso)
         if self.modulo("frio"):
             self._aplicar_frio(h, paso, dormido)
-        if h.sed >= 90:
+        if h.sed >= SED_CRITICO:
             h.salud -= 0.3 * paso
         if h.energia <= 5:
             h.salud -= 0.1 * paso
@@ -671,7 +710,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             if f and (h.accion == "durmiendo" or h.detalle != "huye del fuego"):
                 h.camino, h.hasta, h.accion = [], 0.0, "libre"
         if h.salud <= 0:
-            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= 90 else "hambre" if h.hambre >= 95
+            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= SED_CRITICO else "hambre" if h.hambre >= 95
                         else "agotamiento" if h.energia <= 5 else "frío" if h.frio > 0.4 else "heridas")
             return
         # caídas: caminar por pendientes muy empinadas puede salir mal (gravedad)
