@@ -14,6 +14,7 @@ import zlib
 import math
 import random
 import uuid
+from collections import deque
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -63,6 +64,17 @@ def _podar_por_habitante(con, tabla: str, tope: int) -> None:
 def clave_dim(clave: str, dimension: int = 0) -> str:
     """Clave de `estado_dinamico` para una dimensión. La 0 usa las de siempre, así un mundo viejo abre igual."""
     return clave if not dimension else "d%d:%s" % (int(dimension), clave)
+
+
+def _presupuesto_camino(tam_celda_m: float) -> int:
+    """Presupuesto de expansiones del A* para validar habitabilidad.
+
+    Es el MISMO `nodos_camino` que usa el motor a esta resolución (ver `Simulacion._calcular_escala`):
+    así "habitable en la generación" significa "enrutable dentro del presupuesto de producción", no
+    con un presupuesto distinto que después el motor no tendría.
+    """
+    k = (50.0 / float(tam_celda_m)) ** 2
+    return int(min(120_000, 12_000 * k))
 
 
 def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
