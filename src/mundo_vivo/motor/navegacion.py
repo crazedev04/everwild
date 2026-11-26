@@ -117,7 +117,7 @@ class Terreno:
         self._factor_terreno = np.full(costo.shape, np.inf)
         np.divide(costo, np.maximum(1e-9, mult), out=self._factor_terreno, where=ok)
         self._fracasos: set = set()  # viajes que SÍ se comprobó que no se pueden hacer (componente cerrada)
-        self._incompletos: set = set()  # viajes que agotaron el presupuesto: se reintentan, no son definitivos
+        self._incompletos: dict = {}  # clave -> max_exp usado; se reintentan si el presupuesto crece
         self._rutas: "OrderedDict" = (
             OrderedDict()
         )  # (ox, oy, dx, dy) -> camino; LRU acotada
@@ -330,7 +330,10 @@ class Terreno:
             self._cache_hits += 1
             return [tuple(p) for p in cached]
         clave = self._clave_fracaso(origen, destino)
-        if clave in self._fracasos or clave in self._incompletos:
+        if clave in self._fracasos:
+            return None
+        if clave in self._incompletos and self._incompletos[clave] >= max_exp:
+            # Presupuesto anterior igual o mayor: la búsqueda ya quedó incompleta, no repetir.
             return None
         w, h = self.ancho, self.alto
 
@@ -376,7 +379,7 @@ class Terreno:
                 # Presupuesto agotado: la búsqueda quedó INCOMPLETA, no probó que no haya ruta.
                 # No va a `_fracasos` (eso sería marcarla imposible para siempre); va a `_incompletos`,
                 # que se recicla y deja reintentar. Ver docs/IMPLEMENTACION_P0_AGUA.md (P0.2).
-                return self._anotar_incompleto(clave)
+                return self._anotar_incompleto(clave, max_exp)
 
             cx = costo_en(x, y)
 
@@ -411,16 +414,19 @@ class Terreno:
     def _anotar_fracaso(self, clave: Tuple[int, int, int, int]) -> None:
         """Se acuerda de un viaje que SÍ no se puede hacer (componente cerrada). Devuelve None."""
         if len(self._fracasos) >= TOPE_FRACASOS:
-            self._fracasos.clear()  # acotada a lo bruto: lo que importa es no reintentar en ráfaga
+            self._fracasos.clear()
         self._fracasos.add(clave)
+        self._incompletos.pop(clave, None)  # ya no es incompleto: quedó demostrado imposible
         return None
 
-    def _anotar_incompleto(self, clave: Tuple[int, int, int, int]) -> None:
+    def _anotar_incompleto(self, clave: Tuple[int, int, int, int], max_exp: int) -> None:
         """Anota una búsqueda que agotó el presupuesto (incompleta), NO un destino imposible.
 
-        Se guarda aparte y con recambio (FIFO bruto al superar el tope): evita repetir en ráfaga el
-        mismo viaje caro, pero deja reintentarlo más tarde o si el mapa cambia. Devuelve None."""
+        Guarda el `max_exp` usado para que un reintento con presupuesto mayor
+        no quede bloqueado por esta entrada. Se guarda aparte y con recambio
+        (FIFO bruto al superar el tope): evita repetir en ráfaga el mismo viaje
+        caro, pero deja reintentarlo más tarde o si el mapa cambia. Devuelve None."""
         if len(self._incompletos) >= TOPE_INCOMPLETOS:
             self._incompletos.clear()
-        self._incompletos.add(clave)
+        self._incompletos[clave] = max_exp
         return None
