@@ -219,6 +219,13 @@ registrado en `_guardados_fallidos` y `_ultimo_error_guardando`. Si lo que falla
 en `_restauraciones_fallidas` / `_ultimo_error_restaurando`. Ambos salen en el estado del cerebro.
 Un cerebro nuevo no cuenta como falla de carga: su `BrainNotFoundError` es el caso normal.
 
+Al abrir un mundo, `CerebroCognitivo.__init__` llama a `recuperar_cerebros()`, que recupera todos los
+cerebros persistidos de ese mundo y los registra en el scheduler antes de la primera decisión. Así la
+continuidad está lista de entrada sin esperar a que cada habitante decida por primera vez. `list_brain_ids()`
+devuelve los ids de todos los cerebros persistidos para el mundo. La recuperación no duplica: el scheduler
+descarta ids ya registrados y `recover_brains` saltea los archivados. Cada restauración cuenta en
+`cerebros_restaurados` del estado del cerebro.
+
 ### Correr tests de integración
 
 ```bash
