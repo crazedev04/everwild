@@ -59,9 +59,10 @@ class TestNavegacion(unittest.TestCase):
         ys, xs = np.nonzero(np.isfinite(self.t.costo))
         origen = (int(xs[0]), int(ys[0]))
         # un destino caminable al que no se llega: se lo encierra bajando el presupuesto a 1 nodo
-        destino = (int(xs[len(xs) // 2]), int(ys[len(ys) // 2]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
         self.assertIsNone(self.t.buscar_camino(origen, destino, 1))
-        self.assertEqual(len(self.t._fracasos), 1, "el fracaso tiene que quedar anotado")
+        # Presupuesto agotado: búsqueda incompleta, no fracaso definitivo. Va a _incompletos.
+        self.assertEqual(len(self.t._incompletos), 1, "agotar presupuesto anota incompleto")
 
         # ahora con presupuesto de sobra: NO se busca de nuevo, se devuelve el fracaso recordado
         self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
@@ -69,6 +70,7 @@ class TestNavegacion(unittest.TestCase):
         # si el mapa cambia, se olvida y se vuelve a buscar de verdad
         self.t.cambiar_bioma(destino[0], destino[1], int(self.t.bioma[destino[1], destino[0]]) ^ 1)
         self.assertEqual(self.t._fracasos, set(), "cambiar el mapa tiene que olvidar los fracasos")
+        self.assertEqual(self.t._incompletos, set(), "cambiar el mapa tiene que olvidar los incompletos")
 
         # un camino que SÍ existe nunca se guarda: no hay nada que caduque
         alcanzable = next(((int(x), int(y)) for x, y in zip(xs, ys)
@@ -77,6 +79,23 @@ class TestNavegacion(unittest.TestCase):
         self.t.olvidar_fracasos()
         self.assertTrue(self.t.buscar_camino(origen, alcanzable))
         self.assertEqual(self.t._fracasos, set(), "un éxito no se guarda en la caché")
+
+    def test_destino_inalcanzable_se_anota_como_fracaso_definitivo(self):
+        """Destino caminable pero en componente aislada: el A* agota la lista de abiertos
+        sin llegar, así que se anota como fracaso definitivo en _fracasos."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+
+        # aísla una celda caminable rodeándola de océano (INF): queda en su propio componente
+        dx, dy = int(xs[len(xs) // 2]), int(ys[len(ys) // 2])
+        assert self.t.caminable(dx, dy), "celda de destino debe ser caminable al inicio"
+        for ax, ay in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = dx + ax, dy + ay
+            if self.t.dentro(nx, ny):
+                self.t._establecer_costo_celda(nx, ny, float("inf"))
+
+        self.assertIsNone(self.t.buscar_camino(origen, (dx, dy), 10_000_000))
+        self.assertEqual(len(self.t._fracasos), 1, "destino inalcanzable es fracaso definitivo")
 
 
 class TestFuego(unittest.TestCase):
