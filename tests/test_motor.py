@@ -64,13 +64,14 @@ class TestNavegacion(unittest.TestCase):
         # Presupuesto agotado: búsqueda incompleta, no fracaso definitivo. Va a _incompletos.
         self.assertEqual(len(self.t._incompletos), 1, "agotar presupuesto anota incompleto")
 
-        # ahora con presupuesto de sobra: NO se busca de nuevo, se devuelve el fracaso recordado
-        self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
+        # ahora con presupuesto de sobra: SÍ se busca de nuevo, porque el presupuesto creció
+        resultado = self.t.buscar_camino(origen, destino, 10_000_000)
+        self.assertIsNotNone(resultado, "presupuesto mayor debe permitir nueva búsqueda")
 
         # si el mapa cambia, se olvida y se vuelve a buscar de verdad
         self.t.cambiar_bioma(destino[0], destino[1], int(self.t.bioma[destino[1], destino[0]]) ^ 1)
         self.assertEqual(self.t._fracasos, set(), "cambiar el mapa tiene que olvidar los fracasos")
-        self.assertEqual(self.t._incompletos, set(), "cambiar el mapa tiene que olvidar los incompletos")
+        self.assertEqual(self.t._incompletos, {}, "cambiar el mapa tiene que olvidar los incompletos")
 
         # un camino que SÍ existe nunca se guarda: no hay nada que caduque
         alcanzable = next(((int(x), int(y)) for x, y in zip(xs, ys)
@@ -96,6 +97,83 @@ class TestNavegacion(unittest.TestCase):
 
         self.assertIsNone(self.t.buscar_camino(origen, (dx, dy), 10_000_000))
         self.assertEqual(len(self.t._fracasos), 1, "destino inalcanzable es fracaso definitivo")
+
+    def test_incompleto_bajo_presupuesto_permite_reintento_con_presupuesto_mayor(self):
+        """Una búsqueda que agota presupuesto pequeño no bloquea una posterior con presupuesto mayor."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
+
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 1))
+        self.assertEqual(len(self.t._incompletos), 1)
+
+        resultado = self.t.buscar_camino(origen, destino, 10_000_000)
+        self.assertIsNotNone(resultado)
+
+    def test_incompleto_bloquea_presupuesto_igual_o_menor(self):
+        """Una búsqueda incompleta bloquea otro intento con presupuesto igual o menor."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
+
+        self.t._incompletos[(int(origen[0]) // 4, int(origen[1]) // 4, destino[0], destino[1])] = 100
+
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 100))
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 50))
+
+    def test_fracaso_definitivo_bloquea_independientemente_de_presupuesto(self):
+        """Un fracaso en _fracasos bloquea cualquier búsqueda posterior, sin importar max_exp."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
+
+        dx, dy = destino
+        assert self.t.caminable(dx, dy), "celda de destino debe ser caminable al inicio"
+        for ax, ay in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = dx + ax, dy + ay
+            if self.t.dentro(nx, ny):
+                self.t._establecer_costo_celda(nx, ny, float("inf"))
+
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
+        self.assertEqual(len(self.t._fracasos), 1)
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
+
+    def test_cambiar_bioma_invalida_fracasos_e_incompletos(self):
+        """Cambiar el terreno vacía tanto _fracasos como _incompletos."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
+
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 1))
+        self.assertEqual(len(self.t._incompletos), 1)
+
+        self.t.cambiar_bioma(destino[0], destino[1], int(self.t.bioma[destino[1], destino[0]]) ^ 1)
+        self.assertEqual(self.t._fracasos, set())
+        self.assertEqual(self.t._incompletos, {})
+
+    def test_fracaso_elimina_entrada_de_incompletos(self):
+        """Un fracaso definitivo elimina la entrada previa de _incompletos para esa clave."""
+        ys, xs = np.nonzero(np.isfinite(self.t.costo))
+        origen = (int(xs[0]), int(ys[0]))
+        destino = (int(xs[len(xs) // 2]), int(ys[len(xs) // 2]))
+
+        dx, dy = destino
+        assert self.t.caminable(dx, dy), "celda de destino debe ser caminable al inicio"
+        for ax, ay in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = dx + ax, dy + ay
+            if self.t.dentro(nx, ny):
+                self.t._establecer_costo_celda(nx, ny, float("inf"))
+
+        clave = (int(origen[0]) // 4, int(origen[1]) // 4, dx, dy)
+
+        # presupuesto pequeño: queda incompleto
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 1))
+        self.assertIn(clave, self.t._incompletos)
+
+        # presupuesto mayor: demuestra que no hay camino, se promueve a fracaso
+        self.assertIsNone(self.t.buscar_camino(origen, destino, 10_000_000))
+        self.assertIn(clave, self.t._fracasos)
+        self.assertNotIn(clave, self.t._incompletos)
 
 
 class TestFuego(unittest.TestCase):
