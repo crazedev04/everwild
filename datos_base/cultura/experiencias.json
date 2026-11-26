@@ -116,5 +116,15 @@
    "empatia": -0.012,
    "agresividad": 0.006
   }
+ },
+ {
+  "type": "experiencia",
+  "id": "traicion",
+  "motivo": "sufrir una traición amorosa",
+  "mueve": {
+   "empatia": -0.04,
+   "cautela": 0.05,
+   "agresividad": 0.03
+  }
  }
 ]

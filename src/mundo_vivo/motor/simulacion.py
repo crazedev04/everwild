@@ -44,6 +44,9 @@ PASO_MAX = 1.0  # minutos simulados por sub-paso
 # Con esta sed uno se despierta aunque esté durmiendo. El cerebro usa el MISMO número para no volver a dormirse:
 # si se separan, el que duerme se despierta por sed, se vuelve a dormir, y se muere al lado del agua.
 SED_DESPIERTA = 80.0
+SED_SUBE_MIN = 0.11          # sed que sube por minuto despierto (fuente única; antes iba inline en _vida)
+SED_CRITICO = 90.0           # desde esta sed la salud empieza a bajar (fuente única; antes iba inline)
+MARGEN_MARCHA_AGUA = 0.6     # del tiempo disponible hasta la sed crítica, fracción usable para caminar al agua
 
 
 class HabitanteSim:
@@ -79,6 +82,7 @@ class HabitanteSim:
         self.genoma = None                         # agentes.genoma.Genoma (o None)
         self.madre_id: Optional[int] = None
         self.padre_id: Optional[int] = None
+        self.pareja_id: Optional[int] = None       # Fase 8: compromiso formal
         self.embarazo: Optional[dict] = None
         self.sin_concebir_hasta = 0.0
         self.propuesta: Optional[dict] = None
@@ -138,6 +142,15 @@ class HabitanteSim:
             lst.sort(key=lambda p: (p[4], p[2]))
             lst.pop(0)
 
+    def a_publico_mapa(self) -> dict:
+        """Lo mínimo para dibujar el mapa. Las barras finas y los atributos van por `vitales`/ficha:
+        el mapa se redibuja 10 veces por segundo y no necesita lo que no cambia."""
+        return {"id": self.id, "nombre": self.nombre, "color": self.color, "x": round(self.x, 3), "y": round(self.y, 3),
+                "vivo": self.vivo, "accion": self.accion, "detalle": self.detalle, "sexo": self.sexo,
+                "nac": int(self.nacimiento_min), "en_fuego": self.en_fuego,
+                "antorcha": bool(self.inventario.get("antorcha_encendida", 0)),
+                "emo": {k: round(v, 2) for k, v in self.emo.items() if v > 0.1}}
+
     def a_publico(self) -> dict:
         return {"id": self.id, "nombre": self.nombre, "color": self.color, "x": round(self.x, 3), "y": round(self.y, 3),
                 "salud": round(self.salud, 1), "sed": round(self.sed, 1), "energia": round(self.energia, 1),
@@ -146,6 +159,7 @@ class HabitanteSim:
                 "objetivo": self.objetivo,
                 "accion": self.accion, "detalle": self.detalle, "vivo": self.vivo, "en_fuego": self.en_fuego,
                 "sexo": self.sexo, "embarazada": bool(self.embarazo), "montado": self.montura is not None,
+                "emo": {k: round(v, 2) for k, v in self.emo.items() if v > 0.1},
                 "nac": int(self.nacimiento_min),
                 # lleva fuego en la mano: en el mapa se le ve la llama y le ilumina alrededor de noche
                 "antorcha": bool(self.inventario.get("antorcha_encendida", 0))}
@@ -213,6 +227,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.dimension = int(dimension)
         self.ident = ident
         self.meta = meta
+        self.world_uid = meta.get("world_uid")     # identidad persistente del mundo (aislamiento cognitivo)
         self.semilla = int(meta["semilla"] if semilla is None else semilla)
         self.tam_celda_m = float(meta["tam_celda_m"])
         self._calcular_escala()
@@ -245,7 +260,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.ajustes["modulos"]["fauna"] = False      # una simulación pelada no puebla fauna hasta que se pide
         from ..registro import Registro
         self.registro = Registro.cargar()      # todo el contenido del mundo sale de acá
-        self._compilar_materiales()            # y se compila a tablas planas para el bucle
+        self._compilar_materiales()            # materiales, armas, antorchas, leña
+        self._compilar_estructures()           # estructuras que proveen calor/energía
+        self._compilar_objetives()             # objetivos de respaldo
         self._compilar_conservacion()
         self._compilar_alimentos()
         self._compilar_fenomenos()
@@ -282,6 +299,10 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.fauna.temp_fn = self.temp_en                                                   # los animales también sienten el frío
         self._fauna_lista = False          # True cuando la fauna ya se pobló o se cargó de la base
         self.centro_seguro = None          # (x, y): sin grandes depredadores al empezar cerca de ahí
+        # Buffer de propuestas del Cerebro Cognitivo — desacopla el hilo cognitivo del tick crítico.
+        # Clave: id del habitante. El motor reutiliza la última propuesta si el cerebro aún no resolvió
+        # la siguiente (relevante cuando el CE real tarda; el CerebroDemo resuelve en microsegundos).
+        self._propuestas_cerebro: Dict[int, dict] = {}
         self.conocimientos: Dict[int, dict] = {}
         self.conocidos: set = set()
         self.al_nacer = None       # callback(sim, madre, padre, genoma, sexo, nombre) -> HabitanteSim (lo pone sim_io)
@@ -386,17 +407,27 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         return (float(xs[i] + xs0 + 0.5), float(ys[i] + ys0 + 0.5), float(d[i])) if d[i] <= radio else None
 
     def agua_cercana(self, h: HabitanteSim, radio: int = 60) -> Optional[Tuple[int, int]]:
-        """Celda transitable junto al agua más cercana *alcanzable* (BFS desde donde está, sin A* por candidato).
-        Funciona aunque esté parado en una celda empinada o el agua más próxima en línea recta esté aislada."""
+        """Celda transitable junto al agua más cercana *enrutable* (BFS desde donde está).
+
+        La BFS usa el MISMO presupuesto que el A* (`nodos_camino`) y cada orilla candidata se confirma
+        con `buscar_camino` antes de ofrecerla: así la detección nunca devuelve un destino que el
+        enrutado no pueda cerrar (C1). Si la orilla más cercana no tiene ruta dentro del presupuesto,
+        se sigue buscando la siguiente; si se agotan las verificaciones, se devuelve None y el
+        cerebro prueba otra fuente (`buscar_agua_lejos`) o espera y replanifica.
+        """
         from collections import deque
         t = self.terreno
         x0, y0 = int(h.x), int(h.y)
         if t.dentro(x0, y0) and t.agua_adyacente(x0, y0):
             return (x0, y0)
+        presupuesto = self.nodos_camino          # única fuente de verdad (ver _calcular_escala)
+        t_marcha = self._t_marcha_agua(h)        # segundos de marcha que aguanta antes de la sed crítica
+        TOPE_VERIF = 8                           # confirmar a lo sumo 8 orillas; el resto es fallback
         vis = {(x0, y0)}
         q = deque([(x0, y0)])
         n = 0
-        while q and n < self.nodos_bfs:
+        verif = 0
+        while q and n < presupuesto:
             x, y = q.popleft()
             n += 1
             for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)):
@@ -409,9 +440,38 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 if dx and dy and (not t.caminable(x + dx, y) or not t.caminable(x, y + dy)):
                     continue                              # igual que el A*: no se cortan esquinas
                 if t.agua_adyacente(*c):
-                    return c
+                    if verif < TOPE_VERIF:
+                        verif += 1
+                        ruta = t.buscar_camino((x0, y0), c, presupuesto)
+                        # alcanzable Y recorrible antes de que la sed se vuelva crítica (P1.2):
+                        # se mide el COSTO real de la ruta (bioma+pendiente+río), no la distancia geométrica.
+                        if ruta is not None and self._costo_ruta(ruta) <= t_marcha:
+                            return c
+                    # orilla no enrutable o lejana en tiempo: se busca otra
+                    continue
                 q.append(c)
+        if h.sed >= 55:
+            import sys
+            print("AGUA-CERCANA-NONE: h=%d sed=%.1f pos=(%d,%d) radio=%d" % (h.id, h.sed, x0, y0, radio), file=sys.stderr, flush=True)
         return None
+
+    def _t_marcha_agua(self, h: HabitanteSim) -> float:
+        """Segundos de marcha que el habitante aguanta antes de que la sed llegue a `SED_CRITICO`.
+
+        Sale del ritmo real de la sed (`SED_SUBE_MIN`) y del margen `MARGEN_MARCHA_AGUA`. Con sed baja
+        da un presupuesto enorme (agua lejana sigue siendo viable); con sed alta se achica y el agua
+        inalcanzable a tiempo se descarta. Justificado por las constantes de `_vida`, no arbitrario."""
+        falta = max(0.0, SED_CRITICO - float(h.sed))
+        minutos = falta / SED_SUBE_MIN
+        return minutos * 60.0 * MARGEN_MARCHA_AGUA
+
+    def _costo_ruta(self, ruta) -> float:
+        """Tiempo de marcha (segundos) de una ruta: suma del costo por celda (bioma x pendiente x río)."""
+        t = self.terreno
+        total = 0.0
+        for cx, cy in ruta:
+            total += float(t.costo[cy, cx])
+        return total
 
     def buscar_agua_lejos(self, h: HabitanteSim) -> Optional[dict]:
         """Si no se conoce agua alcanzable, sale a buscarla lejos (por donde se pueda ir). El motivo NO es «explora»,
@@ -523,6 +583,14 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         if not h.vivo:
             return
         h.vivo, h.causa_muerte, h.t_muerte = False, causa, int(self.t)
+        # Fase 8: liberar la pareja
+        if getattr(h, "pareja_id", None) is not None:
+            pareja = self.habitantes.get(h.pareja_id) if hasattr(self, "habitantes") else None
+            if pareja is not None and pareja.vivo:
+                pareja.pareja_id = None
+                self._evento("_relacion", "", pareja, datos={"hab": pareja.id, "otro": h.id,
+                                                              "d_afecto": -0.3, "d_confianza": -0.3,
+                                                              "motivo": "murió la pareja"})
         h.accion, h.detalle, h.camino = "muerto", "", []
         self._evento("muerte", "%s murió (%s)." % (h.nombre, causa), h, causa=causa, importancia=5)
         for o in self.habitantes.values():
@@ -541,8 +609,19 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             dt_min -= paso
             self._paso(paso)
 
-    def _paso(self, paso: float) -> None:
-        self.t += paso
+    def _tick_rapido_fisica(self, paso: float) -> None:
+        """Ticks rápidos: movimiento, navegación, cinemática y necesidades vitales directas."""
+        for h in list(self.habitantes.values()):
+            if h.vivo:
+                self._vida(h, paso)
+            if h.vivo:
+                self._actualizar(h, paso)
+                self._decaer_emociones(h, paso)
+                if h.montura is not None:
+                    self._sincronizar_montura(h)
+
+    def _tick_amortizado_sistemas(self, paso: float) -> None:
+        """Ticks amortizados: clima, nieve, fuego, fauna, senderos, colonias y fenómenos globales."""
         if self.modulo("fauna"):
             if not self._fauna_lista:
                 self._fauna_lista = True
@@ -552,14 +631,6 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 self._ataques_animales()
             if self.fauna.mutaciones:
                 self._avisar_mutaciones()
-        for h in list(self.habitantes.values()):
-            if h.vivo:
-                self._vida(h, paso)
-            if h.vivo:
-                self._actualizar(h, paso)
-                self._decaer_emociones(h, paso)
-                if h.montura is not None:
-                    self._sincronizar_montura(h)
         self.repartir_atencion()
         if self.cielo.get("dia_noche", True):     # bajo tierra no hay tormentas ni nieve: no hay cielo
             self.clima.paso(self, paso)
@@ -580,6 +651,13 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
                 self._evento("incendio_extinguido", "El incendio se extinguió. Se quemaron unas %.1f hectáreas." % ha,
                              importancia=3, origen="sistema", datos={"celdas": r["celdas_episodio"], "hectareas": round(ha, 1)})
 
+    def _paso(self, paso: float) -> None:
+        self.t += paso
+        # 1. Ticks rápidos: física, desplazamiento, vitales
+        self._tick_rapido_fisica(paso)
+        # 2. Ticks amortizados: macro-sistemas globales
+        self._tick_amortizado_sistemas(paso)
+
     def _actualizar(self, h: HabitanteSim, paso: float) -> None:
         dormido = h.accion == "durmiendo" and self.t < h.hasta
         if dormido:
@@ -591,7 +669,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.sed = min(100.0, h.sed + 0.07 * paso)
         else:
             h.energia = max(0.0, h.energia - 0.05 * paso)
-            h.sed = min(100.0, h.sed + 0.11 * paso)
+            h.sed = min(100.0, h.sed + SED_SUBE_MIN * paso)
         # La sed despierta siempre (mata en horas). El hambre sólo si le queda energía para hacer algo:
         # si no, se despierta, no puede ni levantarse, se vuelve a dormir y muere de agotamiento.
         if dormido and (h.sed >= SED_DESPIERTA or (h.hambre >= HAMBRE_DESPIERTA and h.energia > 35.0)):
@@ -604,7 +682,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self._paso_psique(h, paso)
         if self.modulo("frio"):
             self._aplicar_frio(h, paso, dormido)
-        if h.sed >= 90:
+        if h.sed >= SED_CRITICO:
             h.salud -= 0.3 * paso
         if h.energia <= 5:
             h.salud -= 0.1 * paso
@@ -635,7 +713,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             if f and (h.accion == "durmiendo" or h.detalle != "huye del fuego"):
                 h.camino, h.hasta, h.accion = [], 0.0, "libre"
         if h.salud <= 0:
-            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= 90 else "hambre" if h.hambre >= 95
+            self._morir(h, "fuego" if inten > 0 else "sed" if h.sed >= SED_CRITICO else "hambre" if h.hambre >= 95
                         else "agotamiento" if h.energia <= 5 else "frío" if h.frio > 0.4 else "heridas")
             return
         # caídas: caminar por pendientes muy empinadas puede salir mal (gravedad)
@@ -668,10 +746,18 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             h.al_llegar = None
             self._aplicar(h, {"tipo": "beber"})
             return
-        ok, texto = self._aplicar(h, self.cerebro.decidir(self, h))
+        propuesta = self._tick_cerebro(h)
+        ok, texto = self._aplicar(h, propuesta)
         reg = getattr(self.cerebro, "registrar_resultado", None)
         if reg is not None and texto:
             reg(self, h, ok, texto)
+
+    def _tick_cerebro(self, h: HabitanteSim) -> dict:
+        """Consulta al cerebro de forma desacoplada o consume propuesta encolada/cacheada."""
+        propuesta = self._propuestas_cerebro.pop(h.id, None)
+        if propuesta is None:
+            propuesta = self.cerebro.decidir(self, h)
+        return propuesta
 
     def _mover(self, h: HabitanteSim, paso: float) -> None:
         h.accion = "caminando"
@@ -722,6 +808,9 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             else:
                 h.accion, h.detalle, h.hasta = "esperando", "no encuentra camino", self.t + 10
                 ok, texto = False, "No encontraste camino."
+                if h.sed >= 55:
+                    import sys
+                    print("SED-SIN-CAMINO: h=%d sed=%.1f pos=(%d,%d) destino=%s" % (h.id, h.sed, int(h.x), int(h.y), dest), file=sys.stderr, flush=True)
         elif tipo == "buscar":
             ok, texto = self._accion_buscar(h, it)
         elif tipo == "juntar":
@@ -792,15 +881,3 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         return ok, texto
 
     # ------------------------------------------------------------------ estado
-    def estado_publico(self) -> dict:
-        f = reloj.fecha(self.t)
-        # Bajo tierra siempre está oscuro, sea la hora que sea. El ritmo de sueño sigue siendo el del mundo:
-        # la gente que baja se lleva su horario puesto, no se vuelve nocturna por estar abajo.
-        luz = reloj.luz(self.t) if self.cielo.get("dia_noche", True) else min(0.18, reloj.luz(self.t))
-        return {"t_min": int(self.t), "fecha": f, "texto_fecha": reloj.texto(self.t), "luz": round(luz, 3),
-                "habitantes": [dict(h.a_publico(), temp=round(self.temp_en(h.x, h.y), 1), frio=round(h.frio, 2)) for h in self.habitantes.values()],
-                "nieve_v": int(self.t // 360),
-                "temp_media": round(self._temp_media_base + (reloj.ajuste_temp(self.t) if self.cielo.get("estaciones", True) else 0.0), 1),
-                "fuego": self.fuego.celdas_activas(), "ceniza_v": self.fuego.version,
-                "tormentas": [t + [1 if self.temp_en(t[0], t[1]) <= 0 else 0] for t in self.clima.a_publico()],
-                "fauna": self.fauna.publico() if self.modulo("fauna") else [], **self.publico_estructuras(), "colonias": self.publico_colonias(), "viento": [round(self.fuego.viento[0], 3), round(self.fuego.viento[1], 3)]}

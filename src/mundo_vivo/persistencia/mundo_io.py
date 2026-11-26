@@ -7,6 +7,7 @@ import re
 import sqlite3
 import tempfile
 import time
+import uuid
 import zipfile
 import zlib
 from datetime import datetime
@@ -15,7 +16,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from ..motor.generador import DTYPES, VERSION_GENERADOR, generar_mundo
+from ..generador.pipeline import DTYPES, VERSION_GENERADOR, generar_mundo
 from . import db
 
 TAM_CHUNK = 64
@@ -57,6 +58,29 @@ def cargar_meta(con: sqlite3.Connection) -> dict:
     return {r["clave"]: json.loads(r["valor"]) for r in con.execute("SELECT clave, valor FROM meta")}
 
 
+WORLD_UID_KEY = "world_uid"
+
+
+def world_uid(con: sqlite3.Connection) -> str:
+    """Identidad persistente e inequívoca del mundo (no la semilla, no el nombre del archivo).
+
+    Se guarda en `meta` y se conserva entre reinicios. Si un mundo viejo no la tiene, se genera una
+    vez y se persiste; a partir de ahí es estable. Dos mundos con la misma semilla tienen `world_uid`
+    distinto. Se usa para namespazar la identidad cognitiva y para la base cognitiva por mundo.
+    """
+    fila = con.execute("SELECT valor FROM meta WHERE clave = ?", (WORLD_UID_KEY,)).fetchone()
+    if fila is not None:
+        try:
+            u = json.loads(fila["valor"])
+            if u:
+                return str(u)
+        except Exception:
+            pass
+    u = uuid.uuid4().hex
+    guardar_meta(con, **{WORLD_UID_KEY: u})
+    return u
+
+
 # -------------------------------------------------------------------- mundo
 
 def guardar_mundo(con: sqlite3.Connection, mundo: dict, nombre: str = "") -> None:
@@ -86,20 +110,23 @@ def guardar_capas(con: sqlite3.Connection, capas: Dict[str, np.ndarray], dimensi
 
 def cargar_capas(con: sqlite3.Connection, verificar: bool = False, dimension: int = 0) -> Dict[str, np.ndarray]:
     meta = cargar_meta(con)
-    tam = meta["tam_chunk"]
+    tam = meta.get("tam_chunk", TAM_CHUNK)
+    esquema = meta.get("esquema_capas") or {k: np.dtype(v).name for k, v in DTYPES.items()}
     if dimension:
         d = dimension_por_id(con, dimension)
         if d is None:
             raise ValueError("No existe la dimensión %s en este mundo." % dimension)
         w, h, huella = d["ancho"], d["alto"], d["hash_capas"]
     else:
-        w, h, huella = meta["ancho"], meta["alto"], meta.get("hash_capas")
-    capas = {n: np.zeros((h, w), dtype=np.dtype(dt)) for n, dt in meta["esquema_capas"].items()}
+        w, h, huella = meta.get("ancho", 2048), meta.get("alto", 2048), meta.get("hash_capas")
+    capas = {n: np.zeros((h, w), dtype=np.dtype(dt)) for n, dt in esquema.items()}
     for fila in con.execute("SELECT capa, cx, cy, datos FROM capas WHERE dimension = ?", (int(dimension),)):
         n = fila["capa"]
+        if n not in esquema:
+            continue
         x0, y0 = fila["cx"] * tam, fila["cy"] * tam
         sh = (min(tam, h - y0), min(tam, w - x0))
-        dt = np.dtype(meta["esquema_capas"][n]).newbyteorder("<")
+        dt = np.dtype(esquema[n]).newbyteorder("<")
         sub = np.frombuffer(zlib.decompress(fila["datos"]), dtype=dt).reshape(sh)
         capas[n][y0:y0 + sh[0], x0:x0 + sh[1]] = sub
     if verificar and huella and hash_capas(capas) != huella:
@@ -187,6 +214,7 @@ def crear_mundo(dir_mundos: Path, semilla: int, ancho: int = ANCHO_POR_DEFECTO, 
     con = db.abrir(ruta, dir_backups=dir_mundos / "backups")
     try:
         guardar_mundo(con, mundo, nombre=ruta.stem)
+        world_uid(con)                                   # identidad cognitiva persistente del mundo
         from ..agentes import ajustes as _aj
         _aj.guardar(con, {"modulos": {"hambre": True}})     # los mundos nuevos nacen con hambre
         registrar_evento(con, 480, "mundo_creado", origen="sistema", importancia=5,

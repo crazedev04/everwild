@@ -10,9 +10,11 @@ Los eventos nuevos se vuelcan a la tabla `eventos`. Nada de esto toca el mapa ni
 from __future__ import annotations
 
 import json
+import zlib
 import math
 import random
 import uuid
+from collections import deque
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -32,6 +34,27 @@ MIN_ZONA_CONECTADA = 3000  # celdas transitables conectadas mínimas para el pun
 # fila: con 2.000 por persona y 20 habitantes quedan ~6 MB, que es de sobra para entrenar y no crece
 # para siempre (sin tope eran 60.989 filas en un solo mundo).
 TOPE_ENTRENAMIENTO = 2000
+# P2 — Habitabilidad del inicio. El punto de partida sólo se acepta si desde él hay una orilla de
+# agua alcanzable por la navegación REAL (A* `buscar_camino`), no basta con que el agua esté cerca
+# geométricamente ni con que una BFS la "vea". Ver docs/IMPLEMENTACION_P2_HABITABILIDAD.md.
+TOPE_ORILLAS = 8          # cuántas orillas candidatas se enrutan por inicio (acotado)
+TOPE_BFS_ORILLA = 4000    # tope de nodos del BFS que busca orillas caminables alrededor del inicio
+RADIO_ORILLA_MIN = 12     # radio mínimo de búsqueda de orilla, en celdas
+RADIO_ORILLA_M = 2000.0   # radio de búsqueda de orilla en metros (acotado además al tamaño del mundo)
+MAX_CANDIDATOS_INICIO = 40  # cuántos candidatos al inicio se validan (acotado; determinista por orden)
+# Vecindad de 8 para el BFS de orillas. El A* (`buscar_camino`) es el que valida de verdad; acá sólo
+# se encuentran orillas caminables cercanas. Se define local para no tocar el módulo de navegación.
+_OFFS8 = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+# Agua dulce: río y lago. El océano no sirve para beber.
+_AGUA_DULCE = {B.AGUA_RIO, B.AGUA_LAGO}
+
+
+def _agua_adyacente_dulce(t: Terreno, x: int, y: int) -> bool:
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if t.dentro(x + dx, y + dy) and t.agua[y + dy, x + dx] in _AGUA_DULCE:
+                return True
+    return False
 
 
 def _podar_por_habitante(con, tabla: str, tope: int) -> None:
@@ -64,6 +87,54 @@ def clave_dim(clave: str, dimension: int = 0) -> str:
     return clave if not dimension else "d%d:%s" % (int(dimension), clave)
 
 
+def _presupuesto_camino(tam_celda_m: float) -> int:
+    """Presupuesto de expansiones del A* para validar habitabilidad.
+
+    Es el MISMO `nodos_camino` que usa el motor a esta resolución (ver `Simulacion._calcular_escala`):
+    así "habitable en la generación" significa "enrutable dentro del presupuesto de producción", no
+    con un presupuesto distinto que después el motor no tendría.
+    """
+    k = (50.0 / float(tam_celda_m)) ** 2
+    return int(min(120_000, 12_000 * k))
+
+
+def _orilla_alcanzable(t: Terreno, x: int, y: int, presupuesto: int) -> Optional[Tuple[int, int]]:
+    """Celda de orilla caminable alcanzable por A* desde `(x, y)`, o `None`.
+
+    Reutiliza la navegación real (`Terreno.buscar_camino`): no alcanza con que haya agua cerca
+    geométricamente ni con que una BFS la "vea"; la orilla tiene que ser enrutable dentro del
+    presupuesto de producción. Acotado a propósito: el BFS que reúne orillas tiene tope de nodos y
+    radio, y se enrutan como mucho `TOPE_ORILLAS` orillas por inicio.
+    """
+    if not t.caminable(x, y):
+        return None
+    if _agua_adyacente_dulce(t, x, y):
+        return (x, y)  # ya está en la orilla: puede beber sin caminar
+    ancho, alto = t.ancho, t.alto
+    radio = max(RADIO_ORILLA_MIN, int(RADIO_ORILLA_M / t.tam_celda_m))
+    vistos = {(x, y)}
+    cola = deque([(x, y, 0)])
+    orillas: List[Tuple[int, int]] = []
+    while cola and len(vistos) <= TOPE_BFS_ORILLA:
+        cx, cy, d = cola.popleft()
+        if d >= radio:
+            continue
+        for ax, ay in _OFFS8:
+            nx, ny = cx + ax, cy + ay
+            if 0 <= nx < ancho and 0 <= ny < alto and (nx, ny) not in vistos and t.caminable(nx, ny):
+                vistos.add((nx, ny))
+                if _agua_adyacente_dulce(t, nx, ny):
+                    orillas.append((nx, ny))
+                else:
+                    cola.append((nx, ny, d + 1))
+    # Orden determinista: orillas más cercanas primero; desempate por coordenada.
+    orillas.sort(key=lambda p: (abs(p[0] - x) + abs(p[1] - y), p[0], p[1]))
+    for o in orillas[:TOPE_ORILLAS]:
+        if t.buscar_camino((x, y), o, presupuesto) is not None:
+            return o
+    return None
+
+
 def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
     """Punto de inicio: tierra llana y habitable, junto a agua dulce, en una zona grande y conectada."""
     t = Terreno(capas, tam_celda_m)
@@ -71,22 +142,37 @@ def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
     ys, xs = np.nonzero(dulce)
     if len(xs) == 0:
         raise ValueError("El mundo no tiene agua dulce: no hay dónde empezar.")
-    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA])
-    cand = []
-    for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
-        for dy in range(-3, 4):
-            for dx in range(-3, 4):
-                x, y = int(wx) + dx, int(wy) + dy
-                if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < 0.15 and t.caminable(x, y) \
-                        and t.agua[y, x] == 0:
-                    cand.append((x, y))
+    buenos = np.isin(t.bioma, [B.PRADERA, B.BOSQUE_TEMPLADO, B.SABANA, B.BOSQUE_FRIO])
+    for umbral in (0.15, 0.35, 0.8, 2.0):
+        cand = []
+        for wy, wx in zip(ys[::3], xs[::3]):  # muestreo para ir rápido
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and buenos[y, x] and t.pendiente[y, x] < umbral and t.caminable(x, y) \
+                            and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if cand:
+            break
     if not cand:
-        raise ValueError("No se encontró un lugar habitable junto al agua.")
+        # último recurso: cualquier tierra caminable junto al agua
+        for wy, wx in zip(ys[::3], xs[::3]):
+            for dy in range(-3, 4):
+                for dx in range(-3, 4):
+                    x, y = int(wx) + dx, int(wy) + dy
+                    if t.dentro(x, y) and t.caminable(x, y) and t.agua[y, x] == 0:
+                        cand.append((x, y))
+        if not cand:
+            raise ValueError("No se encontró un lugar habitable junto al agua.")
     cx, cy = t.ancho / 2, t.alto / 2
     cand = sorted(set(cand), key=lambda p: math.hypot(p[0] - cx, p[1] - cy))
-    for x, y in cand[:40]:
-        if t.componente(x, y) >= MIN_ZONA_CONECTADA:
-            return x, y
+    presupuesto = _presupuesto_camino(tam_celda_m)
+    for x, y in cand[:MAX_CANDIDATOS_INICIO]:
+        if t.componente(x, y) < MIN_ZONA_CONECTADA:
+            continue
+        if _orilla_alcanzable(t, x, y, presupuesto) is None:
+            continue  # no hay agua realmente alcanzable por A*: no es habitable
+        return x, y
     return cand[0]
 
 
@@ -304,6 +390,7 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
 
     El reloj es del mundo, no del mapa: todas las dimensiones arrancan en el mismo minuto."""
     meta = mundo_io.cargar_meta(con)
+    meta["world_uid"] = mundo_io.world_uid(con)     # asegura identidad persistente (la genera si falta)
     d = mundo_io.dimension_por_id(con, dimension) or {}
     capas = mundo_io.cargar_capas(con, dimension=dimension)
     if dimension:
@@ -378,13 +465,21 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
            if r["clave"].startswith(pref) and (dimension or ":" not in r["clave"])}
     if all(k in din for k in ("fuego", "quemado", "combustible")):
         try:
-            sim.fuego.importar(din["fuego"], din["quemado"], din["combustible"], din.get("edad_min"))
+            def _d(v):
+                b = bytes(v)
+                return zlib.decompress(b) if b[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else b
+            sim.fuego.importar(_d(din["fuego"]), _d(din["quemado"]), _d(din["combustible"]), din.get("edad_min"))
         except ValueError:
             pass  # tamaño distinto (mundo cambiado): se parte de cero
+    def _decomp(raw: bytes) -> bytes:
+        try:
+            return zlib.decompress(raw) if raw[:2] in (b"\x78\x9c", b"\x78\x01", b"\x78\xda") else raw
+        except zlib.error:
+            return raw
     if "nieve" in din:
-        sim.importar_nieve(bytes(din["nieve"]))
+        sim.importar_nieve(_decomp(bytes(din["nieve"])))
     if "desgaste" in din:
-        sim.importar_desgaste(bytes(din["desgaste"]))
+        sim.importar_desgaste(_decomp(bytes(din["desgaste"])))
     vivos = [h for h in sim.habitantes.values() if h.vivo]
     if vivos:
         sim.centro_seguro = (sum(h.x for h in vivos) / len(vivos), sum(h.y for h in vivos) / len(vivos))
@@ -525,10 +620,12 @@ def guardar_simulacion(con, sim: Simulacion) -> None:
             # 60.989 filas y ~10 MB de JSON en el mundo `gaia`, creciendo para siempre.
             _podar_por_habitante(con, "decisiones", 400)
             _podar_por_habitante(con, "entrenamiento_cerebro", TOPE_ENTRENAMIENTO)
-        exp = sim.fuego.exportar()
+        exp_raw = sim.fuego.exportar()
+        exp = {k: (zlib.compress(v, level=1) if isinstance(v, (bytes, bytearray)) else v)
+               for k, v in exp_raw.items()}
         exp["tormentas"] = json.dumps(sim.clima.exportar()).encode("utf-8")
-        exp["nieve"] = sim.nieve_bytes()
-        exp["desgaste"] = sim.desgaste_bytes()
+        exp["nieve"] = zlib.compress(sim.nieve_bytes(), level=1)
+        exp["desgaste"] = zlib.compress(sim.desgaste_bytes(), level=1)
         exp["estructuras"] = json.dumps(sim.exportar_estructuras(), separators=(",", ":")).encode("utf-8")
         exp["fenomenos"] = json.dumps(sim.exportar_fenomenos(), separators=(",", ":")).encode("utf-8")
         exp["colonias"] = json.dumps(sim.exportar_colonias(), separators=(",", ":")).encode("utf-8")

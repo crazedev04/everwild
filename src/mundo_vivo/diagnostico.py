@@ -127,7 +127,9 @@ def entorno() -> Dict[str, Any]:
         "implementacion": platform.python_implementation(),
         "gil": getattr(sys, "_is_gil_enabled", lambda: True)(),
         "plataforma": platform.platform(),
-        "cerebro": os.environ.get("MUNDO_VIVO_CEREBRO", "hibrido"),
+        # Ojo: esto es el cerebro que ESTE proceso pidió por entorno, no el que corrió un mundo
+        # que se cayó. Para eso está `_cerebro_de_la_corrida()`, que lo lee de `decisiones.modelo`.
+        "cerebro_este_proceso": os.environ.get("MUNDO_VIVO_CEREBRO", "hibrido"),
     }
     try:
         import numpy
@@ -283,22 +285,40 @@ def _ultimo_arranque(ruta: Path) -> str:
     return "===== arranque " + bloques[-1]
 
 
+def _cerebro_de_la_corrida(ruta: Optional[Path]) -> str:
+    """Qué cerebro tomó las decisiones, leído de la propia base.
+
+    El entorno no sirve para esto: `autopsia` corre en otro proceso y sin la variable, así que
+    `entorno()` diría "hibrido" aunque el mundo haya corrido con el cognitivo. La verdad está en
+    la columna `decisiones.modelo`; si no hay base ni decisiones, se dice.
+    """
+    import sqlite3
+
+    if ruta is None or not ruta.exists():
+        return "desconocido (no hay base del mundo)"
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % ruta, uri=True)
+        try:
+            filas = con.execute(
+                "SELECT modelo, COUNT(*) FROM decisiones "
+                "WHERE modelo IS NOT NULL AND modelo != '' "
+                "GROUP BY modelo ORDER BY 2 DESC"
+            ).fetchall()
+        finally:
+            con.close()
+    except sqlite3.Error as e:
+        return "no se pudo leer la base (%s)" % e
+    if not filas:
+        return "sin decisiones guardadas todavía"
+    return ", ".join("%s (%d decisiones)" % (modelo, n) for modelo, n in filas)
+
+
 def informe_autopsia(datos: Path | str, nombre: Optional[str] = None, lineas: int = 80) -> str:
     """Junta en un solo texto lo que hace falta para entender una caída de madrugada."""
     import sqlite3
 
     datos = Path(datos)
     logs = datos / "logs"
-    partes = ["=" * 78, "AUTOPSIA  %s" % time.strftime("%Y-%m-%d %H:%M:%S"), "=" * 78,
-              "", "entorno de AHORA (no el de la corrida que cayó):",
-              json.dumps(entorno(), indent=2, default=str, ensure_ascii=False)]
-
-    partes += ["", "-" * 78, "ÚLTIMA CAÍDA (%s)" % (logs / ARCHIVO_CAIDA), "-" * 78,
-               _ultimo_arranque(logs / ARCHIVO_CAIDA)]
-
-    partes += ["", "-" * 78, "FINAL DEL REGISTRO (%s, últimas %d líneas)" % (logs / ARCHIVO_LOG, lineas),
-               "-" * 78, _cola(logs / ARCHIVO_LOG, lineas)]
-
     mundos = datos / "mundos"
     ruta = None
     if nombre:
@@ -306,6 +326,18 @@ def informe_autopsia(datos: Path | str, nombre: Optional[str] = None, lineas: in
     elif mundos.is_dir():
         candidatos = sorted(mundos.glob("*.db"), key=lambda p: p.stat().st_mtime)
         ruta = candidatos[-1] if candidatos else None
+
+    partes = ["=" * 78, "AUTOPSIA  %s" % time.strftime("%Y-%m-%d %H:%M:%S"), "=" * 78,
+              "", "cerebro de la corrida (según la tabla `decisiones`):",
+              "  " + _cerebro_de_la_corrida(ruta),
+              "", "entorno de AHORA del proceso de autopsia (no el de la corrida que cayó):",
+              json.dumps(entorno(), indent=2, default=str, ensure_ascii=False)]
+
+    partes += ["", "-" * 78, "ÚLTIMA CAÍDA (%s)" % (logs / ARCHIVO_CAIDA), "-" * 78,
+               _ultimo_arranque(logs / ARCHIVO_CAIDA)]
+
+    partes += ["", "-" * 78, "FINAL DEL REGISTRO (%s, últimas %d líneas)" % (logs / ARCHIVO_LOG, lineas),
+               "-" * 78, _cola(logs / ARCHIVO_LOG, lineas)]
 
     partes += ["", "-" * 78, "ÚLTIMO ESTADO GUARDADO", "-" * 78]
     if ruta is None or not ruta.exists():

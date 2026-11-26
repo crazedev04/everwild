@@ -14,7 +14,7 @@ from mundo_vivo.agentes.cerebro_cognitivo import (
     CerebroCognitivo,
     motor_cognitivo_disponible,
 )
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
 
 # Tipos internos que `Simulacion._aplicar` sabe ejecutar y que este puente puede emitir.
@@ -511,6 +511,29 @@ class TestLoQuePenso(unittest.TestCase):
         cerebro = CerebroCognitivo()          # sin base: el panel queda vacío, pero vive igual
         cerebro.decidir(s, h)
         cerebro.registrar_resultado(s, h, True, "Listo.")
+
+    def test_un_cerebro_guardado_se_restaura_al_reabrir_el_mundo(self):
+        """Guardar sin leer era escribir al vacío: al reabrir, el cerebro tenía que volver."""
+        import os
+        import sqlite3
+        import tempfile
+
+        s, h = _mundo()
+        con = sqlite3.connect(os.path.join(tempfile.mkdtemp(), "mundo.db"))
+        try:
+            primero = CerebroCognitivo(con=con)
+            h.sed = 85.0
+            primero.decidir(s, h)
+            primero.guardar_cerebros()
+            self.assertEqual(primero._cerebros_restaurados, 0, "no había nada guardado y dijo que sí")
+
+            segundo = CerebroCognitivo(con=con)
+            accion = segundo.decidir(s, h)
+            self.assertEqual(segundo._cerebros_restaurados, 1, "no recuperó el cerebro guardado")
+            self.assertEqual(segundo._restauraciones_fallidas, 0)
+            self.assertIn(accion["tipo"], TIPOS_DEL_MOTOR)
+        finally:
+            con.close()
 
 
 @unittest.skipUnless(_HAY_MOTOR, "Cognitive Engine no está disponible en este entorno")

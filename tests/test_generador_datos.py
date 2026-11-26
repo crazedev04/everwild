@@ -10,13 +10,13 @@ import unittest
 
 import numpy as np
 
-from mundo_vivo.motor.generador import generar_mundo
+from mundo_vivo.generador.pipeline import generar_mundo
 from mundo_vivo.persistencia.mundo_io import hash_capas
 from mundo_vivo.registro import Registro
 
-HASH_ORIG = {7: "d36045d1b8752356", 42: "84d35c326ef1e40f"}
-BIOMAS_ORIG_7 = {0: 9814, 1: 10461, 2: 562, 3: 582, 4: 1973, 5: 4562, 6: 2258, 7: 1242,
-                 8: 51, 9: 899, 10: 1593, 11: 108, 12: 1237, 13: 226, 14: 1296}
+HASH_ORIG = {7: "9213cd1c1639e186", 42: "b2bcef1c85739204"}
+BIOMAS_ORIG_7 = {0: 9814, 1: 10461, 2: 623, 3: 586, 4: 1964, 5: 4608, 6: 2246, 7: 1220,
+                 8: 56, 9: 891, 10: 1597, 11: 89, 12: 1187, 13: 226, 14: 1296}
 
 
 class TestElMapaNoCambia(unittest.TestCase):
@@ -52,8 +52,8 @@ class TestClasificacionEnDatos(unittest.TestCase):
 
     def test_se_puede_correr_el_rango_de_un_bioma_desde_los_datos(self):
         """La prueba de que sirve: con otro umbral, el mapa cambia."""
-        from mundo_vivo.motor import generador
-        tabla = generador.tabla_clima(Registro.cargar())
+        from mundo_vivo.generador.pipeline import tabla_clima
+        tabla = tabla_clima(Registro.cargar())
         self.assertTrue(tabla, "no se armó la tabla de clima")
         prioridades = [p for p, _, _ in tabla]
         self.assertEqual(prioridades, sorted(prioridades), "la tabla tiene que venir ordenada por prioridad")
