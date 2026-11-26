@@ -328,6 +328,7 @@ def cargar_simulacion(con, cerebro=None, dimension: int = 0, base: Optional[Simu
 
     El reloj es del mundo, no del mapa: todas las dimensiones arrancan en el mismo minuto."""
     meta = mundo_io.cargar_meta(con)
+    meta["world_uid"] = mundo_io.world_uid(con)     # asegura identidad persistente (la genera si falta)
     d = mundo_io.dimension_por_id(con, dimension) or {}
     capas = mundo_io.cargar_capas(con, dimension=dimension)
     if dimension:

@@ -194,12 +194,27 @@ class CerebroCognitivo(Cerebro):
         self.cliente = None                 # no hay modelo de lenguaje en este cerebro
         self.con = con
         self._demo = CerebroDemo()          # sólo para el reflejo de huir del fuego
-        # Persistent brain repository: same folder as the world DB, separate file.
+        # Persistent brain repository: una base cognitiva POR MUNDO, derivada de su `world_uid`
+        # persistente (no de la semilla ni del nombre del archivo). Dos mundos de la misma carpeta
+        # nunca abren el mismo repositorio. Ver docs/IMPLEMENTACION_E1_AISLAMIENTO_MUNDOS.md.
+        self._world_uid = None
         if con is not None:
             try:
                 db_path_str = con.execute("PRAGMA database_list").fetchone()[2]
                 if db_path_str and db_path_str != ":memory:":
-                    cerebros_db: str | Path = Path(db_path_str).parent / "cerebros_cognitivos.db"
+                    from ..persistencia import mundo_io as _mundo_io
+                    try:
+                        self._world_uid = _mundo_io.world_uid(con)
+                    except Exception:
+                        # Un `con` sin tabla `meta` (mundo sintético de prueba) no tiene identidad
+                        # persistente: se cae al archivo compartido legacy, nunca a :memory: (que
+                        # perdería el cerebro al reabrir). Los mundos reales sí tienen `meta`.
+                        self._world_uid = None
+                    cerebros_db: str | Path = (
+                        Path(db_path_str).parent / ("cerebros_%s.db" % self._world_uid)
+                        if self._world_uid
+                        else Path(db_path_str).parent / "cerebros_cognitivos.db"
+                    )
                 else:
                     cerebros_db = ":memory:"
             except Exception:
@@ -545,7 +560,7 @@ class CerebroCognitivo(Cerebro):
             arbitro.set_curve(secundaria, UtilityCurve(curve_type=CurveType.LINEAR, slope=0.7))
 
         identidad = BrainIdentity(
-            brain_id=f"{sim.ident}:d{sim.dimension}:h{h.id}",
+            brain_id=f"{self._world_uid or sim.ident}:d{sim.dimension}:h{h.id}",
             name=h.nombre,
             created_tick=int(h.nacimiento_min),
         )

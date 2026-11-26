@@ -227,6 +227,7 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
         self.dimension = int(dimension)
         self.ident = ident
         self.meta = meta
+        self.world_uid = meta.get("world_uid")     # identidad persistente del mundo (aislamiento cognitivo)
         self.semilla = int(meta["semilla"] if semilla is None else semilla)
         self.tam_celda_m = float(meta["tam_celda_m"])
         self._calcular_escala()
