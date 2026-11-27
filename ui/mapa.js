@@ -82,7 +82,7 @@
     dibujar();
     $("estado").textContent = "";
     const vivo = window.App.parte("vivo"); if (vivo && vivo.alAbrir) vivo.alAbrir(nombre, meta, estado.dimension);
-    const nuevo = window.App.parte("renderer"); if (nuevo && nuevo.alAbrir) nuevo.alAbrir();   // puente E1 opt-in (?renderer=nuevo)
+    if (window.RenderIntegracion) RenderIntegracion.despachar(window.App, "alAbrir");   // puente E1 opt-in (?renderer=nuevo)
   }
 
   // ------------------------------------------------------------ pintado

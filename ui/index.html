@@ -468,9 +468,9 @@
 (function () {
   if (!window.RenderIntegracion || !RenderIntegracion.activoFlag()) return;
   function arrancar() {
-    var canvas = document.getElementById("lienzo");
+    var parent = document.getElementById("lienzo-caja") || document.getElementById("lienzo").parentElement;
     RenderIntegracion.crearPuente({
-      App: window.App, canvas: canvas,
+      App: window.App, parent: parent,
       requestFrame: function (cb) { return requestAnimationFrame(cb); }
     });
   }
