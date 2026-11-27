@@ -69,6 +69,78 @@ class TestSimIO(unittest.TestCase):
         self.assertTrue(t.agua_adyacente(ox, oy), "la orilla debe tener agua dulce adyacente")
         con.close()
 
+    def test_elegir_inicio_devuelve_punto_con_agua_dulce_adyacente(self):
+        """El punto FINALMENTE devuelto (no sólo una orilla alcanzable) tiene agua dulce
+        adyacente: los fundadores deben poder beber sin caminar. Regresión del spawn que
+        dejaba a los habitantes a 2-3 celdas del agua, sin acceso, muriendo de sed."""
+        import numpy as np
+        for semilla in (42, 777, 4242, 1, 2, 3):
+            ruta, con = self._mundo(semilla)
+            capas = mundo_io.cargar_capas(con, dimension=0)
+            t = Terreno(capas, 50.0)
+            x, y = sim_io.elegir_inicio(capas, tam_celda_m=50.0)
+            self.assertTrue(
+                sim_io._agua_adyacente_dulce(t, x, y),
+                f"semilla {semilla}: inicio ({x},{y}) sin agua dulce adyacente",
+            )
+            self.assertTrue(t.caminable(x, y), f"semilla {semilla}: inicio no caminable")
+            con.close()
+
+    def test_elegir_inicio_sin_agua_dulce_lanza_error(self):
+        """Un mundo sin agua dulce no tiene dónde empezar: elegir_inicio lo dice explícito."""
+        import numpy as np
+        capas = self._capas_sinteticas(32, 32, agua=None)
+        with self.assertRaises(ValueError):
+            sim_io.elegir_inicio(capas, tam_celda_m=50.0)
+
+    def test_elegir_inicio_sin_orilla_habitable_lanza_error(self):
+        """Agua rodeada de pendiente extrema (nada caminable adyacente): no hay orilla
+        habitable, así que elegir_inicio falla explícito en vez de devolver un punto seco."""
+        import numpy as np
+        # Un lago en el centro, pero todo el terreno con pendiente extrema (nada caminable
+        # adyacente al agua): no hay orilla habitable. Rampa monótona y brusca en ambas
+        # direcciones para que CADA celda de tierra supere PENDIENTE_MAX.
+        capas = self._capas_sinteticas(32, 32, agua="lago")
+        ys, xs = np.indices((32, 32))
+        capas["elevacion"][:] = (ys + xs) * 1000.0
+        with self.assertRaises(ValueError):
+            sim_io.elegir_inicio(capas, tam_celda_m=50.0)
+
+    def test_elegir_inicio_busca_orilla_lejos_del_centro(self):
+        """La búsqueda no se limita al centro: si el agua dulce está en un extremo, el
+        inicio sale allá (con agua adyacente), no se rinde devolviendo tierra seca central."""
+        capas = self._capas_sinteticas(48, 48, agua="esquina")
+        t = Terreno(capas, 50.0)
+        x, y = sim_io.elegir_inicio(capas, tam_celda_m=50.0)
+        self.assertTrue(sim_io._agua_adyacente_dulce(t, x, y))
+
+    @staticmethod
+    def _capas_sinteticas(ancho, alto, agua="rio"):
+        """Capas planas mínimas para probar elegir_inicio sin generar un mundo real.
+
+        `agua`: "rio" (un río vertical), "lago" (lago central), "esquina" (agua en una
+        esquina), o None (mundo seco, sin agua dulce).
+        """
+        import numpy as np
+        elev = np.zeros((alto, ancho), dtype=np.float64)
+        ag = np.zeros((alto, ancho), dtype=np.uint8)
+        if agua == "rio":
+            ag[:, ancho // 2] = B.AGUA_RIO
+        elif agua == "lago":
+            ag[alto // 2 - 2 : alto // 2 + 2, ancho // 2 - 2 : ancho // 2 + 2] = B.AGUA_LAGO
+        elif agua == "esquina":
+            ag[2:6, 2:6] = B.AGUA_LAGO
+        bioma = np.full((alto, ancho), B.PRADERA, dtype=np.uint8)
+        return {
+            "elevacion": elev,
+            "agua": ag,
+            "bioma": bioma,
+            "humedad": np.zeros((alto, ancho), dtype=np.float64),
+            "temperatura": np.full((alto, ancho), 15.0, dtype=np.float64),
+            "caudal": np.zeros((alto, ancho), dtype=np.float64),
+            "rasgos": np.zeros((alto, ancho), dtype=np.uint8),
+        }
+
     def test_muerte_queda_registrada_en_la_base(self):
         ruta, con = self._mundo()
         sim_io.crear_habitantes_iniciales(con, 1)
