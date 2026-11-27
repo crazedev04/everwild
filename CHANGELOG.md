@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E1: fundamentos del renderer definitivo
+
+### Nuevo
+- **Núcleo del renderer Canvas 2D (E1)** desacoplado de DOM/REST/WS en `ui/render/`: `worldview.js` (modelo/normalización de `WorldView` provisional, identidad real `id`/`inst`, ausente ⇒ `null`), `adaptador.js` (adaptador provisional con `buildGen`: descarta ciclos viejos, reemplazo completo, fallo parcial no entrega, cambio de mundo = ciclo nuevo), `renderer.js` (API §6.1 `crear/setWorldView/setCam/setViewport/setCapas/setSeleccion/pedirRender/setActivo/destroy/hitTest`; `applyDelta` reservada; loop on-demand con `RaceRender.crearPlanificador` + cola de procesamiento con presupuesto).
+- **Integración opt-in** `ui/render/integracion.js`: se activa con `?renderer=nuevo` (o `localStorage.mv_renderer=nuevo`), reutiliza capas/meta de `terreno` y el estado de `vivo`; el renderer viejo (`escena.js`) queda intacto y **desactivar** = quitar el flag. Hooks guardados en `mapa.js`/`vivo.js` (no-op sin el puente).
+- `RaceRender.crearPlanificador` incorpora `cancelar()` para que `destroy` libere el rAF pendiente.
+- Tests de regresión JS (23 nuevos, 46/46): descarte de ciclos viejos, reemplazo completo, fallo parcial, cambio de mundo/dimensión, invalidaciones/deduplicación de frames, continuación con trabajo pendiente, suspensión, `hitTest` sin render, limpieza por `destroy`.
+
+### Pendiente
+- Sin `authoritativeRev` (el backend no lo provee): la cola autoritativa y `applyDelta` quedan deshabilitadas; E1 no dibuja capas visuales (terreno/sprites en E2+).
+
 ## Sin publicar — Desacoplamiento estructural y modularización total
 
 ### Nuevo
