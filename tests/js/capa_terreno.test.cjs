@@ -63,3 +63,79 @@ test("bioma sin color en paleta => magenta (no inventa color real)", () => {
   const d32 = new Uint32Array(e.pintadas[0].data.buffer);
   assert.strictEqual(d32[0], ((255 << 24) | (255 << 16) | (0 << 8) | 255) >>> 0); // magenta
 });
+// --- Caché por identidad (E2-FIX) ---
+function entornoContado() {
+  let pintadas = 0, ultima = null;
+  function crearCanvas(w, h) {
+    const octx = {
+      createImageData(ww, hh) { return { data: new Uint8ClampedArray(ww * hh * 4) }; },
+      putImageData(img) { pintadas++; ultima = img; },
+    };
+    return { width: w, height: h, getContext: () => octx };
+  }
+  return { crearCanvas, get pintadas() { return pintadas; }, get ultima() { return ultima; } };
+}
+const wvCon = (bioma, w, h) => ({ meta: { ancho: w, alto: h }, terreno: { bioma }, t: 1 });
+
+test("mismo buffer+paleta+dims reutiliza el bitmap (no reconstruye)", () => {
+  const e = entornoContado();
+  const capa = crearCapaTerreno({ crearCanvas: e.crearCanvas });
+  const bioma = new Uint8Array([0, 1, 2, 3]);
+  const pal = { 0: [0, 0, 0], 1: [1, 1, 1], 2: [2, 2, 2], 3: [3, 3, 3] };
+  capa.setPaleta(pal);
+  capa.setWorldView(wvCon(bioma, 2, 2));
+  const n1 = e.pintadas, bmp1 = capa.bitmap;
+  capa.setWorldView(wvCon(bioma, 2, 2)); // nuevo estado, mismo buffer/paleta/dims
+  capa.setWorldView(wvCon(bioma, 2, 2));
+  assert.strictEqual(e.pintadas, n1, "no reconstruyó");
+  assert.strictEqual(capa.bitmap, bmp1, "mismo bitmap reutilizado");
+});
+
+test("cambio de referencia del buffer reconstruye", () => {
+  const e = entornoContado();
+  const capa = crearCapaTerreno({ crearCanvas: e.crearCanvas });
+  const pal = {};
+  capa.setPaleta(pal);
+  const b1 = new Uint8Array([0, 1, 2, 3]);
+  capa.setWorldView(wvCon(b1, 2, 2));
+  const n1 = e.pintadas;
+  capa.setWorldView(wvCon(new Uint8Array([0, 1, 2, 3]), 2, 2)); // copia nueva (otra ref)
+  assert.strictEqual(e.pintadas, n1 + 1, "reconstruyó por nueva referencia");
+});
+
+test("cambio de paleta reconstruye", () => {
+  const e = entornoContado();
+  const capa = crearCapaTerreno({ crearCanvas: e.crearCanvas });
+  const bioma = new Uint8Array([0, 1, 2, 3]);
+  capa.setPaleta({ 0: [0, 0, 0] });
+  capa.setWorldView(wvCon(bioma, 2, 2));
+  const n1 = e.pintadas;
+  capa.setPaleta({ 0: [9, 9, 9] }); // paleta nueva
+  assert.strictEqual(e.pintadas, n1 + 1, "reconstruyó por cambio de paleta");
+});
+
+test("cambio de dimensiones reconstruye", () => {
+  const e = entornoContado();
+  const capa = crearCapaTerreno({ crearCanvas: e.crearCanvas });
+  const pal = {};
+  capa.setPaleta(pal);
+  capa.setWorldView(wvCon(new Uint8Array(4), 2, 2));
+  const n1 = e.pintadas;
+  capa.setWorldView(wvCon(new Uint8Array(6), 3, 2)); // dims distintas
+  assert.strictEqual(e.pintadas, n1 + 1, "reconstruyó por cambio de dimensiones");
+});
+
+test("no modifica los datos de biomas y el resultado visual es idéntico", () => {
+  const e = entornoContado();
+  const capa = crearCapaTerreno({ crearCanvas: e.crearCanvas });
+  const bioma = new Uint8Array([0, 1, 2, 3]);
+  const copia = bioma.slice();
+  const pal = { 0: [10, 20, 30], 1: [40, 50, 60], 2: [70, 80, 90], 3: [100, 110, 120] };
+  capa.setPaleta(pal);
+  capa.setWorldView(wvCon(bioma, 2, 2));
+  const d1 = new Uint32Array(e.ultima.data.buffer).slice();
+  capa.setWorldView(wvCon(bioma, 2, 2)); // reutiliza
+  const d2 = new Uint32Array(e.ultima.data.buffer);
+  assert.deepStrictEqual(d2, d1, "resultado visual idéntico tras reutilizar");
+  assert.deepStrictEqual(bioma, copia, "biomas no modificados");
+});
