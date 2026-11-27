@@ -204,6 +204,7 @@ Pocas etapas, ordenadas; separar **correcciones funcionales** de **rediseño**. 
 - **Afecta:** `vivo.js:cuadro`/`sobreMapa` (dirty flag), nieve/ceniza (idle/worker/bajar frecuencia).
 - **Riesgo:** medio (puede afectar animaciones); mitigar con pruebas de regresión visual.
 - **Aceptación:** sin redibujar cuando nada cambia; CPU en reposo baja; animaciones (fuego, personas) intactas.
+- **Estado (implementada):** planificador único bajo demanda (`ui/render-util.js`: `crearPlanificador` + `necesitaAnimacion`) que reemplaza el rAF permanente de `vivo.js`; dibuja ante cambios del mundo (`recibir`), selección (`elegir`) y toggles de capas; encadena frames solo mientras hay fuego/fogatas/antorchas/efectos/movimiento suavizado/seguir; suspende con la pestaña oculta y reactiva en `visibilitychange`. Nieve/ceniza: `pedirNieve`/`pedirCeniza` siguen **desactivadas** (no se invocan) y ya tienen throttle + caché por versión, así que no hay reproceso. Pruebas: `tests/js/render_util.test.cjs` (node --test). No se tocó renderer (Canvas 2D), estilos ni backend.
 
 ### Etapa 2 — Arquitectura modular (sin cambiar la estética)
 - **Objetivo:** extraer `store`, `data`, `render/*`, `components/*`, `camera`; pasar a `<script type=module>`; sacar `<style>` embebido a `styles/`.

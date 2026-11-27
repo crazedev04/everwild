@@ -146,6 +146,7 @@
       case "eventos": for (const e of m.eventos) agregarEvento(e); break;
       case "error": $("estado").textContent = m.texto || "Error"; setTimeout(() => ($("estado").textContent = ""), 3000); break;
     }
+    if (V.pedirRender) V.pedirRender();   // el mundo cambió: redibujar bajo demanda
   }
 
   function aplicarEstado(e) {
@@ -328,6 +329,7 @@
   async function elegir(id) {
     V.sel = id; listaHabitantes();
     $("ficha-cab").classList.add("visible");
+    if (V.pedirRender) V.pedirRender();   // anillo de selección en el lienzo
     await refrescarFicha();
   }
   async function refrescarFicha() {
@@ -593,7 +595,11 @@
   document.querySelectorAll("#tabs button").forEach((b) => b.addEventListener("click", () => pestana(b.dataset.tab)));
   let tab0 = "gente"; try { tab0 = localStorage.getItem("mv_tab") || "gente"; } catch (e) {}
   pestana(document.querySelector("#tabs [data-tab='" + tab0 + "']") ? tab0 : "gente");
-  $("chk-seguir").addEventListener("change", (e) => { V.seguir = e.target.checked; });
+  $("chk-seguir").addEventListener("change", (e) => { V.seguir = e.target.checked; if (V.pedirRender) V.pedirRender(); });
+  // Capas que se leen al dibujar la escena (en vivo.js): al alternarlas hay que redibujar.
+  ["chk-fauna", "chk-senderos", "chk-chunks"].forEach((id) => {
+    const el = $(id); if (el) el.addEventListener("change", () => { if (V.pedirRender) V.pedirRender(); });
+  });
 
   // clic (sin arrastre) sobre el mapa: elegir habitante o prender fuego
   let down = null;
@@ -1177,14 +1183,26 @@
     return out.slice(0, 6);
   }
 
-  // bucle de dibujo: redibuja mientras haya conexion y este visible, a máxima tasa nativa
-  function cuadro(ts) {
-    if (document.hidden) { requestAnimationFrame(cuadro); return; }
-    if (V.conectado && base() && base().estado.capas) {
-      base().dibujar();
-    }
-    requestAnimationFrame(cuadro);
+  // Renderizado bajo demanda: se dibuja cuando hay cambios y se encadena animación
+  // continua SOLO mientras haya elementos que la necesiten (fuego, antorchas, efectos,
+  // movimiento suavizado, seguir). Un único planificador evita bucles rAF duplicados y
+  // suspende cuando la escena está inactiva o la pestaña oculta.
+  function dibujarSi() {
+    if (V.conectado && base() && base().estado.capas) base().dibujar();
   }
-  requestAnimationFrame(cuadro);
+  function seguirActivo() {
+    if (!V.seguir || V.sel == null) return false;
+    const o = V.habs[V.sel], b = base();
+    if (!o || !b) return false;
+    const v = b.estado.vista, caja = $("lienzo").parentElement;
+    const tx = o.x - caja.clientWidth / v.z / 2, ty = o.y - caja.clientHeight / v.z / 2;
+    return Math.abs(v.x - tx) > 0.5 || Math.abs(v.y - ty) > 0.5;
+  }
+  const plan = window.RaceRender.crearPlanificador(
+    (cb) => requestAnimationFrame(cb), dibujarSi,
+    () => window.RaceRender.necesitaAnimacion(V.estado, V.habs, V.efectos, seguirActivo()));
+  V.pedirRender = () => plan.pedir();
+  document.addEventListener("visibilitychange", () => plan.setVisible(!document.hidden));
+  plan.pedir();                                            // primer dibujo
   window.addEventListener("beforeunload", desconectar);
 })();
