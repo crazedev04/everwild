@@ -13,6 +13,7 @@
     var op = opciones || {};
     var ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
     var transparent = !!op.transparent;   // canvas experimental: no tapa la representación anterior
+    var layers = op.capas || [];            // capas internas (E2): terreno, etc.
     var requestFrame = op.requestFrame || (typeof requestAnimationFrame === "function"
       ? requestAnimationFrame
       : function (cb) { return setTimeout(function () { cb(0); }, 0); });
@@ -68,6 +69,17 @@
       var W = canvas.width, H = canvas.height;
       if (transparent) ctx.clearRect(0, 0, W, H);   // experimental: transparente, no tapa el canvas anterior
       else { ctx.fillStyle = "#0a0d12"; ctx.fillRect(0, 0, W, H); }
+      if (wv && wv.meta && layers.length && cam.z > 0) {
+        var dpr = viewport.dpr || 1, s = cam.z * dpr;
+        // viewport visible en celdas (coords de mundo), acotado al mapa
+        var vw = viewport.w / cam.z, vh = viewport.h / cam.z;
+        var x0 = Math.max(0, Math.floor(cam.x)), y0 = Math.max(0, Math.floor(cam.y));
+        var x1 = Math.min(wv.meta.ancho, Math.ceil(cam.x + vw)), y1 = Math.min(wv.meta.alto, Math.ceil(cam.y + vh));
+        ctx.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+        var frame = { cam: cam, vis: { x0: x0, y0: y0, x1: x1, y1: y1 }, lod: cam.z, w: viewport.w, h: viewport.h, dpr: dpr, t: wv.t };
+        for (var i = 0; i < layers.length; i++) { try { layers[i].draw(ctx, frame); } catch (e) { /* capa fallida no rompe el frame */ } }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
       // E1: sin capas visuales todavía (terreno/sprites en E2+). El loop y la invalidación
       // quedan verificados; la representación visual definitiva no es alcance de E1.
     }
@@ -76,7 +88,16 @@
     function setWorldView(w) {
       if (destroyed || !w) return;
       if (contextoCambia(w)) { interpol = {}; seleccion = null; }   // no arrastra selección/estado transitorio entre mundos (§4.6)
-      wv = w; dirty = true; plan.pedir();
+      wv = w;
+      for (var i = 0; i < layers.length; i++) { try { layers[i].setWorldView(w); } catch (e) { /* capa tolera vista incompleta */ } }
+      dirty = true; plan.pedir();
+    }
+
+    // Paleta de biomas inyectada por el adaptador (el renderer no conoce REST, §4.7).
+    function setPaleta(pal) {
+      if (destroyed) return;
+      for (var i = 0; i < layers.length; i++) { try { if (layers[i].setPaleta) layers[i].setPaleta(pal); } catch (e) {} }
+      dirty = true; plan.pedir();
     }
 
     function applyDelta() {
@@ -152,6 +173,7 @@
 
     return {
       setWorldView: setWorldView,
+      setPaleta: setPaleta,
       applyDelta: applyDelta,
       setCam: setCam,
       setViewport: setViewport,

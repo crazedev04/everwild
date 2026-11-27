@@ -122,3 +122,22 @@ test("cambio de mundo limpia la selección (estado transitorio incompatible)", (
   h.r.setWorldView(wv({ worldId: "Otro", dimension: 1 })); // cambio de contexto
   assert.strictEqual(h.r.seleccion, null);
 });
+
+test("draw aplica cámara/viewport y pasa frame con vis a las capas", () => {
+  const rec = { transforms: [], frames: [] };
+  const ctx = { setTransform(...a) { rec.transforms.push(a); }, clearRect() {}, fillRect() {}, fillStyle: "", drawImage() {} };
+  const canvas = { width: 0, height: 0, getContext: () => ctx };
+  const layer = { setWorldView() {}, draw(c, f) { rec.frames.push(f); } };
+  const r = crear(canvas, { requestFrame: () => 1, capas: [layer] });
+  r.setViewport(800, 600, 1);
+  r.setCam(10, 20, 2);
+  r.setWorldView({ worldId: "M", dimension: 0, localSequence: 1, meta: { ancho: 100, alto: 100 }, terreno: { bioma: new Uint8Array(10000) } });
+  r._plan._paso();
+  assert.deepStrictEqual(rec.transforms.find((t) => t[0] === 2), [2, 0, 0, 2, -20, -40]); // s=z*dpr, tx=-x*s
+  const f = rec.frames[0];
+  assert.ok(f && f.vis, "capa recibió frame");
+  assert.strictEqual(f.vis.x0, 10); assert.strictEqual(f.vis.y0, 20);
+  assert.strictEqual(f.vis.x1, 100); assert.strictEqual(f.vis.y1, 100); // acotado a 100x100
+  assert.strictEqual(f.dpr, 1);
+  assert.strictEqual(f.cam.z, 2);
+});
