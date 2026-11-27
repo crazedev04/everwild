@@ -16,6 +16,8 @@
   var CC = (typeof require !== "undefined") ? require("./capa_caminos.js") : root.CapaCaminos;
   var CB = (typeof require !== "undefined") ? require("./capa_ambiente.js") : root.CapaAmbiente;
   var CE = (typeof require !== "undefined") ? require("./capa_entidades.js") : root.CapaEntidades;
+  var CF = (typeof require !== "undefined") ? require("./capa_fuego.js") : root.CapaFuego;
+  var CL = (typeof require !== "undefined") ? require("./capa_luz.js") : root.CapaLuz;
   var COLORES = ["#ff7a59", "#5ac8fa", "#ffd166", "#b794f6", "#6ee7a8", "#f472b6", "#f59e0b", "#94a3b8"];
   var puenteActual = null;   // evita canvases duplicados si se inicializa varias veces
 
@@ -61,7 +63,9 @@
     var capaCaminos = CC.crearCapaCaminos({});                       // celdas de sendero (E5)
     var capaAmbiente = CB.crearCapaAmbiente({});                     // nieve + quemado dinámicos (E4)
     var capaEntidades = CE.crearCapaEntidades({ COLORES: COLORES }); // estructuras/habitantes/fauna (E3)
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaCaminos, capaAmbiente, capaEntidades] });
+    var capaFuego = CF.crearCapaFuego({});                           // focos activos transitorios (E6)
+    var capaLuz = CL.crearCapaLuz({});                               // velo de iluminación ambiental (E6)
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaCaminos, capaAmbiente, capaEntidades, capaFuego, capaLuz] });
     var estadoVivo = null;
     var dinamico = { nieve: null, quemado: null };   // mapas dinámicos (1 vez por mundo)
     var _dinKey = null;
