@@ -1,5 +1,15 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E7: volcanes y lava
+
+### Nuevo
+- **Capa de volcanes/lava** `ui/render/capa_volcanes.js`: bitmap 1 px/celda de **lava persistente** desde `WorldView.terreno.rasgos` (bit `RASGO_LAVA = 2`, fuente `motor/biomas`). Lava solidificada en basalto; resto transparente. Caché por identidad (`rasgos`,dims); `draw` pinta sólo lo visible; no muta la vista.
+- **Composición** (`ui/render/integracion.js`): orden `[terreno, agua, volcanes, caminos, ambiente, entidades, luz, fuego]`. Opt-in.
+- Tests (7 nuevos; 106/106 JS): lava válida (bit 2 sí, bit 1 cascada no)/ausente/longitud inválida/caché/cambio de mundo/clipping por `vis`/no mutación.
+
+### Pendiente (sin datos suficientes)
+- **Volcán puntual, erupción y lava dinámica (activa vs solidificada)**: el mundo **no publica** lista de volcanes, estado de erupción ni lava dinámica (sólo el rasgo estático `RASGO_LAVA` y la elevación). Representarlos exigiría un contrato/dato nuevo; no se inventaron ni se tocó el motor.
+
 ## Sin publicar — E6: fuego activo e iluminación ambiental
 
 ### Nuevo

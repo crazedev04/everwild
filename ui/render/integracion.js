@@ -13,6 +13,7 @@
   var Rn = (typeof require !== "undefined") ? require("./renderer.js") : root.Renderer;
   var CT = (typeof require !== "undefined") ? require("./capa_terreno.js") : root.CapaTerreno;
   var CA = (typeof require !== "undefined") ? require("./capa_agua.js") : root.CapaAgua;
+  var CV = (typeof require !== "undefined") ? require("./capa_volcanes.js") : root.CapaVolcanes;
   var CC = (typeof require !== "undefined") ? require("./capa_caminos.js") : root.CapaCaminos;
   var CB = (typeof require !== "undefined") ? require("./capa_ambiente.js") : root.CapaAmbiente;
   var CE = (typeof require !== "undefined") ? require("./capa_entidades.js") : root.CapaEntidades;
@@ -60,12 +61,13 @@
     var adaptador = Ad.crearAdaptador();
     var capaTerreno = CT.crearCapaTerreno({});                       // bitmap 1 px/celda (E2)
     var capaAgua = CA.crearCapaAgua({});                             // océano/lago/río + caudal (E4)
+    var capaVolcanes = CV.crearCapaVolcanes({});                     // lava persistente (rasgos bit 2, E7)
     var capaCaminos = CC.crearCapaCaminos({});                       // celdas de sendero (E5)
     var capaAmbiente = CB.crearCapaAmbiente({});                     // nieve + quemado dinámicos (E4)
     var capaEntidades = CE.crearCapaEntidades({ COLORES: COLORES }); // estructuras/habitantes/fauna (E3)
     var capaFuego = CF.crearCapaFuego({});                           // focos activos transitorios (E6)
     var capaLuz = CL.crearCapaLuz({});                               // velo de iluminación ambiental (E6)
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaCaminos, capaAmbiente, capaEntidades, capaLuz, capaFuego] });
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaVolcanes, capaCaminos, capaAmbiente, capaEntidades, capaLuz, capaFuego] });
     var estadoVivo = null;
     var dinamico = { nieve: null, quemado: null };   // mapas dinámicos (1 vez por mundo)
     var _dinKey = null;
