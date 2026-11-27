@@ -220,6 +220,7 @@ Pocas etapas, ordenadas; separar **correcciones funcionales** de **rediseño**. 
 - **Dependencias:** Etapa 2.
 - **Riesgo:** medio-alto (estética + móvil); validación visual **con operador humano** (el modelo auditor no ve imágenes).
 - **Aceptación:** el mundo es protagonista; sin dashboard; móvil usable; sin assets comprados; sin regresiones funcionales de Etapa 0.
+- **Etapa 3A (prototipo, hecha):** renderer 2D por capas aislado en `ui/prototipo/` (no toca la app ni `sprites.js`), con LOD por zoom, orden por Y, sombras, culling, caché/pool y `updateTiles` parcial. Diseño y técnicas (tomadas de BiomeSimulator, sin copiar código) en `docs/RENDER_PROTOTYPE.md`. Sirve en `/ui/prototipo/index.html`.
 
 ### Etapa 4 — Datos no usados (opcional, si se aprueba)
 - **Objetivo:** surfacing de `/dialogos` y `/metricas` (p. ej. "actividad del mundo").
