@@ -242,6 +242,91 @@ def test_integracion_servicio_cca_real():
             if os.path.exists(p):
                 os.remove(p)
 
+
+def test_integracion_real_ce_abstracta_mv_traduce():
+    """CE real emite una acción abstracta (drink/gather/explore/rest) y MV la traduce.
+
+    No usa mocks: levanta `CcaHttpServer` real, manda una observación con sed alta
+    (necesidad host-driven) y verifica que la propuesta resultante se traduce a una
+    capacidad física de MV (beber/ir/comer/juntar/dormir), no a `accion_invalida`.
+    """
+    cca = pytest.importorskip("cognitive_engine")
+    import os
+    import tempfile
+
+    from cognitive_engine.api.client import CcaClient
+    from cognitive_engine.api.runtime import Runtime
+    from cognitive_engine.api.server import CcaHttpServer, ServiceConfig
+    from cognitive_engine.api.service import CognitiveEngineService
+    from cognitive_engine.persistence.repository import SQLiteBrainRepository
+    from cognitive_engine.scheduler.scheduler import MultiBrainScheduler
+
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    repo = SQLiteBrainRepository(path)
+    svc = CognitiveEngineService(repository=repo, scheduler=MultiBrainScheduler())
+    bid = "mv-real:h1"
+    svc.create_brain(bid, "H1")
+    rt = Runtime(svc)
+    cfg = ServiceConfig(host="127.0.0.1", port=0, tokens={"tok": {"*"}})
+    srv = CcaHttpServer(rt, cfg)
+    srv.start()
+    adapter = None
+    cerebro = None
+    try:
+        url = f"http://127.0.0.1:{srv.port}"
+        cliente = CcaClient(url, token="tok", timeout=3.0)
+        adapter = MundoVivoRemoteAdapter(url, client_id="w", poll_interval=0.05, cliente=cliente)
+        adapter.start()
+        adapter.registrar(bid)
+
+        from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto, _PropuestaRemota
+        cerebro = CerebroCognitivoRemoto.__new__(CerebroCognitivoRemoto)
+        cerebro.cliente = None
+        cerebro.con = None
+        cerebro._demo = None
+        cerebro._adapter = adapter
+        cerebro._cerebros = {}
+        cerebro._ultima_propuesta = {}
+        cerebro._decisiones = 0
+        cerebro._sin_traducir = {}
+        cerebro._ultimo_tick = {}
+        cerebro._world_uid = "mv-real"
+        cerebro._rechazos_obsoletos = 0
+
+        sim, h = _sim_y_habitante(sed=80.0)  # sed alta → CE prioriza drink/gather
+        # CE necesita la observación con needs host-driven para decidir beber.
+        obs = cerebro._observacion_remota(sim, h, bid)
+        adapter.enviar_observacion(bid, obs)
+
+        prop = None
+        fin = time.monotonic() + 5
+        while time.monotonic() < fin and prop is None:
+            prop = adapter.propuesta_disponible(bid)
+            time.sleep(0.05)
+        assert prop is not None, "CE real debe emitir una propuesta ante sed alta"
+        # Traducir con el cerebro remoto real (no mock).
+        _pl = prop.get("payload") if isinstance(prop.get("payload"), dict) else {}
+        action_type = _pl.get("action_type") or prop.get("action_type")
+        params = _pl.get("parameters") or prop.get("parameters") or {}
+        accion = cerebro._traducir(sim, h, _PropuestaRemota(prop))
+        # La acción abstracta se traduce a una capacidad física, nunca a accion_invalida.
+        assert accion["tipo"] != "accion_invalida", (
+            f"CE emitió '{action_type}' y MV no la tradujo: {accion}"
+        )
+        assert accion["tipo"] in ("beber", "ir", "comer", "juntar", "dormir", "esperar"), accion
+    finally:
+        if cerebro is not None:
+            cerebro.cerrar()
+        elif adapter is not None:
+            adapter.cerrar()
+        srv.stop()
+        for sfx in ("", "-wal", "-shm"):
+            p = path + sfx
+            if os.path.exists(p):
+                os.remove(p)
+
 # --- robustez de recepción (ACK diferido, recuperación, no doble ejecución) ---
 
 def test_ack_solo_tras_enviar_resultado():
