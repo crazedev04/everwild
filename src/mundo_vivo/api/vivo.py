@@ -123,8 +123,23 @@ class Ejecutor:
         self._ultimo_guardado = time.monotonic()
         self._ultimo_volcado = time.monotonic()
         self.velocidad_real = 0.0   # minutos simulados por segundo real efectivos
-        self._vitales_prev: dict = {}   # último bloque de barras enviado, para mandar solo lo que cambió
+        self._vitales_prev: dict = {}   # último bloque de barras enviado, solo mandamos lo que cambió
         self._latido = diagnostico.Latido()
+        # Heartbeat de la conexión cognitiva remota (~15s): distingue "mundo vivo"
+        # de "mundo que dejó de hablar con CE". Sólo en modalidad remota.
+        self._heartbeat = None
+        if self._es_remoto():
+            try:
+                from ..agentes.remote.heartbeat import RemoteHeartbeat
+                hb_interval = float(os.environ.get("MUNDO_VIVO_HEARTBEAT_INTERVAL", "15"))
+                if hb_interval > 0:
+                    self._heartbeat = RemoteHeartbeat(
+                        brain=self.cerebro, sim=self.sim,
+                        world_name=ruta.stem, interval_s=hb_interval,
+                    )
+                    self._heartbeat.start()
+            except Exception:  # noqa: BLE001 - el heartbeat no debe impedir abrir el mundo
+                diagnostico.log().warning("no se pudo iniciar el heartbeat remoto", exc_info=True)
         diagnostico.log().info("mundo abierto: %s", json.dumps(
             {"mundo": ruta.stem, "cerebro": self.cerebro.nombre, "velocidad": self.velocidad,
              "dimensiones": len(self.mundo.sims), "semilla": self.sim.semilla,
@@ -148,6 +163,10 @@ class Ejecutor:
         e["dimensiones"] = self.mundo.dimensiones()
         e["cielo"] = self.sim.cielo
         return e
+
+    def _es_remoto(self) -> bool:
+        """True si la cognición de este mundo es remota (CCA servicio)."""
+        return hasattr(self.cerebro, "snapshot") and hasattr(self.cerebro, "_adapter")
 
     def _estado_liviano(self, pesado: bool) -> dict:
         """El mensaje de cada 100 ms. `pesado` suma fuego, estructuras, colonias y barras finas,
@@ -450,6 +469,8 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if self._heartbeat is not None:
+                self._heartbeat.stop()
             if hasattr(self.cerebro, "cerrar"):
                 self.cerebro.cerrar()
             self.con.close()
@@ -463,6 +484,8 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if self._heartbeat is not None:
+                self._heartbeat.stop()
             if hasattr(self.cerebro, "cerrar"):
                 self.cerebro.cerrar()
             try:

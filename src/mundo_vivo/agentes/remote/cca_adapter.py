@@ -79,6 +79,17 @@ class MundoVivoRemoteAdapter:
         self._conocidos: set[str] = set()
         self._autorizados: set[str] = set()
         self.errores = 0
+        # Observabilidad: contadores y marcas de la última comunicación exitosa con
+        # CE por tipo. El heartbeat los usa para distinguir "conectado" de "activo"
+        # y para reconstruir el recorrido observación→propuesta→resultado→ACK.
+        self._obs_enviadas = 0
+        self._resultados_enviados = 0
+        self._acks_enviados = 0
+        self._propuestas_recibidas = 0
+        self._propuestas_ejecutadas = 0
+        self._ultimo_envio_ok: Optional[float] = None
+        self._ultimo_consume_ok: Optional[float] = None
+        self._ultimo_error: Optional[str] = None
 
     # ---------------------------------------------------------- ciclo de vida
     def start(self) -> None:
@@ -282,14 +293,21 @@ class MundoVivoRemoteAdapter:
             try:
                 if tipo == "obs":
                     self._cliente.send_observation(brain_id, payload, client_id=self.client_id, client_seq=seq)
+                    self._obs_enviadas += 1
                 else:
                     self._cliente.send_result(brain_id, payload, client_id=self.client_id, client_seq=seq)
+                    self._resultados_enviados += 1
                     # Resultado ENVIADO: ahora sí se confirma la recepción de la propuesta.
                     if proposal_id is not None:
                         self._cliente.ack(brain_id, proposal_id)
+                        self._acks_enviados += 1
+                import time as _t
+                self._ultimo_envio_ok = _t.time()
+                self._ultimo_error = None
                 return True
-            except CcaError:
+            except CcaError as exc:
                 self.errores += 1
+                self._ultimo_error = f"{getattr(exc, 'status', '?')}: {exc}"
                 if self._stop.wait(0.2 * (intento + 1)):
                     return False
         return False
@@ -304,10 +322,14 @@ class MundoVivoRemoteAdapter:
                     return
                 try:
                     propuestas = self._cliente.pending_proposals(brain_id)
-                except CcaError:
+                except CcaError as exc:
                     self.errores += 1
+                    self._ultimo_error = f"{getattr(exc, 'status', '?')}: {exc}"
                     continue
+                import time as _t
+                self._ultimo_consume_ok = _t.time()
                 for p in propuestas:
+                    self._propuestas_recibidas += 1
                     self._cachear(brain_id, p)
             self._stop.wait(self.poll_interval)
 
@@ -336,6 +358,7 @@ class MundoVivoRemoteAdapter:
                     continue
                 if pid is not None:
                     self._ejecutadas.add(pid)
+                self._propuestas_ejecutadas += 1
                 return p
         return None
 
@@ -348,3 +371,24 @@ class MundoVivoRemoteAdapter:
     def pendientes(self) -> int:
         with self._lock:
             return sum(len(v) for v in self._propuestas.values())
+
+    def snapshot(self) -> dict[str, Any]:
+        """Estado operativo del transporte remoto para el heartbeat (sin secretos)."""
+        import time as _t
+        now = _t.time()
+        with self._lock:
+            conocidos = len(self._conocidos)
+            pendientes = sum(len(v) for v in self._propuestas.values())
+        return {
+            "cerebros_conocidos": conocidos,
+            "obs_enviadas": self._obs_enviadas,
+            "resultados_enviados": self._resultados_enviados,
+            "acks_enviados": self._acks_enviados,
+            "propuestas_recibidas": self._propuestas_recibidas,
+            "propuestas_ejecutadas": self._propuestas_ejecutadas,
+            "propuestas_pendientes": pendientes,
+            "errores_transporte": self.errores,
+            "ultimo_envio_ok_age_s": None if self._ultimo_envio_ok is None else round(now - self._ultimo_envio_ok, 1),
+            "ultimo_consume_ok_age_s": None if self._ultimo_consume_ok is None else round(now - self._ultimo_consume_ok, 1),
+            "ultimo_error": self._ultimo_error,
+        }

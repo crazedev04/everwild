@@ -298,6 +298,19 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
             "propuestas_pendientes": self._adapter.pendientes(),
         }
 
+    def snapshot(self) -> dict:
+        """Estado operativo del cerebro remoto para el heartbeat (sin secretos)."""
+        snap = self._adapter.snapshot()
+        snap.update(
+            {
+                "cerebro": self.nombre,
+                "decisiones": self._decisiones,
+                "rechazos_obsoletos": self._rechazos_obsoletos,
+                "habitantes_con_propuesta": len(self._ultima_propuesta),
+            }
+        )
+        return snap
+
     def cerrar(self) -> None:
         self._adapter.cerrar()
 
