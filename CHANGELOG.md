@@ -1,5 +1,11 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E2-FIX: caché del bitmap de terreno
+
+### Arreglado
+- **Reconstrucción innecesaria del bitmap (medio)**: `capa_terreno` memoiza el bitmap por **identidad** de `bioma` + `paleta` + `ancho/alto`. `setWorldView` (~10 Hz) reutiliza el bitmap cuando las entradas no cambian; reconstruye sólo si cambia la referencia del buffer, la paleta o las dimensiones. Válido bajo el contrato de no mutación externa de buffers entregados (§4.4): la identidad implica contenido. Evita reconstruir hasta 4 M px por estado.
+- Tests (5 nuevos; 64/64): reutilización con mismo buffer/paleta/dims, reconstrucción por nueva ref/paleta/dims, biomas no modificados y resultado visual idéntico. Probe en navegador: 1 build tras 5 estados iguales, 2 tras nueva referencia.
+
 ## Sin publicar — E2: primera representación visual real (terreno)
 
 ### Nuevo
