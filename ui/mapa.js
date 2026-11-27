@@ -56,6 +56,9 @@
   }
 
   async function abrirMundo(nombre, dimension) {
+    // Token de carga: si mientras se bajan las capas se pide otro mundo/dimensión,
+    // esta carga queda vieja y no debe escribir el estado (gana la última pedida).
+    const seq = (estado.cargaSeq = (estado.cargaSeq || 0) + 1);
     $("estado").textContent = "Cargando…";
     const d = "?dim=" + (dimension || 0);
     const [meta, elev, temp, hum, bioma, agua, caudal, rasgos] = await Promise.all([
@@ -68,6 +71,7 @@
       bin("/api/mundos/" + nombre + "/capa/caudal" + d, Uint8Array),
       bin("/api/mundos/" + nombre + "/capa/rasgos" + d, Uint8Array),
     ]);
+    if (seq !== estado.cargaSeq) return;   // una carga más nueva ganó: se descarta esta
     estado.nombre = nombre; estado.meta = meta; estado.dimension = dimension || 0;
     estado.capas = { elev, temp, hum, bioma, agua, caudal, rasgos };
     try { localStorage.setItem("mv_mundo", nombre); } catch (e) {}

@@ -94,7 +94,7 @@
     const ws = new WebSocket(proto + "//" + location.host + "/ws/" + encodeURIComponent(nombre));
     V.ws = ws;
     ws.onopen = () => { V.conectado = true; marcarConexion(); };
-    ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } recibir(m); };
+    ws.onmessage = (ev) => { if (ws !== V.ws) return; let m; try { m = JSON.parse(ev.data); } catch (e) { return; } recibir(m); };
     ws.onclose = () => {
       V.conectado = false; marcarConexion();
       if (V.ws === ws && V.nombre === nombre) V.reintento = setTimeout(conectar, 2000);
@@ -330,14 +330,19 @@
     $("ficha-cab").classList.add("visible");
     await refrescarFicha();
   }
-  let _fichaOcupado = false;
   async function refrescarFicha() {
-    if (V.sel == null || !V.nombre || _fichaOcupado || document.hidden) return;
-    _fichaOcupado = true;
+    if (V.sel == null || !V.nombre || document.hidden) return;
+    // Se captura el pedido: si al volver cambió el habitante, el mundo o la dimensión,
+    // esta respuesta es vieja y no debe tocar la ficha. El token además deja que una
+    // selección nueva no quede bloqueada por una petición anterior en vuelo.
+    const nombre = V.nombre, id = V.sel, dim = V.dimension || 0;
+    const seq = (V.fichaSeq = (V.fichaSeq || 0) + 1);
     try {
-      const r = await fetch("/api/mundos/" + V.nombre + "/habitantes/" + V.sel);
+      const r = await fetch("/api/mundos/" + nombre + "/habitantes/" + id);
       if (!r.ok) return;
-      const f = await r.json(), vivo = !!f.vivo, hb = V.habs[V.sel];
+      const f = await r.json();
+      if (seq !== V.fichaSeq || nombre !== V.nombre || id !== V.sel || dim !== (V.dimension || 0)) return;
+      const vivo = !!f.vivo, hb = V.habs[id];
       // cabecera fija: se actualiza en el lugar, no se reconstruye
       $("fc-punto").style.background = hb ? COLORES[hb.d.color % COLORES.length] : "var(--suave)";
       $("fc-nombre").textContent = f.nombre + (vivo ? "" : " ✝");
@@ -392,16 +397,15 @@
         seccion("f-car", "Carácter (heredado y actual)", null, rasgos || "<p class='nota'>Sin datos.</p>", false));
 
       const bCurar = $("fc-btn-curar");
-      if (bCurar) bCurar.onclick = () => enviar({ cmd: "curar", id: V.sel });
+      if (bCurar) bCurar.onclick = () => enviar({ cmd: "curar", id: id });
       const bRomper = $("fc-btn-romper");
       if (bRomper) bRomper.onclick = () => {
         if (confirm("¿Desvincular a " + f.nombre + " de sus padres biológicos para habilitar descendencia sin consanguinidad?")) {
-          enviar({ cmd: "romper_lazo", id: V.sel });
+          enviar({ cmd: "romper_lazo", id: id });
           setTimeout(refrescarFicha, 600);
         }
       };
     } catch (e) { /* sin red: se reintenta en el próximo ciclo */ }
-    finally { _fichaOcupado = false; }
   }
   // setInterval(refrescarFicha, 5000);  // Solo se consulta cuando el usuario hace clic o interactua
 
@@ -414,6 +418,7 @@
     _recetasOcupado = true;
     try {
       const [r, fa] = await Promise.all([fetch("/api/mundos/" + n + "/recetas").then((x) => x.json()), fetch("/api/mundos/" + n + "/fauna").then((x) => x.json())]);
+      if (n !== V.nombre) return;   // cambió el mundo: esta respuesta es vieja
       const sab = r.existentes.filter((e) => e.descubierta), nuevas = r.existentes.filter((e) => !e.descubierta);
       const nSabe = r.inventadas.length + sab.length;        // lo que esta gente sabe hacer, en la pestaña
       $("tab-n-recetas").textContent = nSabe ? String(nSabe) : "";
@@ -445,9 +450,11 @@
   setTimeout(refrescarRecetas, 2000);
 
   async function actualizarEra() {
-    if (!V.nombre) return;
+    const n = V.nombre;
+    if (!n) return;
     try {
-      const r = await (await fetch("/api/mundos/" + V.nombre + "/era")).json();
+      const r = await (await fetch("/api/mundos/" + n + "/era")).json();
+      if (n !== V.nombre) return;   // cambió el mundo: no actualizar la era vieja
       $("era-barra").style.display = "block";
       $("era-nombre").textContent = "Era: " + r.era;
       $("era-fill").style.width = Math.round(r.progreso * 100) + "%";
@@ -521,8 +528,10 @@
   // pestañas: se recuerda la elegida
   // ---- familias y aldeas
   async function pintarFamilias() {
-    if (!V.nombre) return;
-    let f; try { const r = await fetch("/api/mundos/" + V.nombre + "/familias"); if (!r.ok) return; f = await r.json(); } catch (e) { return; }
+    const n = V.nombre;
+    if (!n) return;
+    let f; try { const r = await fetch("/api/mundos/" + n + "/familias"); if (!r.ok) return; f = await r.json(); } catch (e) { return; }
+    if (n !== V.nombre) return;   // cambió el mundo: no pintar el árbol viejo
     const P = {}; f.personas.forEach((p) => { P[p.id] = p; p.hijos = []; p.pareja = []; });
     f.personas.forEach((p) => { for (const q of [p.madre_id, p.padre_id]) if (q && P[q] && !P[q].hijos.includes(p)) P[q].hijos.push(p); });
     f.uniones.forEach(([a, b]) => { if (P[a] && P[b]) { P[a].pareja.push(P[b]); P[b].pareja.push(P[a]); } });
@@ -637,12 +646,14 @@
     if (document.hidden) return;
     const ahora = Date.now();
     if (ahora - V.nieve.pedido < 15000 || !V.nombre) return;
+    const n = V.nombre;
     V.nieve.pedido = ahora;
     try {
-      const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/nieve");
+      const r = await fetch("/api/mundos/" + n + "/dinamico/nieve");
       const ds = new DecompressionStream("deflate");
       const piped = r.body.pipeThrough(ds);
       const datos = new Uint8Array(await new Response(piped).arrayBuffer());
+      if (n !== V.nombre) return;   // cambió el mundo: descartar este mapa de nieve
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.nieve.canvas || (V.nieve.canvas = document.createElement("canvas"));
@@ -667,12 +678,14 @@
     if (document.hidden) return;
     const ahora = Date.now();
     if (ahora - V.ceniza.pedido < 10000 || !V.nombre) return;
+    const n = V.nombre;
     V.ceniza.pedido = ahora;
     try {
-      const r = await fetch("/api/mundos/" + V.nombre + "/dinamico/quemado");
+      const r = await fetch("/api/mundos/" + n + "/dinamico/quemado");
       const ds = new DecompressionStream("deflate");
       const piped = r.body.pipeThrough(ds);
       const datos = new Uint8Array(await new Response(piped).arrayBuffer());
+      if (n !== V.nombre) return;   // cambió el mundo: descartar este mapa de ceniza
       const { ancho: w, alto: h } = V.meta;
       if (datos.length !== w * h) return;
       const c = V.ceniza.canvas || (V.ceniza.canvas = document.createElement("canvas"));
