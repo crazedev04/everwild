@@ -888,6 +888,11 @@ class Simulacion(VidaMixin, EcologiaMixin, FrioMixin, ConservacionMixin, Aliment
             ok, texto = self._accion_desmontar(h, it)
         elif tipo == "atravesar":
             ok, texto = self._accion_atravesar(h, it)
+        elif tipo == "accion_invalida":
+            # Capacidad desconocida/inválida: error explícito comunicado a CE (no
+            # espera silenciosa). El cerebro replanificará con nueva percepción.
+            h.accion, h.detalle, h.hasta = "esperando", "accion invalida", self.t + 5
+            ok, texto = False, "Acción desconocida o inválida: %s" % it.get("accion", "?")
         else:
             h.accion, h.detalle, h.hasta = "esperando", it.get("motivo", ""), self.t + float(it.get("min", 15))
             texto = "Esperaste un rato."

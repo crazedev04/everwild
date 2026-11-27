@@ -368,6 +368,76 @@ class MundoVivoRemoteAdapter:
         except CcaError:
             self.errores += 1
 
+    def expire(self, brain_id: str, proposal_id: str) -> None:
+        """Marca una propuesta como EXPIRED en CE (no se reentregará)."""
+        if not proposal_id:
+            return
+        try:
+            self._cliente.expire(brain_id, proposal_id)
+        except CcaError:
+            self.errores += 1
+
+    def propuesta_fresca(self, brain_id: str, tick_minimo: float) -> tuple[Optional[dict], list[str]]:
+        """Entrega la propuesta más NUEVA de la cola y expira las rancias.
+
+        Recorre la cola en orden LIFO (la más reciente primero). Las propuestas con
+        `tick < tick_minimo` se marcan EXPIRED en CE y se descartan acá; la primera
+        fresca se entrega (marcada como ejecutada). Devuelve (propuesta, ids_expirados).
+
+        Esto corrige la obsolescencia sistemática sin subir el umbral: en vez de
+        rechazar la más vieja (FIFO) y dejar la fresca atascada, se descarta lo rancio
+        y se ejecuta lo vigente.
+        """
+        expirados: list[str] = []
+        fresca: Optional[dict] = None
+        with self._lock:
+            cola = self._propuestas.get(brain_id)
+            if not cola:
+                return None, expirados
+            # Primera pasada: separar rancias (a descartar) de la fresca más nueva.
+            # Se recorre de la más nueva a la más vieja para que la fresca sea la vigente.
+            idx = len(cola) - 1
+            while idx >= 0:
+                p = cola[idx]
+                pid = p.get("proposal_id")
+                if pid is not None and pid in self._ejecutadas:
+                    del cola[idx]
+                    idx -= 1
+                    continue
+                _pl = p.get("payload") if isinstance(p.get("payload"), dict) else {}
+                ptick = _pl.get("tick", p.get("tick"))
+                rancio = isinstance(ptick, (int, float)) and ptick < tick_minimo
+                if rancio:
+                    del cola[idx]
+                    if pid is not None:
+                        expirados.append(pid)
+                    idx -= 1
+                    continue
+                # Fresca más nueva encontrada: entregarla y no seguir buscando.
+                del cola[idx]
+                if pid is not None:
+                    self._ejecutadas.add(pid)
+                self._propuestas_ejecutadas += 1
+                fresca = p
+                break
+            # Segunda pasada: descartar rancias restantes (más viejas que la fresca).
+            idx = len(cola) - 1
+            while idx >= 0:
+                p = cola[idx]
+                pid = p.get("proposal_id")
+                _pl = p.get("payload") if isinstance(p.get("payload"), dict) else {}
+                ptick = _pl.get("tick", p.get("tick"))
+                rancio = isinstance(ptick, (int, float)) and ptick < tick_minimo
+                if rancio or (pid is not None and pid in self._ejecutadas):
+                    del cola[idx]
+                    if rancio and pid is not None:
+                        expirados.append(pid)
+                idx -= 1
+        # Expiar en CE fuera del lock (por red).
+        for eid in expirados:
+            self.expire(brain_id, eid)
+        return fresca, expirados
+
     def pendientes(self) -> int:
         with self._lock:
             return sum(len(v) for v in self._propuestas.values())

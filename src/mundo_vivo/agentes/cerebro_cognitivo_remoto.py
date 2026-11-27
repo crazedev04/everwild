@@ -212,6 +212,16 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
             "facts": self._hechos(sim, h, brain_id),
             "simulation_time": t_sim,
             "delta_simulation_time": dt,
+            # Estado fisiológico que MV conserva (autoridad física). CE lo refleja para
+            # decidir; no es propietario. Se INVIERTE la escala: en MV sed/hambre son
+            # "cuánto falta" (0=ok, 100=muerte), en CE la necesidad es "cuánto está
+            # satisfecha" (100=ok, 0=crítico). energia/salud ya son 100=ok en MV.
+            "needs": {
+                "sed": max(0.0, min(100.0, 100.0 - float(h.sed))),
+                "hambre": max(0.0, min(100.0, 100.0 - float(h.hambre))),
+                "energia": max(0.0, min(100.0, float(h.energia))),
+                "salud": max(0.0, min(100.0, float(h.salud))),
+            },
         }
 
     # ---------------------------------------------------------- decisión
@@ -232,22 +242,92 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
         obs["facts"][0]["metadata"] = {"creencias": creencias}
         self._adapter.enviar_observacion(brain_id, obs)
 
-        propuesta = self._adapter.propuesta_disponible(brain_id)
+        # Entregar la propuesta más NUEVA; las rancias (tick viejo) se marcan EXPIRED
+        # en CE y se descartan acá. No se rechaza la vieja para ejecutar la fresca:
+        # eso corrige la obsolescencia sistemática sin tocar el umbral de 30.
+        propuesta, expirados = self._adapter.propuesta_fresca(brain_id, float(sim.t) - 30.0)
+        self._rechazos_obsoletos += len(expirados)
         if propuesta is None:
             self._ultima_propuesta.pop(h.id, None)
             return {"tipo": "esperar", "min": 10, "motivo": "pensando"}
 
-        # Propuesta obsoleta (generada para un tick viejo): se rechaza sin ejecutar.
-        _pl = propuesta.get("payload") if isinstance(propuesta.get("payload"), dict) else {}
-        ptick = _pl.get("tick", propuesta.get("tick"))
-        if isinstance(ptick, (int, float)) and ptick < float(sim.t) - 30.0:
-            self._rechazar(sim, h, brain_id, propuesta, "propuesta_obsoleta")
-            self._rechazos_obsoletos += 1
-            return {"tipo": "esperar", "min": 10, "motivo": "propuesta obsoleta"}
-
         self._ultima_propuesta[h.id] = propuesta
         self._decisiones += 1
         return self._traducir(sim, h, _PropuestaRemota(propuesta))
+
+    # ---------------------------------------------------------- traducción abstracto→físico
+    # CE propone acciones ABSTRACTAS (explore/move_to/gather/drink/eat/rest) con
+    # parámetros (target, position, need). MV las traduce a sus capacidades físicas
+    # reales, preservando parámetros/destinos. No se duplica lógica cognitiva: sólo
+    # se mapea "qué hacer" (CE) a "cómo ejecutarlo" (MV).
+    _ACCIONES_ABSTRACTAS = frozenset(
+        {"explore", "move_to", "gather", "drink", "eat", "rest"}
+    )
+
+    def _traducir(self, sim: Simulacion, h: HabitanteSim, propuesta: Any) -> dict:
+        tipo = propuesta.action_type
+        params = getattr(propuesta, "parameters", {}) or {}
+        if tipo in self._ACCIONES_ABSTRACTAS:
+            accion = self._traducir_abstracta(sim, h, tipo, params, propuesta.goal_id)
+            if accion is not None:
+                return accion
+            # La acción abstracta no pudo concretarse (p. ej. sin destino): esperar
+            # poco y replanificar. No es un error: CE replanificará con nueva percepción.
+            return {"tipo": "esperar", "min": 10, "motivo": (propuesta.goal_id or tipo)[:40]}
+        # Vocabulario físico del cerebro embebido (beber, ir_al_agua, comer, ...) y
+        # `wait`/`esperar`. Si tampoco se conoce, error explícito (no espera silenciosa).
+        if tipo not in self._TRADUCTORES:
+            self._sin_traducir[tipo] = self._sin_traducir.get(tipo, 0) + 1
+            return {"tipo": "accion_invalida", "accion": tipo,
+                    "motivo": (propuesta.goal_id or "sin objetivo")[:40]}
+        return super()._traducir(sim, h, propuesta)
+
+    def _traducir_abstracta(self, sim, h, tipo: str, params: dict, goal_id):
+        """Mapea una acción abstracta de CE a una capacidad física de MV."""
+        need = params.get("need") or params.get("target_need")
+        if tipo == "explore":
+            destino = self._destino_de_exploracion(sim, h)
+            return None if destino is None else {"tipo": "ir", "destino": destino,
+                                                 "motivo": "explora"}
+        if tipo == "move_to":
+            destino = self._destino_de_parametros(params)
+            if destino is None:
+                return None
+            luego = "beber" if need == SED else ("comer" if need in ("energy", "hambre") else None)
+            return {"tipo": "ir", "destino": destino, "luego": luego,
+                    "motivo": goal_id or "desplazar"}
+        if tipo == "gather":
+            if need == SED:
+                return self._traducir_beber(sim, h)
+            return self._traducir_comer(sim, h)
+        if tipo == "drink":
+            return self._traducir_beber(sim, h)
+        if tipo == "eat":
+            return self._traducir_comer(sim, h)
+        if tipo == "rest":
+            return {"tipo": "dormir", "min": sim.rng_cerebro.randint(240, 420)}
+        return None
+
+    def _destino_de_parametros(self, params: dict):
+        """Extrae el destino físico de los parámetros de CE (position/target)."""
+        pos = params.get("position")
+        if isinstance(pos, (list, tuple)) and len(pos) >= 2:
+            return (int(pos[0]), int(pos[1]))
+        return None
+
+    def _traducir_beber(self, sim, h):
+        if sim.terreno.agua_adyacente(int(h.x), int(h.y)):
+            return {"tipo": "beber"}
+        destino = self._agua_alcanzable(sim, h)
+        return None if destino is None else {"tipo": "ir", "destino": destino, "luego": "beber",
+                                             "motivo": "va al agua"}
+
+    def _traducir_comer(self, sim, h):
+        objeto = self._comida_en_mano(sim, h)
+        if objeto is not None:
+            return {"tipo": "comer", "objeto": objeto}
+        material = self._comida_juntable(sim, h)
+        return None if material is None else {"tipo": "juntar", "material": material}
 
     def _rechazar(self, sim, h, brain_id: str, propuesta: dict[str, Any], motivo: str) -> None:
         pid = propuesta.get("proposal_id")

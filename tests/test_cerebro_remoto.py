@@ -78,6 +78,10 @@ class ClienteFalso:
         self.acks.append((brain_id, proposal_id))
         return {"status": "acked"}
 
+    def expire(self, brain_id, proposal_id):
+        self.acks.append((brain_id, proposal_id))
+        return {"status": "expired"}
+
     def close(self):
         return None
 
@@ -755,3 +759,147 @@ def test_crear_cerebro_coexistencia_remoto_y_local(tmp_path, monkeypatch):
             cr.cerrar()
         remoto.close()
         local.close()
+
+
+# ---------------------------------------------------------------------------
+# Adaptación del entorno físico a CE: necesidades, acciones abstractas, obsolescencia
+# ---------------------------------------------------------------------------
+
+class _PropuestaFalsa:
+    """Propuesta con la interfaz que usa `_traducir` (action_type, parameters, goal_id)."""
+
+    def __init__(self, action_type, parameters=None, goal_id="g", tick=0, proposal_id="p1"):
+        self.action_type = action_type
+        self.parameters = parameters or {}
+        self.goal_id = goal_id
+        self.tick = tick
+        self.proposal_id = proposal_id
+
+
+def _cerebro_remoto_con_cliente(cliente):
+    from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+    c = CerebroCognitivoRemoto(None, base_url="http://x", token="restr")
+    c._adapter._cliente = cliente
+    c._adapter._cliente_admin = cliente
+    c._adapter._token_restringido = "restr"
+    c._adapter._token_admin_configurado = True
+    return c
+
+
+def _sim_y_habitante(sed=30.0, hambre=0.0, energia=90.0, salud=100.0):
+    """Simulación real chica + un habitante, para probar traducción y observación."""
+    from mundo_vivo.generador.pipeline import generar_mundo
+    from mundo_vivo.motor.simulacion import HabitanteSim, Simulacion
+    m = generar_mundo(1, 64, 64, tam_celda_m=50)
+    sim = Simulacion(m["capas"], m["meta"])
+    h = HabitanteSim(1, "Ayla", 10.0, 10.0, salud=salud, sed=sed, energia=energia)
+    h.hambre = hambre
+    return sim, h
+
+
+def test_observacion_incluye_necesidades_fisiologicas():
+    """La observación comunica sed/hambre/energía/salud a CE (escala invertida sed/hambre)."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(sed=40.0, hambre=30.0, energia=70.0, salud=80.0)
+        obs = cerebro._observacion_remota(sim, h, "b1")
+        needs = obs["needs"]
+        # sed/hambre: MV 0=ok,100=muerte → CE 100=ok,0=crítico (invertido)
+        assert needs["sed"] == 60.0
+        assert needs["hambre"] == 70.0
+        # energia/salud ya son 100=ok en MV
+        assert needs["energia"] == 70.0
+        assert needs["salud"] == 80.0
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_drink_es_beber():
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        # Con agua al lado → beber directo.
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("drink"))
+        assert accion["tipo"] in ("beber", "ir")
+        if accion["tipo"] == "ir":
+            assert accion.get("luego") == "beber"
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_eat_es_comer_o_juntar():
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("eat"))
+        assert accion["tipo"] in ("comer", "juntar")
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_rest_es_dormir():
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("rest"))
+        assert accion["tipo"] == "dormir"
+        assert accion["min"] > 0
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_explore_es_ir():
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("explore"))
+        # explore siempre produce un destino caminable o espera (nunca accion_invalida)
+        assert accion["tipo"] in ("ir", "esperar")
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_move_to_respeta_destino():
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("move_to", {"position": [20, 20]}))
+        assert accion["tipo"] == "ir"
+        assert accion["destino"] == (20, 20)
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_accion_desconocida_es_error_explicito():
+    """Una acción que MV no reconoce produce accion_invalida (no espera silenciosa)."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante()
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("teletransportarse"))
+        assert accion["tipo"] == "accion_invalida"
+        assert accion["accion"] == "teletransportarse"
+    finally:
+        cerebro.cerrar()
+
+
+def test_propuesta_fresca_entrega_la_mas_nueva_y_expira_rancias():
+    """La cola LIFO entrega la fresca y marca EXPIRED las de tick viejo."""
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    try:
+        # Dos propuestas: vieja (tick 1) y fresca (tick 100).
+        a._cachear("b1", {"proposal_id": "vieja", "tick": 1, "payload": {"tick": 1}})
+        a._cachear("b1", {"proposal_id": "fresca", "tick": 100, "payload": {"tick": 100}})
+        propuesta, expirados = a.propuesta_fresca("b1", tick_minimo=50.0)
+        assert propuesta is not None and propuesta["proposal_id"] == "fresca"
+        assert "vieja" in expirados
+    finally:
+        a.cerrar()
