@@ -77,11 +77,58 @@ fallback silencioso a cerebros locales: el mundo sigue en modo remoto).
 - Ciclo de vida: `crear_cerebro` en `api/vivo.py` añade `remoto`; `Ejecutor.cerrar`
   llama `cerebro.cerrar()` (une hilos y cierra el cliente).
 
+## Adaptación del entorno físico a CE
+
+Mundo Vivo es la **fuente de verdad del estado físico**; CE es dueño de la cognición.
+El adaptador remoto traduce ambas direcciones sin duplicar lógica cognitiva:
+
+### Necesidades fisiológicas (MV → CE)
+
+`_observacion_remota` incluye `needs: dict[str, float]` en la observación. CE
+(`Observation.needs`, `sync_from_host`) refleja el estado pero **no lo persiste como
+autoridad** ni lo decae mientras el host lo reporte. Escala invertida para sed/hambre
+(MV 0=ok, 100=muerte → CE 100=ok, 0=crítico); energia/salud ya son 100=ok en MV. Se
+mandan `sed`, `hambre`, `energia`, `salud`; CE crea las que no existan con decaimiento
+local 0 (host-driven). MV nunca permite que CE sobrescriba los valores físicos.
+
+### Traducción de acciones abstractas (CE → MV)
+
+CE emite capacidades genéricas (`ActionCatalog.humanoid_defaults`): `explore`,
+`move_to`, `gather`, `drink`, `eat`, `rest`, `wait`. `_traducir` del remoto las mapea
+a las capacidades físicas reales de MV, preservando parámetros/destinos:
+
+| CE (abstracta) | MV (física) |
+|---|---|
+| `explore` | `ir` a destino de exploración |
+| `move_to` (position) | `ir` al destino; `luego: beber/comer` según `need` |
+| `gather` (need=sed) | `beber` / `ir` al agua |
+| `gather` (otra) | `comer` / `juntar` |
+| `drink` | `beber` / `ir` al agua |
+| `eat` | `comer` / `juntar` |
+| `rest` | `dormir` |
+| `wait`/`esperar` | `esperar` |
+| desconocida | `accion_invalida` (error explícito, no espera silenciosa) |
+
+Una acción abstracta que no puede concretarse (sin destino, sin comida) devuelve
+`esperar` corto para que CE replanifique; una acción **desconocida** produce
+`accion_invalida` (resultado `rejected` a CE), nunca `esperar` silencioso.
+
+### Obsolescencia de propuestas
+
+`propuesta_fresca` entrega la propuesta más **nueva** (LIFO) y marca EXPIRED en CE
+las de tick viejo (`expire` del cliente), en vez de rechazar la vieja y dejar la
+fresca atascada. Corrige la obsolescencia sistemática sin subir el umbral de 30 min.
+La correlación observación→propuesta→resultado se mantiene por `proposal_id` y `client_seq`.
+
 ## Pruebas
 
 `tests/test_cerebro_remoto.py`: unitarios del adaptador (no bloqueo, secuencia,
 reintento sin duplicar, caché de propuestas, ACK, cierre) e **integración real** contra
 `CcaHttpServer` de la distribución (observación → propuesta → resultado correlacionado).
+Cubre además: `needs` en la observación, traducción de abstractas (`drink`/`eat`/`rest`/
+`explore`/`move_to`/`gather`), `accion_invalida` para desconocidas, `propuesta_fresca`
+(expira rancias, entrega fresca), y el circuito de supervivencia (CE propone drink →
+MV ejecuta beber → sed baja → resultado accepted a CE) con motor real y con CE real.
 
 ## Limitaciones / pendientes
 
