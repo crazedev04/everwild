@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E1-FIX: integración y ciclo de vida del renderer
+
+### Arreglado
+- **Doble renderer sobre el mismo canvas (alto)**: el puente E1 ya no dibuja sobre `#lienzo`; crea un **canvas experimental propio** (`#lienzo-exp`, superpuesto, `pointer-events:none`, fondo transparente) dentro de `#lienzo-caja`. El renderer anterior sigue visible e intacto y no hay doble escritura. Ciclo de vida explícito: `puente.destroy()` destruye el renderer y **remueve el canvas**; inicializar dos veces no duplica canvas (destruye el anterior).
+- **Clear en HiDPI**: `renderer.setViewport` dimensiona el backing store a `CSS*dpr` (dimensiones CSS y físicas separadas) y `dibujar` limpia en px de dispositivo; el canvas experimental usa `clearRect` (transparente). Evita clear incompleto y doble escalado con `devicePixelRatio > 1`.
+- **Cambio de mundo**: `setWorldView` limpia la selección al cambiar `worldId`/`dimension` (no arrastra estado transitorio).
+
+### Nuevo
+- Hooks de integración unificados en `RenderIntegracion.despachar(App, evento, arg)` (no-op sin puente; reenvía si existe), usados por `mapa.js`/`vivo.js`.
+- Tests de integración (8 nuevos; 54/54 JS): despachar no-op/reenvío, canvas propio sin compartir `#lienzo`, no duplicados, destroy libera canvas+renderer, cambio de mundo con viewport HiDPI, clear HiDPI y reset de selección.
+
 ## Sin publicar — E1: fundamentos del renderer definitivo
 
 ### Nuevo
