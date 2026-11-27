@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E5: caminos y composición de capas
+
+### Nuevo
+- **Capa de caminos** `ui/render/capa_caminos.js`: dibuja las celdas de sendero desde `WorldView.senderos` (lista real `[[x,y],...]`, fuente `motor/senderos.publico_senderos`). Marcador de tierra apisonada; culling por `frame.vis`; caché por identidad del arreglo; no muta la vista. **No implementa desgaste**: sólo representa las celdas que el dato publica.
+- **Composición** (`ui/render/integracion.js`): orden de capas `[terreno, agua, caminos, ambiente, entidades]` — caminos sobre terreno/agua, bajo nieve/ceniza y entidades. Sigue opt-in.
+- Tests (7 nuevos; 91/91 JS): caminos (válidos/ausentes/culling/caché/cambio de mundo/no mutación) y composición (orden drawImage terreno/agua < fillRect caminos < drawImage ambiente < arc entidades).
+
+### Pendiente
+- **Desgaste del terreno (intensidad)**: el motor tiene `desgaste` (`senderos.desgaste_bytes`) pero **no hay endpoint** que lo publique; falta ese contrato para representar intensidad. No se modificó el motor para generarlo.
+- Capa de fuego/iluminación/efectos; `WorldDelta`/`applyDelta` reservados.
+
 ## Sin publicar — E4: capas de agua y estados ambientales
 
 ### Nuevo
