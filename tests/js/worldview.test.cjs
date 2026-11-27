@@ -75,3 +75,18 @@ test("crearWorldView con authoritativeRev => autoritativo=true (contrato backend
   assert.strictEqual(wv.autoritativo, true);
   assert.strictEqual(wv.authoritativeRev, 184);
 });
+test("estructuras reales (triples [x,y,tipo]) con ruina por subconjunto", () => {
+  const s = WV.seccionesDesdeEstado({ refugios: [[1, 2, "casa"], [3, 4, "choza"]], ruinas: [[3, 4, "choza"]] });
+  assert.strictEqual(s.estructuras.length, 2);
+  assert.strictEqual(s.estructuras[0].tipo, "casa");
+  assert.strictEqual(s.estructuras[0].ruina, false);
+  assert.strictEqual(s.estructuras[1].ruina, true);
+});
+
+test("fauna real (triples [inst,x,y]) sin inventar atributos", () => {
+  const s = WV.seccionesDesdeEstado({ fauna: [[12, 5, 6]] });
+  assert.strictEqual(s.fauna.length, 1);
+  assert.strictEqual(s.fauna[0].inst, 12);
+  assert.strictEqual(s.fauna[0].x, 5);
+  assert.strictEqual(s.fauna[0].clase, undefined);
+});

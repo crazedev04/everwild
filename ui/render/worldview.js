@@ -65,25 +65,51 @@
     });
   }
 
-  // Fauna: identidad compuesta `inst` (única fuente que hoy la publica, §4.3).
+  // Fauna: identidad compuesta `inst`. El feed vivo real publica triples [inst,x,y];
+  // también se aceptan objetos {inst,x,y,clase,...} (compatibilidad). No inventa atributos.
   function faunaDesdeEstado(fauna) {
     if (!Array.isArray(fauna)) return null;
     return fauna.map((a) => {
-      const o = { inst: a.inst, x: a.x, y: a.y };
-      if (a.clase != null) o.clase = a.clase;
-      if (a.medio != null) o.medio = a.medio;
-      if (a.peso_kg != null) o.peso_kg = a.peso_kg;
-      if (a.peligro != null) o.peligro = a.peligro;
+      var o = Array.isArray(a) ? { inst: a[0], x: a[1], y: a[2] } : { inst: a.inst, x: a.x, y: a.y };
+      if (!Array.isArray(a)) {
+        if (a.clase != null) o.clase = a.clase;
+        if (a.medio != null) o.medio = a.medio;
+        if (a.peso_kg != null) o.peso_kg = a.peso_kg;
+        if (a.peligro != null) o.peligro = a.peligro;
+      }
       return o;
     });
   }
 
-  // Estructuras = refugios + ruinas (sólo si la fuente los trae). No inventa ids.
+  // Normaliza una estructura (objeto {x,y,tipo,...} o triple [x,y,tipo]) a objeto.
+  function _estructura(r) {
+    if (Array.isArray(r)) return { x: r[0], y: r[1], tipo: r[2] };
+    return Object.assign({}, r);
+  }
+  function _claveEstructura(r) {
+    if (Array.isArray(r)) return r[0] + "," + r[1] + "," + r[2];
+    return r.x + "," + r.y + "," + r.tipo;
+  }
+
+  // Estructuras = refugios + ruinas. El backend real publica refugios como triples
+  // [x,y,tipo] y ruinas como subconjunto de refugios (mismo formato). Se marcan `ruina`
+  // por pertenencia; una ruina que no esté en refugios se agrega aparte (compatibilidad).
   function estructurasDesdeEstado(estado) {
-    const partes = [];
-    if (Array.isArray(estado.refugios)) for (const r of estado.refugios) partes.push(Object.assign({ ruina: false }, r));
-    if (Array.isArray(estado.ruinas)) for (const r of estado.ruinas) partes.push(Object.assign({ ruina: true }, r));
-    return partes.length ? partes : null;
+    var refugios = Array.isArray(estado.refugios) ? estado.refugios : [];
+    var ruinas = Array.isArray(estado.ruinas) ? estado.ruinas : [];
+    var clavesRuina = {}, clavesRefugio = {};
+    for (var i = 0; i < ruinas.length; i++) clavesRuina[_claveEstructura(ruinas[i])] = true;
+    for (var j = 0; j < refugios.length; j++) clavesRefugio[_claveEstructura(refugios[j])] = true;
+    var out = [];
+    for (var k = 0; k < refugios.length; k++) {
+      var o = _estructura(refugios[k]);
+      o.ruina = !!clavesRuina[_claveEstructura(refugios[k])];
+      out.push(o);
+    }
+    for (var m = 0; m < ruinas.length; m++) {
+      if (!clavesRefugio[_claveEstructura(ruinas[m])]) { var q = _estructura(ruinas[m]); q.ruina = true; out.push(q); }
+    }
+    return out.length ? out : null;
   }
 
   // Secciones del estado (presentador.estado) → secciones WorldView. Ausente => null.

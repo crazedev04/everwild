@@ -12,6 +12,8 @@
   var Ad = (typeof require !== "undefined") ? require("./adaptador.js") : root.AdaptadorRenderer;
   var Rn = (typeof require !== "undefined") ? require("./renderer.js") : root.Renderer;
   var CT = (typeof require !== "undefined") ? require("./capa_terreno.js") : root.CapaTerreno;
+  var CE = (typeof require !== "undefined") ? require("./capa_entidades.js") : root.CapaEntidades;
+  var COLORES = ["#ff7a59", "#5ac8fa", "#ffd166", "#b794f6", "#6ee7a8", "#f472b6", "#f59e0b", "#94a3b8"];
   var puenteActual = null;   // evita canvases duplicados si se inicializa varias veces
 
   function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
@@ -51,8 +53,9 @@
     if (parent && parent.appendChild) parent.appendChild(exp);
 
     var adaptador = Ad.crearAdaptador();
-    var capaTerreno = CT.crearCapaTerreno({});   // bitmap 1 px/celda (E2)
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno] });
+    var capaTerreno = CT.crearCapaTerreno({});                 // bitmap 1 px/celda (E2)
+    var capaEntidades = CE.crearCapaEntidades({ COLORES: COLORES }); // estructuras/habitantes/fauna (E3)
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaEntidades] });
     var estadoVivo = null;
 
     // Paleta de biomas: el adaptador (no el renderer) conoce REST y la inyecta.

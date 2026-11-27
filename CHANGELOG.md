@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E3: capas de entidades (estructuras, habitantes, fauna)
+
+### Nuevo
+- **Capa de entidades** `ui/render/capa_entidades.js`: dibuja estructuras, habitantes y fauna en un único **Y-sort** (Y ascendente; desempate estructura<fauna<habitante y luego por id/inst estable) desde `WorldView`, con culling por `frame.vis` y radio `r=max(0.35, 5/lod)`. Consume sólo datos reales; no inventa posiciones ni atributos; cachea la lista por identidad de `WorldView` y no muta la vista. Estética provisional (marcadores): estructuras como rect (ruina en tono apagado), habitantes como círculo `COLORES[color]` (muerto en gris, `en_fuego` con anillo), fauna como punto.
+- **Integración** (`ui/render/integracion.js`): inyecta `COLORES` (misma paleta que `vivo.js`) y pasa `[capa_terreno, capa_entidades]` al renderer (terreno primero, entidades después). Sigue opt-in (`?renderer=nuevo`).
+- **Adaptación de datos reales** (`ui/render/worldview.js`): `estructurasDesdeEstado` consume los triples reales `[x,y,tipo]` de `refugios`/`ruinas` (marca `ruina` por pertenencia al subconjunto `ruinas`; compatibilidad con objetos) y `faunaDesdeEstado` acepta los triples `[inst,x,y]` del feed vivo (además de objetos). Sin ids/atributos inventados.
+- Tests (8 nuevos; 72/72 JS): formatos reales en `worldview` (estructuras triples+ruina, fauna triples) y `capa_entidades` (Y-sort, color/muerto, culling, ausencia de datos, no mutación, reconstrucción por cambio de mundo).
+
+### Pendiente
+- Vegetación por entidad: el feed vivo no publica flora individual (requeriría mapeo bioma→flora o sprites, aún no). Iluminación/efectos y `WorldDelta`/`applyDelta` siguen reservados.
+
 ## Sin publicar — E2-FIX: caché del bitmap de terreno
 
 ### Arreglado
