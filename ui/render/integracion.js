@@ -11,7 +11,10 @@
   "use strict";
   var Ad = (typeof require !== "undefined") ? require("./adaptador.js") : root.AdaptadorRenderer;
   var Rn = (typeof require !== "undefined") ? require("./renderer.js") : root.Renderer;
+  var CT = (typeof require !== "undefined") ? require("./capa_terreno.js") : root.CapaTerreno;
   var puenteActual = null;   // evita canvases duplicados si se inicializa varias veces
+
+  function hexRgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
 
   function activoFlag() {
     try {
@@ -48,8 +51,24 @@
     if (parent && parent.appendChild) parent.appendChild(exp);
 
     var adaptador = Ad.crearAdaptador();
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true });
+    var capaTerreno = CT.crearCapaTerreno({});   // bitmap 1 px/celda (E2)
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno] });
     var estadoVivo = null;
+
+    // Paleta de biomas: el adaptador (no el renderer) conoce REST y la inyecta.
+    function cargarPaleta() {
+      if (typeof fetch !== "function") return;
+      fetch("/api/biomas").then(function (r) { return r.json(); }).then(function (lista) {
+        var pal = {};
+        for (var i = 0; i < lista.length; i++) {
+          var b = lista[i], rgb = hexRgb(b.color);
+          pal[b.id] = rgb;
+          if (b.id_numerico != null) pal[b.id_numerico] = rgb;
+        }
+        renderer.setPaleta(pal);
+      }).catch(function () { /* sin paleta: la capa usa magenta por bioma (no engaña) */ });
+    }
+    cargarPaleta();
 
     function reconstruir() {
       var t = App.parte("terreno");
