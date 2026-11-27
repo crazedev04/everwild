@@ -75,3 +75,13 @@ test("planificador: pending refleja si hay un frame agendado", () => {
   plan._paso();
   assert.strictEqual(plan.pending, false);
 });
+test("planificador: cancelar limpia el frame pendiente y suspende", () => {
+  let pedido = 0;
+  const plan = crearPlanificador((cb) => { pedido++; return pedido; }, () => {}, () => false);
+  plan.pedir();
+  assert.strictEqual(plan.pending, true);
+  plan.cancelar();
+  assert.strictEqual(plan.pending, false);
+  plan.pedir();
+  assert.strictEqual(pedido, 1); // suspendido: no vuelve a agendar
+});

@@ -43,9 +43,15 @@
       visible = !!v;
       if (visible) pedir();          // al reactivar, retoma el dibujo
     }
+    // Cancela un frame agendado y suspende (usado por destroy del renderer).
+    function cancelar() {
+      raf = 0;
+      visible = false;
+    }
     return {
       pedir: pedir,
       setVisible: setVisible,
+      cancelar: cancelar,
       _paso: paso,                   // expuesto para pruebas deterministas
       get pending() { return !!raf; },
     };
