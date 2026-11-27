@@ -76,6 +76,17 @@ class Ejecutor:
         sim_io.crear_habitantes_iniciales(self.con, 4)
         self.cerebro = crear_cerebro(self.con)
         self.mundo = sim_io.cargar_mundo(self.con, cerebro=self.cerebro)
+        # Modo remoto: dar de alta los cerebros de TODOS los habitantes en CE al abrir el
+        # mundo (idempotente). No bloquea: si CE no responde, quedan pendientes y la
+        # simulación sigue; se reintenta en la próxima apertura.
+        self._registro_ce = None
+        if hasattr(self.cerebro, "inicializar"):
+            try:
+                self._registro_ce = self.cerebro.inicializar(self.mundo)
+                diagnostico.log().info("registro cerebros CE: %s",
+                                       json.dumps(self._registro_ce, default=str))
+            except Exception:  # noqa: BLE001 - el init no debe impedir abrir el mundo
+                diagnostico.log().warning("fallo inicializando cerebros en CE", exc_info=True)
         # `sim` es la dimensión que se está MIRANDO. El mundo entero corre siempre, se mire lo que se mire.
         self.sim: Simulacion = self.mundo.principal
         fila = self.con.execute("SELECT velocidad FROM estado_mundo WHERE id = 1").fetchone()
@@ -228,6 +239,12 @@ class Ejecutor:
             nuevo.padre_id = None
             nuevo.nacimiento_min = int(self.sim.t - 20 * ANIO_MIN) # Adulto de 20 años
             self.sim.habitantes[nuevo.id] = nuevo
+            # Modo remoto: registrar el cerebro del recién llegado en CE (idempotente).
+            if hasattr(self.cerebro, "registrar_habitante"):
+                try:
+                    self.cerebro.registrar_habitante(self.sim, nuevo)
+                except Exception:  # noqa: BLE001 - no bloquear el spawn por CE
+                    diagnostico.log().warning("no se pudo registrar cerebro CE del inmigrante", exc_info=True)
 
             self.sim._evento("inmigrante", f"Un nuevo habitante nómada llegó al mundo: {nombre}.", nuevo,
                              importancia=4, datos={"origen": "usuario", "id": nuevo.id})

@@ -58,6 +58,72 @@ def cargar_meta(con: sqlite3.Connection) -> dict:
     return {r["clave"]: json.loads(r["valor"]) for r in con.execute("SELECT clave, valor FROM meta")}
 
 
+# --------------------------------------------------- registro de cerebros en CE
+# Estado del alta de cada cerebro en el servicio CE (modo remoto). Persistir acá
+# permite reanudar el registro sin duplicar (CE responde 409 si ya existe) y no
+# reportar un mundo como "todo registrado" cuando hubo fallos.
+
+def asegurar_tabla_cerebros_ce(con: sqlite3.Connection) -> None:
+    con.execute(
+        """CREATE TABLE IF NOT EXISTS cerebros_ce (
+               brain_id TEXT PRIMARY KEY,
+               nombre TEXT,
+               dimension INTEGER,
+               habitante_id INTEGER,
+               estado TEXT,
+               detalle TEXT,
+               t TEXT
+           )"""
+    )
+
+
+def guardar_estado_cerebro(
+    con: sqlite3.Connection,
+    brain_id: str,
+    *,
+    nombre: str = "",
+    dimension: int = 0,
+    habitante_id: Optional[int] = None,
+    estado: str = "pendiente",
+    detalle: str = "",
+) -> None:
+    """Fija el estado de registro de un cerebro (registrado|ya_existia|pendiente|error)."""
+    asegurar_tabla_cerebros_ce(con)
+    with con:
+        con.execute(
+            """INSERT OR REPLACE INTO cerebros_ce
+                   (brain_id, nombre, dimension, habitante_id, estado, detalle, t)
+               VALUES (?,?,?,?,?,?, datetime('now'))""",
+            (brain_id, nombre, int(dimension), habitante_id, estado, (detalle or "")[:200]),
+        )
+
+
+def estados_cerebros_ce(con: sqlite3.Connection) -> dict:
+    asegurar_tabla_cerebros_ce(con)
+    return {
+        r["brain_id"]: {"estado": r["estado"], "nombre": r["nombre"], "detalle": r["detalle"]}
+        for r in con.execute("SELECT brain_id, estado, nombre, detalle FROM cerebros_ce")
+    }
+
+
+def resumen_registro_cerebros(con: sqlite3.Connection) -> dict:
+    """{total, registrados, ya_existia, pendientes, errores} para el estado de init."""
+    asegurar_tabla_cerebros_ce(con)
+    out = {"total": 0, "registrados": 0, "ya_existia": 0, "pendientes": 0, "errores": 0}
+    for r in con.execute("SELECT estado, count(*) n FROM cerebros_ce GROUP BY estado"):
+        est, n = r["estado"], r["n"]
+        out["total"] += n
+        if est in ("registrado", "registrados"):
+            out["registrados"] += n
+        elif est == "ya_existia":
+            out["ya_existia"] += n
+        elif est == "error":
+            out["errores"] += n
+        else:
+            out["pendientes"] += n
+    return out
+
+
 WORLD_UID_KEY = "world_uid"
 
 

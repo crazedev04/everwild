@@ -22,6 +22,28 @@ class ClienteFalso:
         self.fail_once = set()
         self.pending = {}
         self.slow = 0.0
+        self.creados = {}          # brain_id -> {name, personality}
+        self.fail_create = set()   # brain_ids cuyo create falla (status 0) una vez
+        self.always_fail_create = set()  # brain_ids cuyo create falla (status 0) siempre
+
+    def create_brain(self, brain_id, name, *, personality=None):
+        if brain_id in self.always_fail_create:
+            raise CcaError(0, "connection_error")
+        if brain_id in self.fail_create:
+            self.fail_create.discard(brain_id)
+            raise CcaError(0, "connection_error")
+        if brain_id in self.creados:
+            raise CcaError(409, "brain_exists")
+        self.creados[brain_id] = {"name": name, "personality": personality}
+        return {"brain_id": brain_id, "name": name, "created": True}
+
+    def list_brains(self):
+        return [{"brain_id": b, "name": v["name"]} for b, v in self.creados.items()]
+
+    def get_brain(self, brain_id):
+        if brain_id not in self.creados:
+            raise CcaError(404, "not_found")
+        return {"brain_id": brain_id, "name": self.creados[brain_id]["name"]}
 
     def send_observation(self, brain_id, observation, *, client_id, client_seq):
         if (brain_id, client_seq) in self.fail_once:
@@ -316,3 +338,184 @@ def test_modo_remoto_no_abre_db_cognitiva_local(tmp_path):
     finally:
         cerebro.cerrar()
         con.close()
+
+
+# --- registro directo de cerebros en CE (modo remoto) -----------------------
+
+def test_registrar_cerebro_idempotente():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    try:
+        assert a.registrar_cerebro("b1", "Uno", {"curiosity": 0.4}) == "registrado"
+        # ya existe (409) => éxito idempotente, no error
+        assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
+        assert cliente.creados["b1"]["name"] == "Uno"
+    finally:
+        a.cerrar()
+
+
+def test_registrar_cerebro_reintenta_conexion():
+    cliente = ClienteFalso()
+    cliente.fail_create.add("b1")  # primer intento falla (status 0)
+    a = _adaptador(cliente)
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "registrado"
+        assert "b1" in cliente.creados
+    finally:
+        a.cerrar()
+
+
+def test_registrar_cerebro_desconectado_no_bloquea():
+    cliente = ClienteFalso()
+    cliente.always_fail_create.add("b1")
+    a = _adaptador(cliente)
+    try:
+        t0 = time.monotonic()
+        est = a.registrar_cerebro("b1", "Uno")
+        assert est == "error"
+        assert time.monotonic() - t0 < 2.0, "no debe colgarse si CE no responde"
+    finally:
+        a.cerrar()
+
+
+def test_listar_y_estado_cerebro():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    try:
+        a.registrar_cerebro("b1", "Uno")
+        a.registrar_cerebro("b2", "Dos")
+        ids = {b["brain_id"] for b in a.listar_cerebros()}
+        assert ids == {"b1", "b2"}
+        assert a.estado_cerebro("b1")["name"] == "Uno"
+        assert a.estado_cerebro("nope") is None
+    finally:
+        a.cerrar()
+
+
+def test_propuesta_lee_action_type_del_payload():
+    from mundo_vivo.agentes.cerebro_cognitivo_remoto import _PropuestaRemota
+
+    p = _PropuestaRemota({
+        "proposal_id": "p1", "cca_seq": 7,
+        "payload": {"action_type": "beber", "parameters": {"x": 1}, "goal_id": "g1", "tick": 5},
+    })
+    assert p.action_type == "beber"
+    assert p.parameters == {"x": 1}
+    assert p.goal_id == "g1"
+    assert p.proposal_id == "p1"
+    assert p.tick == 5
+
+
+class _HabFalso:
+    def __init__(self, hid, nombre, vivo=True):
+        self.id = hid
+        self.nombre = nombre
+        self.vivo = vivo
+        self.x = 1.0
+        self.y = 2.0
+
+    def rasgo(self, nombre):
+        return {"cautela": 0.3, "sociabilidad": 0.6, "curiosidad": 0.5, "resiliencia": 0.7}.get(nombre, 0.5)
+
+
+class _SimFalso:
+    def __init__(self, dim, habitantes):
+        self.dimension = dim
+        self.ident = "W"
+        self.habitantes = {h.id: h for h in habitantes}
+
+
+class _MundoFalso:
+    def __init__(self, sims):
+        self.sims = {s.dimension: s for s in sims}
+
+
+def _cerebro_remoto_con_cliente(cliente):
+    from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+    c = CerebroCognitivoRemoto(None, base_url="http://x", token=None)
+    c._adapter._cliente = cliente
+    c._adapter._cliente_admin = cliente
+    return c
+
+
+def test_inicializar_registra_todos_los_habitantes():
+    cliente = ClienteFalso()
+    c = _cerebro_remoto_con_cliente(cliente)
+    try:
+        mundo = _MundoFalso([
+            _SimFalso(0, [_HabFalso(1, "A"), _HabFalso(2, "B")]),
+            _SimFalso(1, [_HabFalso(1, "C")]),
+        ])
+        res = c.inicializar(mundo)
+        assert res["total"] == 3 and res["registrados"] == 3
+        # brain_id estable <uid|ident>:d<dim>:h<id> (con=None => ident "W")
+        assert set(cliente.creados) == {"W:d0:h1", "W:d0:h2", "W:d1:h1"}
+        # personalidad derivada del genoma (no inventada)
+        assert cliente.creados["W:d0:h1"]["personality"]["curiosity"] == 0.5
+    finally:
+        c.cerrar()
+
+
+def test_inicializar_con_desconexion_no_reporta_todo_registrado():
+    cliente = ClienteFalso()
+    cliente.always_fail_create.add("W:d0:h1")
+    c = _cerebro_remoto_con_cliente(cliente)
+    try:
+        mundo = _MundoFalso([_SimFalso(0, [_HabFalso(1, "A"), _HabFalso(2, "B")])])
+        res = c.inicializar(mundo)
+        assert res["total"] == 2
+        assert res["registrados"] == 1 and res["errores"] == 1, "no se reporta todo registrado"
+    finally:
+        c.cerrar()
+
+
+def test_observacion_no_bloquea_si_ce_caido():
+    cliente = ClienteFalso()
+    cliente.always_fail_create.add("b1")  # CE no responde
+    a = _adaptador(cliente)
+    try:
+        t0 = time.monotonic()
+        for i in range(5):
+            a.enviar_observacion("b1", {"brain_id": "b1", "tick": i})
+        assert time.monotonic() - t0 < 0.05, "encolar percepción no espera a CE"
+    finally:
+        a.cerrar()
+
+
+def test_409_mismo_cerebro_es_exito_idempotente():
+    cliente = ClienteFalso()
+    cliente.creados["b1"] = {"name": "Uno", "personality": None}  # ya existe con ese nombre
+    a = _adaptador(cliente)
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
+    finally:
+        a.cerrar()
+
+
+def test_409_cerebro_distinto_es_error_no_sobrescribe():
+    cliente = ClienteFalso()
+    cliente.creados["b1"] = {"name": "Otro", "personality": None}  # mismo id, otro nombre
+    a = _adaptador(cliente)
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "error", "conflicto de identidad: no éxito ciego"
+        assert cliente.creados["b1"]["name"] == "Otro", "no se sobrescribe el cerebro existente"
+    finally:
+        a.cerrar()
+
+
+def test_cliente_admin_distinto_del_restringido():
+    # Con token_admin y cliente real (no inyectado) se crean DOS CcaClient distintos.
+    a = MundoVivoRemoteAdapter("http://x", token="restr", token_admin="admin", client_id="w")
+    try:
+        assert a._cliente is not a._cliente_admin, "admin y restringido son clientes separados"
+    finally:
+        a.cerrar()
+
+
+def test_sin_token_admin_reutiliza_cliente_restringido():
+    a = MundoVivoRemoteAdapter("http://x", token="restr", client_id="w")
+    try:
+        assert a._cliente_admin is a._cliente
+    finally:
+        a.cerrar()

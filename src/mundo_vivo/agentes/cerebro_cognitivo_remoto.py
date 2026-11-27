@@ -28,16 +28,25 @@ from .remote import MundoVivoRemoteAdapter
 
 
 class _PropuestaRemota:
-    """Envuelve el dict de propuesta del servicio con la interfaz que usa `_traducir`."""
+    """Envuelve el dict de propuesta del servicio con la interfaz que usa `_traducir`.
+
+    El contrato real de CE anida el contenido en `proposal["payload"]`
+    (`action_type`, `parameters`, `goal_id`, `tick`); el `proposal_id` y el `cca_seq`
+    vienen a nivel superior. Se lee del payload con respaldo a nivel superior por
+    compatibilidad, sin inventar campos.
+    """
 
     __slots__ = ("action_type", "goal_id", "proposal_id", "tick", "parameters")
 
     def __init__(self, d: dict[str, Any]) -> None:
-        self.action_type = d.get("action_type") or d.get("tipo") or "esperar"
-        self.goal_id = d.get("goal_id")
-        self.proposal_id = d.get("proposal_id")
-        self.tick = d.get("tick")
-        self.parameters = d.get("parameters") or {}
+        payload = d.get("payload") if isinstance(d.get("payload"), dict) else {}
+        self.action_type = (
+            payload.get("action_type") or d.get("action_type") or payload.get("tipo") or "esperar"
+        )
+        self.goal_id = payload.get("goal_id", d.get("goal_id"))
+        self.proposal_id = d.get("proposal_id", payload.get("proposal_id"))
+        self.tick = payload.get("tick", d.get("tick"))
+        self.parameters = payload.get("parameters") or d.get("parameters") or {}
 
 
 class CerebroCognitivoRemoto(CerebroCognitivo):
@@ -45,13 +54,19 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
 
     nombre = "cognitive engine remoto (CCA servicio, sin DB local)"
 
-    def __init__(self, con=None, *, base_url: str, token: Optional[str] = None) -> None:
+    def __init__(self, con=None, *, base_url: str, token: Optional[str] = None,
+                 token_admin: Optional[str] = None) -> None:
         # NO se llama a super().__init__: eso abriría el Service/Repository local.
         self.cliente = None
         self.con = con
         self._demo = CerebroDemo()
+        # `token` (restringido) para el ciclo por cerebro; `token_admin` (acceso total `*`)
+        # sólo para crear/listar cerebros. Si no hay admin, el adapter reutiliza el restringido.
+        import os
+
+        token_admin = token_admin if token_admin is not None else os.environ.get("CCA_TOKEN_ADMIN")
         self._adapter = MundoVivoRemoteAdapter(
-            base_url, token=token, client_id=self._client_id(con)
+            base_url, token=token, token_admin=token_admin, client_id=self._client_id(con)
         )
         self._adapter.start()
         self._cerebros: dict[int, Any] = {}          # no se usa cerebro local; se mantiene la firma
@@ -85,6 +100,77 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
 
     def _brain_id(self, sim: Simulacion, h: HabitanteSim) -> str:
         return f"{self._world_uid or sim.ident}:d{sim.dimension}:h{h.id}"
+
+    # ---------------------------------------------------------- registro en CE
+    @staticmethod
+    def _personalidad_dict(h: HabitanteSim) -> dict[str, float]:
+        """Rasgos del genoma → contrato de personalidad de CE (0..1).
+
+        Misma derivación que el cerebro embebido (cautela→cautiousness,
+        sociabilidad, curiosidad, resiliencia→persistence), sin instanciar el motor.
+        """
+        def _r(nombre: str) -> float:
+            try:
+                return max(0.0, min(1.0, float(h.rasgo(nombre))))
+            except Exception:  # noqa: BLE001 - genoma sin el rasgo: default 0.5
+                return 0.5
+
+        return {
+            "cautiousness": _r("cautela"),
+            "sociability": _r("sociabilidad"),
+            "curiosity": _r("curiosidad"),
+            "persistence": _r("resiliencia"),
+        }
+
+    def registrar_habitante(self, sim: Simulacion, h: HabitanteSim) -> str:
+        """Registra (idempotente) el cerebro de un habitante en CE y persiste el estado.
+
+        Devuelve el estado: registrado|ya_existia|pendiente|error. No crea cerebro
+        local. Si CE no responde, marca y sigue (la simulación no se detiene).
+        """
+        brain_id = self._brain_id(sim, h)
+        self._adapter.registrar(brain_id)  # el consumidor le buscará propuestas
+        estado = self._adapter.registrar_cerebro(
+            brain_id, h.nombre, self._personalidad_dict(h)
+        )
+        if self.con is not None:
+            try:
+                from ..persistencia import mundo_io as _mundo_io
+
+                _mundo_io.guardar_estado_cerebro(
+                    self.con, brain_id, nombre=h.nombre, dimension=sim.dimension,
+                    habitante_id=h.id, estado=estado,
+                )
+            except Exception:  # noqa: BLE001 - persistencia de estado es best-effort
+                pass
+        return estado
+
+    def inicializar(self, mundo) -> dict:
+        """Alta inicial de todos los cerebros del mundo en CE (modo remoto).
+
+        Recorre todas las dimensiones y habitantes, registra cada cerebro y persiste
+        el estado. Devuelve el resumen del registro (total/registrados/ya_existia/
+        pendientes/errores). Idempotente: se puede reintentar sin duplicar (409=ya).
+        """
+        resumen = {"total": 0, "registrados": 0, "ya_existia": 0, "pendientes": 0, "errores": 0}
+        sims = getattr(mundo, "sims", None)
+        if sims is None:
+            sims = {0: mundo}
+        for sim in sims.values():
+            for h in list(sim.habitantes.values()):
+                if not getattr(h, "vivo", True):
+                    continue
+                estado = self.registrar_habitante(sim, h)
+                resumen["total"] += 1
+                if estado in ("registrado", "registrados"):
+                    resumen["registrados"] += 1
+                elif estado == "ya_existia":
+                    resumen["ya_existia"] += 1
+                elif estado == "error":
+                    resumen["errores"] += 1
+                else:
+                    resumen["pendientes"] += 1
+        return resumen
 
     # ---------------------------------------------------------- percepción
     def _hechos(self, sim: Simulacion, h: HabitanteSim, brain_id: str) -> list[dict[str, Any]]:
@@ -149,7 +235,8 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
             return {"tipo": "esperar", "min": 10, "motivo": "pensando"}
 
         # Propuesta obsoleta (generada para un tick viejo): se rechaza sin ejecutar.
-        ptick = propuesta.get("tick")
+        _pl = propuesta.get("payload") if isinstance(propuesta.get("payload"), dict) else {}
+        ptick = _pl.get("tick", propuesta.get("tick"))
         if isinstance(ptick, (int, float)) and ptick < float(sim.t) - 30.0:
             self._rechazar(sim, h, brain_id, propuesta, "propuesta_obsoleta")
             self._rechazos_obsoletos += 1

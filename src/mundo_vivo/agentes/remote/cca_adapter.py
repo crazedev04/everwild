@@ -36,12 +36,14 @@ class MundoVivoRemoteAdapter:
         base_url: str,
         *,
         token: Optional[str] = None,
+        token_admin: Optional[str] = None,
         client_id: str,
         timeout: float = 5.0,
         poll_interval: float = 0.1,
         cola_max: int = 256,
         cliente: Any = None,
     ) -> None:
+        inyectado = cliente is not None
         if cliente is None:
             if CcaClient is None:
                 raise RuntimeError(
@@ -52,6 +54,13 @@ class MundoVivoRemoteAdapter:
         self.client_id = client_id
         self.poll_interval = poll_interval
         self._cliente = cliente
+        # Cliente ADMIN (token con acceso total `*`) para crear/listar cerebros. Si no se
+        # configura `token_admin` (o el cliente viene inyectado en tests), reutiliza el
+        # cliente restringido. El token administrativo NO se reparte: sólo vive acá.
+        if not inyectado and token_admin and CcaClient is not None:
+            self._cliente_admin = CcaClient(base_url, token=token_admin, timeout=timeout)
+        else:
+            self._cliente_admin = self._cliente
         self._cola: "queue.Queue[tuple]" = queue.Queue(maxsize=cola_max)
         self._seq: dict[str, int] = {}
         self._seq_lock = threading.Lock()
@@ -91,16 +100,76 @@ class MundoVivoRemoteAdapter:
             self._emitir(tipo, brain_id, seq, payload, proposal_id=pid, final=True)
         if self._consumidor is not None:
             self._consumidor.join(timeout=timeout)
-        try:
-            self._cliente.close()
-        except Exception:  # noqa: BLE001
-            pass
+        for cli in (self._cliente, self._cliente_admin):
+            try:
+                cli.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     # ---------------------------------------------------------- registro
     def registrar(self, brain_id: str) -> None:
         """Anota un cerebro para que el consumidor le busque propuestas."""
         with self._lock:
             self._conocidos.add(brain_id)
+
+    def registrar_cerebro(
+        self, brain_id: str, name: str, personality: Optional[dict[str, float]] = None
+    ) -> str:
+        """Registra un cerebro en CE por la API pública (`POST /brains`).
+
+        Idempotente: 201 lo crea; 409 (`brain_exists`) significa que ya estaba y se
+        trata como éxito. Devuelve el estado: "registrado" | "ya_existia" | "error".
+        Reintenta acotado ante fallos de conexión (CE puede estar arrancando). No
+        bloquea indefinidamente: si CE no responde, devuelve "error" y el llamador
+        decide reintentar luego (la simulación no se detiene).
+        """
+        for intento in range(3):
+            try:
+                self._cliente_admin.create_brain(brain_id, name, personality=personality)
+                return "registrado"
+            except CcaError as exc:
+                if getattr(exc, "status", None) == 409:
+                    # Conflicto: NO es éxito ciego. Se verifica que el cerebro existente
+                    # sea el MISMO (mismo brain_id y nombre) antes de darlo por registrado.
+                    if self._mismo_cerebro(brain_id, name):
+                        return "ya_existia"
+                    self.errores += 1
+                    return "error"
+                if getattr(exc, "status", 0) == 0:  # conexión/timeout: reintenta
+                    self.errores += 1
+                    if self._stop.wait(0.2 * (intento + 1)):
+                        return "error"
+                    continue
+                self.errores += 1
+                return "error"
+            except Exception:  # noqa: BLE001 - cliente inesperado: no rompe el init
+                self.errores += 1
+                return "error"
+        return "error"
+
+    def _mismo_cerebro(self, brain_id: str, name: str) -> bool:
+        """True si el cerebro ya registrado en CE coincide (id y nombre) con el esperado."""
+        try:
+            est = self._cliente_admin.get_brain(brain_id)
+        except CcaError:
+            return False
+        return bool(est) and est.get("brain_id") == brain_id and (est.get("name") or "").strip() == (name or "").strip()
+
+    def listar_cerebros(self) -> list[dict[str, Any]]:
+        """Cerebros registrados en CE (GET /brains). [] ante fallo (no rompe)."""
+        try:
+            return list(self._cliente_admin.list_brains())
+        except CcaError:
+            self.errores += 1
+            return []
+
+    def estado_cerebro(self, brain_id: str) -> Optional[dict[str, Any]]:
+        """Estado de un cerebro en CE (GET /brains/{id}) o None ante fallo/ausencia."""
+        try:
+            return self._cliente.get_brain(brain_id)
+        except CcaError:
+            self.errores += 1
+            return None
 
     # ---------------------------------------------------------- secuencia
     def _siguiente_seq(self, brain_id: str) -> int:
