@@ -17,6 +17,7 @@ Concurrencia (el tick NUNCA espera a CCA):
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 from typing import Any, Optional
@@ -26,6 +27,8 @@ try:  # API pública de la distribución CCA
 except Exception:  # noqa: BLE001 - se maneja al construir el adaptador
     CcaClient = None  # type: ignore
     CcaError = Exception  # type: ignore
+
+logger = logging.getLogger(__name__)
 
 
 class MundoVivoRemoteAdapter:
@@ -144,7 +147,22 @@ class MundoVivoRemoteAdapter:
                     if self._stop.wait(0.2 * (intento + 1)):
                         return "error"
                     continue
+                if status in (401, 403):
+                    # Error de credenciales: NO es transitorio. Visibilizar la causa raíz
+                    # (token ausente/incorrecto en MV) en vez de un "error" silencioso.
+                    logger.error(
+                        "CE rechazó el registro del cerebro %r con HTTP %s: "
+                        "revisá CCA_TOKEN/CCA_TOKEN_ADMIN en Mundo Vivo y el token del "
+                        "servidor CE (local-8000 por defecto).",
+                        brain_id,
+                        status,
+                    )
+                    self.errores += 1
+                    return "error"
                 self.errores += 1
+                logger.error(
+                    "Falló el registro del cerebro %r contra CE (HTTP %s).", brain_id, status
+                )
                 return "error"
             except Exception:  # noqa: BLE001 - cliente inesperado: no rompe el init
                 self.errores += 1

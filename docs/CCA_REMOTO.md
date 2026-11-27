@@ -32,6 +32,20 @@ export CCA_TOKEN_ADMIN=...               # token admin `*` (crear/autorizar cere
 `MUNDO_VIVO_CEREBRO=cognitivo` (por defecto) sigue usando el modo embebido; `remoto`
 usa el servicio. El modo remoto **no** abre ni escribe la base cognitiva local.
 
+> **Arranque rápido (desarrollo local).** El servicio CE arrancado sin `--token` ni
+> `CCA_TOKEN` expone el token determinista `local-8000` con acceso total. Mundo Vivo
+> debe apuntar a él y presentar ese token, o CE rechazará el alta de cerebros con
+> **HTTP 401** (antes silencioso; hoy queda registrado con la causa raíz en el log):
+>
+> ```bash
+> CCA_URL=http://127.0.0.1:8000 CCA_TOKEN=local-8000 \
+>   .venv/bin/python -m mundo_vivo --datos datos servir --puerto 8767
+> ```
+>
+> Sin `CCA_TOKEN`, el mundo remoto abre pero **no registra cerebros** (401) y la
+> simulación sigue sin cognición. Revisá `datos/logs/mundo.log` ante un
+> `registro cerebros CE: {..., "errores": N}` con N > 0.
+
 ### Modalidad por mundo (switch del modal)
 
 El modal de creación tiene el switch **Conectar con Cognitive Engine**. La preferencia
@@ -72,10 +86,11 @@ reintento sin duplicar, caché de propuestas, ACK, cierre) e **integración real
 ## Limitaciones / pendientes
 
 - **Migración de cerebros**: los cerebros actuales viven en la DB cognitiva local del
-  modo embebido. En remoto deben existir en el repositorio del servicio CCA (no hay
-  endpoint de creación). La migración de identidad/memoria es una operación separada,
-  **explícitamente pendiente**; no se improvisa conversión. Mundo Vivo y CCA no deben
-  escribir la misma persistencia cognitiva a la vez.
+  modo embebido. En remoto deben existir en el repositorio del servicio CCA. El alta se
+  hace por la API pública `POST /brains` (idempotente: 201 crea, 409 si ya existe), que
+  el adaptador invoca al abrir el mundo. La migración de identidad/memoria (no sólo el
+  alta) sigue **explícitamente pendiente**; no se improvisa conversión. Mundo Vivo y CCA
+  no deben escribir la misma persistencia cognitiva a la vez.
 - **Imports internos que aún permanecen** (a retirar en una etapa posterior): el modo
   embebido `cerebro_cognitivo.py` sigue importando `cognitive_engine.*` (Service,
   SQLiteBrainRepository, scheduler, componentes). El modo remoto no los usa.
