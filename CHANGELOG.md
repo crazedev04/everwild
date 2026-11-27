@@ -5,7 +5,7 @@
 ### Nuevo
 - **Capa de fuego activo** `ui/render/capa_fuego.js`: dibuja focos en combustión desde `WorldView.fuego` (lista real `[[x,y,intensidad],...]`, fuente `motor/fuego.celdas_activas`). Color según intensidad (rojo→amarillo). Efecto **transitorio** (el quemado/ceniza persistente sigue en `capa_ambiente`). Culling; caché por identidad; no inventa focos.
 - **Capa de iluminación** `ui/render/capa_luz.js`: velo de oscuridad de pantalla completa (en coords de mundo, respeta cámara/clipping) según `WorldView.clima.luz` (0..1, 1 = día). `luz` ausente ⇒ no dibuja; día pleno ⇒ sin velo. Sin cálculo por entidad.
-- **Composición** (`ui/render/integracion.js`): orden final `[terreno, agua, caminos, ambiente, entidades, fuego, luz]` — fuego sobre entidades, velo de luz por encima de todo. Opt-in.
+- **Composición** (`ui/render/integracion.js`): orden final `[terreno, agua, caminos, ambiente, entidades, luz, fuego]` — la iluminación oscurece terreno y entidades, el fuego activo queda por encima y visible de día y de noche. Opt-in.
 - Tests (8 nuevos; 99/99 JS): fuego (válido/ausente/culling/caché/cambio/no mutación), luz (noche/día/ausente) y composición (entidades < fuego < luz).
 
 ### Excluido

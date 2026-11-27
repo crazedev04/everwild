@@ -83,7 +83,7 @@ test("no muta la WorldView (fuego y luz)", () => {
   assert.strictEqual(JSON.stringify(wv.fuego), copia);
 });
 
-test("composición: entidades (arc) < fuego (fillRect rojo) < luz (fillRect rgba) al final", () => {
+test("composición: entidades (arc) < luz (fillRect rgba) < fuego (fillRect rojo) al final", () => {
   const sec = WV.seccionesDesdeEstado({ luz: 0.2, habitantes: [{ id: 1, x: 1, y: 1, color: 0, vivo: true }], fuego: [[1, 1, 200]] });
   const wv = WV.crearWorldView({ worldId: "w", meta: { ancho: 4, alto: 4 } }, sec);
   const seq = [];
@@ -93,14 +93,15 @@ test("composición: entidades (arc) < fuego (fillRect rojo) < luz (fillRect rgba
     fillRect(x, y, w, h) { seq.push("rect:" + this.fillStyle); },
   };
   const frame = { vis: { x0: 0, y0: 0, x1: 4, y1: 4 }, lod: 1 };
-  const capas = [CE.crearCapaEntidades({ COLORES: ["#111"] }), CF.crearCapaFuego({}), CL.crearCapaLuz({})];
+  // orden definitivo: iluminación (6) antes que fuego (7)
+  const capas = [CE.crearCapaEntidades({ COLORES: ["#111"] }), CL.crearCapaLuz({}), CF.crearCapaFuego({})];
   for (const c of capas) c.setWorldView(wv);
   for (const c of capas) c.draw(ctx, frame);
 
   const iArc = seq.indexOf("arc");
-  const iFuego = seq.findIndex((s) => s.startsWith("rect:rgb"));
-  const iLuz = seq.findIndex((s) => s.startsWith("rect:rgba"));
+  const iFuego = seq.findIndex((s) => s.startsWith("rect:rgb("));
+  const iLuz = seq.findIndex((s) => s.startsWith("rect:rgba("));
   assert.ok(iArc >= 0 && iFuego >= 0 && iLuz >= 0, "las tres dibujan");
-  assert.ok(iArc < iFuego, "entidades antes que fuego");
-  assert.ok(iFuego < iLuz, "fuego antes que velo de luz");
+  assert.ok(iArc < iLuz, "entidades antes que iluminación");
+  assert.ok(iLuz < iFuego, "iluminación antes que fuego (el fuego queda visible)");
 });

@@ -65,7 +65,7 @@
     var capaEntidades = CE.crearCapaEntidades({ COLORES: COLORES }); // estructuras/habitantes/fauna (E3)
     var capaFuego = CF.crearCapaFuego({});                           // focos activos transitorios (E6)
     var capaLuz = CL.crearCapaLuz({});                               // velo de iluminación ambiental (E6)
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaCaminos, capaAmbiente, capaEntidades, capaFuego, capaLuz] });
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaCaminos, capaAmbiente, capaEntidades, capaLuz, capaFuego] });
     var estadoVivo = null;
     var dinamico = { nieve: null, quemado: null };   // mapas dinámicos (1 vez por mundo)
     var _dinKey = null;
