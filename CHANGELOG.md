@@ -1,5 +1,18 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — CE registro directo de cerebros (modo remoto)
+
+### Nuevo
+- **Alta de cerebros en CE al crear el mundo (modo remoto)**: al abrir un mundo, `CerebroCognitivoRemoto.inicializar` recorre todas las dimensiones/habitantes y registra cada cerebro en CE con `POST /brains` (contrato real: `{brain_id, name, personality?{cautiousness,sociability,curiosity,persistence}}`). `brain_id` estable `<world_uid>:d<dim>:h<id>`. Los inmigrantes (`spawn`) se registran al llegar. No se crea ningún cerebro cognitivo local paralelo.
+- **Autenticación separada**: cliente **admin** (`CCA_TOKEN_ADMIN`, acceso total `*`) para crear/listar cerebros; cliente **restringido** (`CCA_TOKEN`) para el ciclo por cerebro (observaciones/resultados/ACK/propuestas). Si no hay `CCA_TOKEN_ADMIN`, reutiliza el restringido. El token admin no se reparte ni se registra en logs.
+- **409 con verificación de identidad**: un `brain_exists` no es éxito ciego; se comprueba (`GET /brains/{id}`) que coincida `brain_id` y `name` antes de darlo por registrado; si difiere, es error y no se sobrescribe.
+- **Estado de inicialización persistido** (tabla `cerebros_ce`): por cerebro (`registrado|ya_existia|pendiente|error`), para reanudar el alta sin duplicar y no reportar un mundo como "todo registrado" ante fallos. Reintento idempotente en la próxima apertura.
+- **Contrato de propuestas**: `action_type` y `parameters` se leen de `proposal["payload"]` (estructura real de CE), con respaldo a nivel superior.
+
+### Verificación
+- Tests aislados con cliente simulado (sin CE real): registro de todos, ids estables, 409 mismo/distinto cerebro, reintentos de conexión, desconexión no bloqueante, admin/restringido separados, sin DB cognitiva local, payload de propuesta, ACK diferido y recuperación (26 tests). Regresión embebida intacta (29 tests).
+- Pendiente: E2E real contra CE operativo (`feat/creacion-remota-cerebros`).
+
 ## Sin publicar — CCA remoto: recepción robusta de propuestas
 
 ### Arreglado
