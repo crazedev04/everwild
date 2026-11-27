@@ -50,6 +50,8 @@ class NuevoMundo(BaseModel):
     tam_celda_m: int = mundo_io.TAM_CELDA_POR_DEFECTO
     modelo: Optional[str] = None
     poblacion: int = 4
+    # Conectar con Cognitive Engine (CCA). Default False: conserva los cerebros actuales.
+    conectar_cca: bool = False
 
 
 def _etiqueta_emocion(emo: dict) -> str:
@@ -172,7 +174,8 @@ def crear_app(dir_datos: Path) -> FastAPI:
             def avisar(frac, texto):
                 trabajo["frac"], trabajo["texto"] = float(frac), str(texto)
             ruta = mundo_io.crear_mundo(dir_mundos, semilla, datos.ancho, datos.alto, datos.tam_celda_m,
-                                        nombre=datos.nombre, progreso=avisar)
+                                        nombre=datos.nombre, progreso=avisar,
+                                        cerebro_remoto=bool(datos.conectar_cca))
             if datos.modelo and datos.modelo.strip():
                 from ..agentes import ajustes as _aj
                 from ..persistencia import db as _db

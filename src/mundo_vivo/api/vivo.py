@@ -46,9 +46,44 @@ VAR_CEREBRO = "MUNDO_VIVO_CEREBRO"
 
 
 def crear_cerebro(con) -> Cerebro:
-    """Instancia el cerebro pedido. Por defecto usa Cognitive Engine (GOAP + Utility AI sin LLM)."""
-    elegido = (os.environ.get(VAR_CEREBRO) or "cognitivo").strip().lower()
-    if elegido in ("cognitivo", "cognitive", "cognitive_engine", ""):
+    """Instancia el cerebro pedido.
+
+    La modalidad cognitiva del mundo manda sobre el entorno:
+
+    1. Si el mundo tiene ``meta.cerebro_remoto = True`` → usa CCA (remoto).
+    2. Si tiene ``meta.cerebro_remoto = False`` → usa el sistema de cerebros
+       actual, sin importar ``MUNDO_VIVO_CEREBRO``.
+    3. Si el mundo es viejo y no tiene esa clave → cae al comportamiento
+       anterior (``MUNDO_VIVO_CEREBRO``, por defecto ``cognitivo``).
+
+    Así conviven mundos locales y mundos conectados a CCA. La preferencia por
+    mundo prevalece sobre cualquier override global para los mundos nuevos.
+    """
+    # `cargar_meta` no refresca el caché: `con` se acaba de abrir, así que el
+    # valor es el del archivo (sirve para reanudar tras un apagado).
+    try:
+        from ..persistencia.mundo_io import cargar_meta
+
+        preferencia = cargar_meta(con).get("cerebro_remoto")
+    except Exception:  # noqa: BLE001 - mundo sintético sin meta: usar entorno
+        preferencia = None
+
+    if preferencia is not None:
+        # Clave presente: manda el mundo (no el entorno).
+        elegido = "remoto" if preferencia else "cerebros_actuales"
+    else:
+        # Mundo viejo sin la clave: comportamiento anterior (override global).
+        elegido = (os.environ.get(VAR_CEREBRO) or "cognitivo").strip().lower()
+
+    if elegido in ("remoto", "remote", "cca", "cca_remoto"):
+        # Cognición remota: usa la distribución CCA por HTTP. No abre la DB cognitiva local.
+        from ..agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+        base_url = os.environ.get("CCA_URL", "http://127.0.0.1:8000")
+        token = os.environ.get("CCA_TOKEN")
+        cerebro = CerebroCognitivoRemoto(con, base_url=base_url, token=token)
+        return cerebro
+    if elegido in ("cerebros_actuales", "cognitivo", "cognitive", "cognitive_engine", ""):
         from ..agentes.cerebro_cognitivo import CerebroCognitivo
 
         # La base va para que cada decisión quede anotada en `decisiones`: es de ahí que el visor
@@ -57,7 +92,7 @@ def crear_cerebro(con) -> Cerebro:
     if elegido in ("hibrido", "híbrido", "llm"):
         return CerebroHibrido(con)
     raise ValueError(
-        f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: cognitivo, hibrido."
+        f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: cognitivo, remoto, hibrido."
     )
 
 
@@ -68,6 +103,17 @@ class Ejecutor:
         sim_io.crear_habitantes_iniciales(self.con, 4)
         self.cerebro = crear_cerebro(self.con)
         self.mundo = sim_io.cargar_mundo(self.con, cerebro=self.cerebro)
+        # Modo remoto: dar de alta los cerebros de TODOS los habitantes en CE al abrir el
+        # mundo (idempotente). No bloquea: si CE no responde, quedan pendientes y la
+        # simulación sigue; se reintenta en la próxima apertura.
+        self._registro_ce = None
+        if hasattr(self.cerebro, "inicializar"):
+            try:
+                self._registro_ce = self.cerebro.inicializar(self.mundo)
+                diagnostico.log().info("registro cerebros CE: %s",
+                                       json.dumps(self._registro_ce, default=str))
+            except Exception:  # noqa: BLE001 - el init no debe impedir abrir el mundo
+                diagnostico.log().warning("fallo inicializando cerebros en CE", exc_info=True)
         # `sim` es la dimensión que se está MIRANDO. El mundo entero corre siempre, se mire lo que se mire.
         self.sim: Simulacion = self.mundo.principal
         fila = self.con.execute("SELECT velocidad FROM estado_mundo WHERE id = 1").fetchone()
@@ -77,8 +123,23 @@ class Ejecutor:
         self._ultimo_guardado = time.monotonic()
         self._ultimo_volcado = time.monotonic()
         self.velocidad_real = 0.0   # minutos simulados por segundo real efectivos
-        self._vitales_prev: dict = {}   # último bloque de barras enviado, para mandar solo lo que cambió
+        self._vitales_prev: dict = {}   # último bloque de barras enviado, solo mandamos lo que cambió
         self._latido = diagnostico.Latido()
+        # Heartbeat de la conexión cognitiva remota (~15s): distingue "mundo vivo"
+        # de "mundo que dejó de hablar con CE". Sólo en modalidad remota.
+        self._heartbeat = None
+        if self._es_remoto():
+            try:
+                from ..agentes.remote.heartbeat import RemoteHeartbeat
+                hb_interval = float(os.environ.get("MUNDO_VIVO_HEARTBEAT_INTERVAL", "15"))
+                if hb_interval > 0:
+                    self._heartbeat = RemoteHeartbeat(
+                        brain=self.cerebro, sim=self.sim,
+                        world_name=ruta.stem, interval_s=hb_interval,
+                    )
+                    self._heartbeat.start()
+            except Exception:  # noqa: BLE001 - el heartbeat no debe impedir abrir el mundo
+                diagnostico.log().warning("no se pudo iniciar el heartbeat remoto", exc_info=True)
         diagnostico.log().info("mundo abierto: %s", json.dumps(
             {"mundo": ruta.stem, "cerebro": self.cerebro.nombre, "velocidad": self.velocidad,
              "dimensiones": len(self.mundo.sims), "semilla": self.sim.semilla,
@@ -102,6 +163,10 @@ class Ejecutor:
         e["dimensiones"] = self.mundo.dimensiones()
         e["cielo"] = self.sim.cielo
         return e
+
+    def _es_remoto(self) -> bool:
+        """True si la cognición de este mundo es remota (CCA servicio)."""
+        return hasattr(self.cerebro, "snapshot") and hasattr(self.cerebro, "_adapter")
 
     def _estado_liviano(self, pesado: bool) -> dict:
         """El mensaje de cada 100 ms. `pesado` suma fuego, estructuras, colonias y barras finas,
@@ -220,6 +285,12 @@ class Ejecutor:
             nuevo.padre_id = None
             nuevo.nacimiento_min = int(self.sim.t - 20 * ANIO_MIN) # Adulto de 20 años
             self.sim.habitantes[nuevo.id] = nuevo
+            # Modo remoto: registrar el cerebro del recién llegado en CE (idempotente).
+            if hasattr(self.cerebro, "registrar_habitante"):
+                try:
+                    self.cerebro.registrar_habitante(self.sim, nuevo)
+                except Exception:  # noqa: BLE001 - no bloquear el spawn por CE
+                    diagnostico.log().warning("no se pudo registrar cerebro CE del inmigrante", exc_info=True)
 
             self.sim._evento("inmigrante", f"Un nuevo habitante nómada llegó al mundo: {nombre}.", nuevo,
                              importancia=4, datos={"origen": "usuario", "id": nuevo.id})
@@ -398,6 +469,10 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if self._heartbeat is not None:
+                self._heartbeat.stop()
+            if hasattr(self.cerebro, "cerrar"):
+                self.cerebro.cerrar()
             self.con.close()
 
 
@@ -409,6 +484,10 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if self._heartbeat is not None:
+                self._heartbeat.stop()
+            if hasattr(self.cerebro, "cerrar"):
+                self.cerebro.cerrar()
             try:
                 self.con.close()
             except Exception:

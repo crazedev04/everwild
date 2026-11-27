@@ -101,11 +101,46 @@ class TestAPI(unittest.TestCase):
         self.assertEqual([i for i in ids if i < 100], list(range(15)))
 
 
+@unittest.skipUnless(HAY_CLIENTE, "falta httpx (pip install -r requirements-dev.txt)")
+class TestConexionCCA(unittest.TestCase):
+    """El switch 'Conectar con Cognitive Engine' del modal de creación."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.c = TestClient(crear_app(Path(self.tmp.name)))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _meta(self, nombre):
+        from mundo_vivo.persistencia import db, mundo_io
+        con = db.abrir(Path(self.tmp.name) / "mundos" / (nombre + ".db"))
+        try:
+            return mundo_io.cargar_meta(con)
+        finally:
+            con.close()
+
+    def test_switch_activado_persiste_cerebro_remoto_true(self):
+        nombre = crear_mundo_api(self.c, semilla=31, ancho=64, alto=64, conectar_cca=True)
+        self.assertIs(self._meta(nombre)["cerebro_remoto"], True)
+
+    def test_switch_desactivado_persiste_cerebro_remoto_false(self):
+        nombre = crear_mundo_api(self.c, semilla=32, ancho=64, alto=64, conectar_cca=False)
+        self.assertIs(self._meta(nombre)["cerebro_remoto"], False)
+
+    def test_default_sin_switch_es_false(self):
+        nombre = crear_mundo_api(self.c, semilla=33, ancho=64, alto=64)
+        self.assertIs(self._meta(nombre)["cerebro_remoto"], False)
+
+    def test_coexistencia_remoto_y_local(self):
+        remoto = crear_mundo_api(self.c, semilla=34, ancho=64, alto=64, nombre="remoto", conectar_cca=True)
+        local = crear_mundo_api(self.c, semilla=35, ancho=64, alto=64, nombre="local", conectar_cca=False)
+        self.assertIs(self._meta(remoto)["cerebro_remoto"], True)
+        self.assertIs(self._meta(local)["cerebro_remoto"], False)
+
+
 if __name__ == "__main__":
     unittest.main()
-
-
-class TestModeloAlCrear(unittest.TestCase):
     def test_modelo_elegido_al_crear_queda_guardado(self):
         import tempfile
         from fastapi.testclient import TestClient

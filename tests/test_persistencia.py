@@ -136,6 +136,44 @@ class TestPersistencia(unittest.TestCase):
         self.assertTrue(all(np.array_equal(a[n], b[n]) for n in b))
         con.close()
 
+    # ------------------------------------------- modalidad cognitiva por mundo
+    def test_cerebro_remoto_se_persiste_en_meta(self):
+        """La preferencia de modalidad queda en `meta` y sobrevive a cerrar y reabrir."""
+        ruta = mundo_io.crear_mundo(self.dir, 21, 64, 64, tam_celda_m=50, cerebro_remoto=True)
+        con = db.abrir(ruta)
+        self.assertIs(mundo_io.cargar_meta(con)["cerebro_remoto"], True)
+        con.close()
+        con = db.abrir(ruta)  # reabrir: la clave sigue
+        self.assertIs(mundo_io.cargar_meta(con)["cerebro_remoto"], True)
+        con.close()
+
+    def test_cerebro_remoto_por_defecto_false(self):
+        ruta = mundo_io.crear_mundo(self.dir, 22, 64, 64, tam_celda_m=50)
+        con = db.abrir(ruta)
+        self.assertIs(mundo_io.cargar_meta(con)["cerebro_remoto"], False)
+        con.close()
+
+    def test_coexistencia_de_modalidades(self):
+        """Dos mundos en la misma carpeta, uno remoto y otro local, guardan su preferencia."""
+        remoto = mundo_io.crear_mundo(self.dir, 23, 64, 64, tam_celda_m=50, nombre="remoto", cerebro_remoto=True)
+        local = mundo_io.crear_mundo(self.dir, 24, 64, 64, tam_celda_m=50, nombre="local", cerebro_remoto=False)
+        cr = db.abrir(remoto)
+        cl = db.abrir(local)
+        self.assertIs(mundo_io.cargar_meta(cr)["cerebro_remoto"], True)
+        self.assertIs(mundo_io.cargar_meta(cl)["cerebro_remoto"], False)
+        cr.close()
+        cl.close()
+
+    def test_mundo_viejo_sin_clave_no_tiene_cerebro_remoto(self):
+        """Un mundo anterior a la funcionalidad no tiene la clave (compatibilidad)."""
+        ruta = mundo_io.crear_mundo(self.dir, 25, 64, 64, tam_celda_m=50)
+        con = db.abrir(ruta)
+        con.execute("DELETE FROM meta WHERE clave = 'cerebro_remoto'")
+        with con:
+            pass
+        self.assertNotIn("cerebro_remoto", mundo_io.cargar_meta(con))
+        con.close()
+
 
 if __name__ == "__main__":
     unittest.main()

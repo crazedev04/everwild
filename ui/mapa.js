@@ -34,7 +34,7 @@
     return new Tipo(await r.arrayBuffer());
   }
 
-  window.MV_abrirMapa = (nombre, dim) => abrirMundo(nombre, dim);
+  window.App.registrar("terreno", { estado, dibujar, centrar, abrirMapa: (nombre, dim) => abrirMundo(nombre, dim) });
 
   async function cargarListaMundos(elegir) {
     const lista = await json("/api/mundos");
@@ -56,6 +56,9 @@
   }
 
   async function abrirMundo(nombre, dimension) {
+    // Token de carga: si mientras se bajan las capas se pide otro mundo/dimensión,
+    // esta carga queda vieja y no debe escribir el estado (gana la última pedida).
+    const seq = (estado.cargaSeq = (estado.cargaSeq || 0) + 1);
     $("estado").textContent = "Cargando…";
     const d = "?dim=" + (dimension || 0);
     const [meta, elev, temp, hum, bioma, agua, caudal, rasgos] = await Promise.all([
@@ -68,6 +71,7 @@
       bin("/api/mundos/" + nombre + "/capa/caudal" + d, Uint8Array),
       bin("/api/mundos/" + nombre + "/capa/rasgos" + d, Uint8Array),
     ]);
+    if (seq !== estado.cargaSeq) return;   // una carga más nueva ganó: se descarta esta
     estado.nombre = nombre; estado.meta = meta; estado.dimension = dimension || 0;
     estado.capas = { elev, temp, hum, bioma, agua, caudal, rasgos };
     try { localStorage.setItem("mv_mundo", nombre); } catch (e) {}
@@ -77,7 +81,8 @@
     centrar();
     dibujar();
     $("estado").textContent = "";
-    if (window.MV && window.MV.alAbrir) window.MV.alAbrir(nombre, meta, estado.dimension);
+    const vivo = window.App.parte("vivo"); if (vivo && vivo.alAbrir) vivo.alAbrir(nombre, meta, estado.dimension);
+    if (window.RenderIntegracion) RenderIntegracion.despachar(window.App, "alAbrir");   // puente E1 opt-in (?renderer=nuevo)
   }
 
   // ------------------------------------------------------------ pintado
@@ -189,7 +194,7 @@
       for (let j = y0; j <= y1; j++) { ctx.moveTo(x0, j); ctx.lineTo(x1, j); }
       ctx.stroke();
     }
-    if (window.MV && window.MV.sobreMapa) window.MV.sobreMapa(ctx, s, dpr);   // capa en vivo (vivo.js)
+    const vivo = window.App.parte("vivo"); if (vivo && vivo.sobreMapa) vivo.sobreMapa(ctx, s, dpr);   // capa en vivo (render/escena.js vía vivo)
   }
 
   function centrar() {
@@ -370,7 +375,8 @@
       const r = await json("/api/mundos", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: nom || null, semilla: semilla ? parseInt(semilla, 10) : null, ancho: tam, alto: tam,
                                tam_celda_m: TAM_CELDA, modelo: $("in-modelo-nuevo").value.trim() || null,
-                               poblacion: parseInt($("in-poblacion").value, 10) || 4 }) });
+                               poblacion: parseInt($("in-poblacion").value, 10) || 4,
+                               conectar_cca: !!($("in-conectar-cca") && $("in-conectar-cca").checked) }) });
       try { localStorage.setItem("mv_modelo", $("in-modelo-nuevo").value.trim()); } catch (e) {}
       $("nuevo-panel").classList.remove("visible"); $("in-semilla").value = "";
       if ($("in-nombre-nuevo")) $("in-nombre-nuevo").value = "";
@@ -387,7 +393,7 @@
     if (!window.confirm("¿Eliminar el mundo «" + n + "»?\nSe pierde todo (personas, recuerdos, historia) y no se puede deshacer.\nSi querés guardarlo, exportalo antes.")) return;
     $("estado").textContent = "Eliminando…";
     try {
-      if (window.MV && window.MV.desconectar) window.MV.desconectar();
+      const vivo = window.App.parte("vivo"); if (vivo && vivo.desconectar) vivo.desconectar();
       const r = await fetch("/api/mundos/" + encodeURIComponent(n), { method: "DELETE" });
       if (!r.ok) throw new Error((await r.text()) || r.status);
       try { if (localStorage.getItem("mv_mundo") === n) localStorage.removeItem("mv_mundo"); } catch (e) {}
@@ -405,7 +411,6 @@
     $("estado").textContent = "";
   });
   window.addEventListener("resize", () => { if (estado.capas) dibujar(); });
-  window.MVBase = { estado, dibujar, centrar };
 
   // -------------------------------------------------------------- inicio
   (async function iniciar() {

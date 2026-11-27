@@ -32,6 +32,8 @@
   .nuevo-caja h3 { font: 700 20px/1.2 var(--font-display); margin: 0; color: var(--gold); }
   .nuevo-fila { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted); }
   .nuevo-fila input, .nuevo-fila select { width: 100%; }
+  .nuevo-fila input[type="checkbox"] { width: auto; }
+  .nuevo-ayuda { font-size: 11px; color: var(--text-dim); line-height: 1.35; }
 
   /* columna lateral — Strategy Game HUD */
   #lateral { width: clamp(340px, 28vw, 420px); display: flex; flex-direction: column; background: #0b131e;
@@ -408,6 +410,11 @@
       <input id="in-modelo-nuevo" list="lista-modelos" placeholder="ej. qwen3.5:9b">
       <datalist id="lista-modelos"></datalist>
     </div>
+    <div class="nuevo-fila">
+      <label for="in-conectar-cca">Conectar con Cognitive Engine</label>
+      <input id="in-conectar-cca" type="checkbox">
+      <span class="nuevo-ayuda">Si está activado, el mundo usa Cognitive Engine (CCA) como cerebro. Si no, conserva el sistema de cerebros actual.</span>
+    </div>
     <div class="spawn-botones">
       <button id="btn-cancelar-nuevo">Cancelar</button>
       <button class="primario" id="btn-crear">Generar Continente</button>
@@ -451,8 +458,40 @@
   <p id="carga-error"></p>
 </div>
 
+<script src="/ui/race-util.js"></script>
+<script src="/ui/render-util.js"></script>
+<script src="/ui/core/app.js"></script>
 <script src="/ui/sprites.js"></script>
+<script src="/ui/render/escena.js"></script>
 <script src="/ui/mapa.js"></script>
 <script src="/ui/vivo.js"></script>
+<script src="/ui/render/worldview.js"></script>
+<script src="/ui/render/adaptador.js"></script>
+<script src="/ui/render/renderer.js"></script>
+<script src="/ui/render/capa_terreno.js"></script>
+<script src="/ui/render/capa_agua.js"></script>
+<script src="/ui/render/capa_volcanes.js"></script>
+<script src="/ui/render/capa_caminos.js"></script>
+<script src="/ui/render/capa_ambiente.js"></script>
+<script src="/ui/render/capa_entidades.js"></script>
+<script src="/ui/render/capa_fuego.js"></script>
+<script src="/ui/render/capa_luz.js"></script>
+<script src="/ui/render/integracion.js"></script>
+<script>
+// Renderer definitivo (E1) opt-in: se activa con ?renderer=nuevo y coexiste con el
+// renderer viejo (escena.js). Sin el flag, la app funciona igual que antes.
+(function () {
+  if (!window.RenderIntegracion || !RenderIntegracion.activoFlag()) return;
+  function arrancar() {
+    var parent = document.getElementById("lienzo-caja") || document.getElementById("lienzo").parentElement;
+    RenderIntegracion.crearPuente({
+      App: window.App, parent: parent,
+      requestFrame: function (cb) { return requestAnimationFrame(cb); }
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancar);
+  else arrancar();
+})();
+</script>
 </body>
 </html>

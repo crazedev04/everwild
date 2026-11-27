@@ -1,5 +1,172 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Circuito de supervivencia remoto (energía canónica + comida)
+
+### Arreglado
+- **Contrato de energía `energia` → `energy`**: la observación remota ahora manda el estado fisiológico de energía con el nombre canónico del contrato (`energy`, el de CE) en vez del interno `energia`. MV conserva `energia` internamente y el adaptador lo traduce al enviar, eliminando la necesidad fantasma en cero que CE mantenía y que dominaba la selección de objetivos sin poder satisfacerse (el planificador caía a `wait`). Sin duplicar estado ni crear alias.
+- **Percepción de comida**: `_hechos` emite un hecho de comida (`satisfies=["hambre"]`, posición, `entity_type="food"`) sólo cuando hay alimento real y accesible —en el inventario (`en_mano=True`) o juntable en el lugar (`en_mano=False`)—. No declara comida inexistente y no toca los hechos de agua/fuego/compañía.
+
+### Verificación
+- Tests nuevos en `tests/test_cerebro_remoto.py`: energía viaja como `energy` sin `energia`; hecho de comida con/sin fantasma; `eat` con comida en mano → `comer` real baja el hambre y el resultado `accepted` llega a CE; comer sin comida se rechaza sin recuperación ficticia. 54 tests remotos pasan; suites spawn/alimentación/social/procedencia/fauna 128 pasan (fix de spawn preservado).
+- E2E descartable 4 habitantes contra CE real: 4/4 registrados y vivos, contrato `energy` correcto, 160 hechos de comida reales, 0 errores de transporte. La tabla `needs` de CE confirma `energy` sincronizada (=80) y **sin** fila `energia` para los cerebros nuevos.
+- Pendiente: el E2E de alimentación completo (CE proponiendo `eat`) depende de la capacidad `eat` del lado CE, fuera del alcance de esta tarea (sólo MV).
+
+## Sin publicar — Modalidad cognitiva por mundo (switch CCA)
+
+### Nuevo
+- **Switch "Conectar con Cognitive Engine" en el modal de creación**: activado, el mundo nace configurado para usar Cognitive Engine (CCA) como cerebro; desactivado (por defecto), conserva el sistema de cerebros actual. La preferencia queda en `meta.cerebro_remoto` del propio mundo, así sobrevive a reinicios y a exportar/importar, y permite coexistencia de mundos locales y remotos.
+- **Precedencia por mundo**: si `meta.cerebro_remoto` está definido, manda sobre el entorno (`MUNDO_VIVO_CEREBRO`); si no (mundo viejo), se mantiene el comportamiento anterior por entorno. `crear_cerebro` implementa esta precedencia.
+- **Sin credenciales en el frontend**: el switch no expone tokens; la conexión usa `CCA_URL`/`CCA_TOKEN`/`CCA_TOKEN_ADMIN` del entorno. No se crean conexiones al crear el mundo (no bloquea); el alta en CE ocurre al abrir el mundo, como ya lo hacía la integración remota.
+
+### Verificación
+- Tests nuevos: persistencia de la clave en `meta` (default `False`, `True`, mundo viejo sin clave), coexistencia de dos mundos con preferencias opuestas, y `crear_cerebro` eligiendo CCA vs. sistema actual según la precedencia (remoto/local/viejo + coexistencia). API: `conectar_cca` persiste y coexiste. 38 tests remotos + 29 tests persistencia/API (con shim del import preexistente roto `motor.generador`).
+
+## Sin publicar — CE autorización dinámica de cerebros
+
+### Arreglado
+- **Autorización dinámica del token restringido**: al crear o verificar un cerebro remoto, Mundo Vivo solicita al cliente administrativo que conceda acceso al token restringido sobre ese `brain_id`. El registro no se informa como exitoso hasta completar la concesión; los fallos quedan como `error` reintentable. El token restringido permanece en memoria y no se registra.
+- **Compatibilidad de token único**: si no se configura `CCA_TOKEN_ADMIN`, se conserva el comportamiento previo con un cliente total y no se emite una autorización innecesaria. `404 unknown_token` se trata como error sin exponer el token.
+
+### Verificación
+- Pruebas aisladas: creación 201, verificación 409, idempotencia de reapertura, inmigrante, fallo reintentable, token ausente, token único y persistencia `cerebros_ce`. No se ejecutó E2E real contra CE.
+
+## Sin publicar — CE registro directo de cerebros (modo remoto)
+
+### Nuevo
+- **Alta de cerebros en CE al crear el mundo (modo remoto)**: al abrir un mundo, `CerebroCognitivoRemoto.inicializar` recorre todas las dimensiones/habitantes y registra cada cerebro en CE con `POST /brains` (contrato real: `{brain_id, name, personality?{cautiousness,sociability,curiosity,persistence}}`). `brain_id` estable `<world_uid>:d<dim>:h<id>`. Los inmigrantes (`spawn`) se registran al llegar. No se crea ningún cerebro cognitivo local paralelo.
+- **Autenticación separada**: cliente **admin** (`CCA_TOKEN_ADMIN`, acceso total `*`) para crear/listar cerebros; cliente **restringido** (`CCA_TOKEN`) para el ciclo por cerebro (observaciones/resultados/ACK/propuestas). Si no hay `CCA_TOKEN_ADMIN`, reutiliza el restringido. El token admin no se reparte ni se registra en logs.
+- **409 con verificación de identidad**: un `brain_exists` no es éxito ciego; se comprueba (`GET /brains/{id}`) que coincida `brain_id` y `name` antes de darlo por registrado; si difiere, es error y no se sobrescribe.
+- **Estado de inicialización persistido** (tabla `cerebros_ce`): por cerebro (`registrado|ya_existia|pendiente|error`), para reanudar el alta sin duplicar y no reportar un mundo como "todo registrado" ante fallos. Reintento idempotente en la próxima apertura.
+- **Contrato de propuestas**: `action_type` y `parameters` se leen de `proposal["payload"]` (estructura real de CE), con respaldo a nivel superior.
+
+### Verificación
+- Tests aislados con cliente simulado (sin CE real): registro de todos, ids estables, 409 mismo/distinto cerebro, reintentos de conexión, desconexión no bloqueante, admin/restringido separados, sin DB cognitiva local, payload de propuesta, ACK diferido y recuperación (26 tests). Regresión embebida intacta (29 tests).
+- Pendiente: E2E real contra CE operativo (`feat/creacion-remota-cerebros`).
+
+## Sin publicar — CCA remoto: recepción robusta de propuestas
+
+### Arreglado
+- **Pérdida silenciosa de propuestas por ACK prematuro (alto)**: el ACK se enviaba tras *encolar* el resultado (no tras enviarlo); si Mundo Vivo se cerraba antes de que el emisor mandara el resultado, CCA ya había marcado ACKNOWLEDGED y dejaba de reenviar ⇒ propuesta y resultado perdidos. Ahora el **ACK sólo se envía cuando el emisor confirma el envío exitoso del resultado** (`send_result` OK → `ack`). Recibir/entregar una propuesta ya no confirma.
+- **Doble ejecución por reentrega**: `propuesta_disponible` saltea y marca `proposal_id` ya ejecutados; una reentrega de la misma propuesta no vuelve a disparar la acción.
+- **Cierre con trabajo pendiente**: `cerrar()` vacía la cola (reintento final) tras unir el emisor; un resultado encolado no se descarta en silencio.
+- Recuperación ante reinicio: al no confirmar hasta el envío del resultado, una propuesta recibida pero no consumida queda DELIVERED (no-ACK) y CCA la reexpone en `pending_proposals` ⇒ se recupera sin persistencia local nueva.
+
+### Verificación
+- Modo remoto no instancia Service/Repository/Runtime/scheduler ni abre DB cognitiva local (test dedicado). Usa sólo `CcaClient`. Reintentos conservan `client_id/brain_id/client_seq` (msg_id idempotente).
+- Tests (`tests/test_cerebro_remoto.py`, 14): ACK diferido, no-ACK en recepción, multi-propuesta sin sobrescritura, recepción duplicada, no doble ejecución, cierre con pendientes, resultado correlacionado, no-DB-local, E2E real.
+
+### Pendiente / bloqueo
+- El repo hermano `../Cognitive Engine` **no está en `feat/distribution`** (actual `docs/readme-actualizacion` @ `00d21c1`); no se tocó (lectura). Para activar remoto seguro hace falta: servicio CCA en la rama de distribución con cerebros migrados, `CCA_URL`/`CCA_TOKEN`, y retirar imports internos del embebido.
+
+## Sin publicar — Integración remota de Cognitive Engine (CCA)
+
+### Nuevo
+- **Modo remoto** `MUNDO_VIVO_CEREBRO=remoto`: la cognición corre en un servicio CCA (distribución rama `feat/distribution`, instalación editable). No elimina el modo embebido (`cognitivo`, por defecto). El modo remoto no abre/escribe la DB cognitiva local.
+- **`MundoVivoRemoteAdapter`** (`agentes/remote/cca_adapter.py`): usa sólo la API pública `CcaClient`. Hilo emisor con cola acotada (el tick no espera), consumidor de propuestas por `pending_proposals` con caché por habitante, `client_seq` monótono e idempotente en reintentos, ACK. Sin instanciar Service/Runtime/Repository/scheduler.
+- **`CerebroCognitivoRemoto`** (`agentes/cerebro_cognitivo_remoto.py`): reutiliza la traducción de dominio de `CerebroCognitivo`; encola observación y lee propuesta cacheada (o `esperar`); rechaza propuestas obsoletas; correlaciona resultados por `proposal_id`.
+- Ciclo de vida: `crear_cerebro` remoto en `api/vivo.py`; `Ejecutor.cerrar` cierra el cerebro (une hilos).
+- Tests (`tests/test_cerebro_remoto.py`, 7): no bloqueo, secuencia, reintento sin duplicar, caché/ACK, cierre, resultado correlacionado e **integración real** contra `CcaHttpServer`. Regresión embebida: `test_cerebro_cognitivo`+`test_aislamiento_cognitivo` (42) y `test_vivo` (5) verdes.
+- Docs: `docs/CCA_REMOTO.md` (instalación reproducible, arquitectura, limitaciones).
+
+### Pendiente
+- Migración de cerebros al repositorio del servicio (operación separada, no destructiva). Retirar imports internos de CCA del modo embebido en etapa posterior. Servicio CCA con cerebros migrados + `CCA_URL`/`CCA_TOKEN` para activar remoto.
+
+## Sin publicar — E7: volcanes y lava
+
+### Nuevo
+- **Capa de volcanes/lava** `ui/render/capa_volcanes.js`: bitmap 1 px/celda de **lava persistente** desde `WorldView.terreno.rasgos` (bit `RASGO_LAVA = 2`, fuente `motor/biomas`). Lava solidificada en basalto; resto transparente. Caché por identidad (`rasgos`,dims); `draw` pinta sólo lo visible; no muta la vista.
+- **Composición** (`ui/render/integracion.js`): orden `[terreno, agua, volcanes, caminos, ambiente, entidades, luz, fuego]`. Opt-in.
+- Tests (7 nuevos; 106/106 JS): lava válida (bit 2 sí, bit 1 cascada no)/ausente/longitud inválida/caché/cambio de mundo/clipping por `vis`/no mutación.
+
+### Pendiente (sin datos suficientes)
+- **Volcán puntual, erupción y lava dinámica (activa vs solidificada)**: el mundo **no publica** lista de volcanes, estado de erupción ni lava dinámica (sólo el rasgo estático `RASGO_LAVA` y la elevación). Representarlos exigiría un contrato/dato nuevo; no se inventaron ni se tocó el motor.
+
+## Sin publicar — E6: fuego activo e iluminación ambiental
+
+### Nuevo
+- **Capa de fuego activo** `ui/render/capa_fuego.js`: dibuja focos en combustión desde `WorldView.fuego` (lista real `[[x,y,intensidad],...]`, fuente `motor/fuego.celdas_activas`). Color según intensidad (rojo→amarillo). Efecto **transitorio** (el quemado/ceniza persistente sigue en `capa_ambiente`). Culling; caché por identidad; no inventa focos.
+- **Capa de iluminación** `ui/render/capa_luz.js`: velo de oscuridad de pantalla completa (en coords de mundo, respeta cámara/clipping) según `WorldView.clima.luz` (0..1, 1 = día). `luz` ausente ⇒ no dibuja; día pleno ⇒ sin velo. Sin cálculo por entidad.
+- **Composición** (`ui/render/integracion.js`): orden final `[terreno, agua, caminos, ambiente, entidades, luz, fuego]` — la iluminación oscurece terreno y entidades, el fuego activo queda por encima y visible de día y de noche. Opt-in.
+- Tests (8 nuevos; 99/99 JS): fuego (válido/ausente/culling/caché/cambio/no mutación), luz (noche/día/ausente) y composición (entidades < fuego < luz).
+
+### Excluido
+- **Tormentas / viento**: existen en `estado` (`tormentas`, `viento`) pero sin datos espaciales por celda suficientes para representarlos sin inventar; se excluyen.
+
+### Pendiente
+- Desgaste de intensidad (falta endpoint). `WorldDelta`/`applyDelta` reservados.
+
+## Sin publicar — E5: caminos y composición de capas
+
+### Nuevo
+- **Capa de caminos** `ui/render/capa_caminos.js`: dibuja las celdas de sendero desde `WorldView.senderos` (lista real `[[x,y],...]`, fuente `motor/senderos.publico_senderos`). Marcador de tierra apisonada; culling por `frame.vis`; caché por identidad del arreglo; no muta la vista. **No implementa desgaste**: sólo representa las celdas que el dato publica.
+- **Composición** (`ui/render/integracion.js`): orden de capas `[terreno, agua, caminos, ambiente, entidades]` — caminos sobre terreno/agua, bajo nieve/ceniza y entidades. Sigue opt-in.
+- Tests (7 nuevos; 91/91 JS): caminos (válidos/ausentes/culling/caché/cambio de mundo/no mutación) y composición (orden drawImage terreno/agua < fillRect caminos < drawImage ambiente < arc entidades).
+
+### Pendiente
+- **Desgaste del terreno (intensidad)**: el motor tiene `desgaste` (`senderos.desgaste_bytes`) pero **no hay endpoint** que lo publique; falta ese contrato para representar intensidad. No se modificó el motor para generarlo.
+- Capa de fuego/iluminación/efectos; `WorldDelta`/`applyDelta` reservados.
+
+## Sin publicar — E4: capas de agua y estados ambientales
+
+### Nuevo
+- **Capa de agua** `ui/render/capa_agua.js`: bitmap 1 px/celda desde `WorldView.terreno.agua` (códigos reales 0 ninguna / 1 océano / 2 lago / 3 río) y `caudal` (0-255, sólo ríos: más caudal ⇒ más opaco). Código 0 o inválido ⇒ transparente (no engaña). Caché por identidad de buffers (`agua`,`caudal`,dims); `draw` pinta sólo lo visible.
+- **Capa de ambiente** `ui/render/capa_ambiente.js`: nieve y ceniza/quemado desde `WorldView.mapas_dinamicos.nieve/quemado` (0-255). 0 ⇒ transparente; ausente/inválido ⇒ no dibuja. Un bitmap alfa por mapa, caché por identidad; no muta la vista.
+- **Integración** (`ui/render/integracion.js`): orden de capas `[terreno, agua, ambiente, entidades]` (agua y ceniza/nieve sobre el terreno, bajo las entidades). Los dinámicos se bajan **una vez por mundo/dimensión** desde `/dinamico/{nieve,quemado}` (deflate) y se inyectan sin mutar las capas del terreno; si no hay `fetch`/`DecompressionStream`, quedan null (no dibuja). Sigue opt-in (`?renderer=nuevo`); el loop por defecto no se toca.
+- Tests (12 nuevos; 84/84 JS): agua (válida/ausente/longitud inválida/caché/cambio de mundo/no mutación) y ambiente (válida/ausente/inválida/caché/cambio/no mutación).
+
+### Pendiente
+- `fuego` (lista) e iluminación/efectos aún sin capa dedicada. `WorldDelta`/`applyDelta` siguen reservados.
+
+## Sin publicar — E3: capas de entidades (estructuras, habitantes, fauna)
+
+### Nuevo
+- **Capa de entidades** `ui/render/capa_entidades.js`: dibuja estructuras, habitantes y fauna en un único **Y-sort** (Y ascendente; desempate estructura<fauna<habitante y luego por id/inst estable) desde `WorldView`, con culling por `frame.vis` y radio `r=max(0.35, 5/lod)`. Consume sólo datos reales; no inventa posiciones ni atributos; cachea la lista por identidad de `WorldView` y no muta la vista. Estética provisional (marcadores): estructuras como rect (ruina en tono apagado), habitantes como círculo `COLORES[color]` (muerto en gris, `en_fuego` con anillo), fauna como punto.
+- **Integración** (`ui/render/integracion.js`): inyecta `COLORES` (misma paleta que `vivo.js`) y pasa `[capa_terreno, capa_entidades]` al renderer (terreno primero, entidades después). Sigue opt-in (`?renderer=nuevo`).
+- **Adaptación de datos reales** (`ui/render/worldview.js`): `estructurasDesdeEstado` consume los triples reales `[x,y,tipo]` de `refugios`/`ruinas` (marca `ruina` por pertenencia al subconjunto `ruinas`; compatibilidad con objetos) y `faunaDesdeEstado` acepta los triples `[inst,x,y]` del feed vivo (además de objetos). Sin ids/atributos inventados.
+- Tests (8 nuevos; 72/72 JS): formatos reales en `worldview` (estructuras triples+ruina, fauna triples) y `capa_entidades` (Y-sort, color/muerto, culling, ausencia de datos, no mutación, reconstrucción por cambio de mundo).
+
+### Pendiente
+- Vegetación por entidad: el feed vivo no publica flora individual (requeriría mapeo bioma→flora o sprites, aún no). Iluminación/efectos y `WorldDelta`/`applyDelta` siguen reservados.
+
+## Sin publicar — E2-FIX: caché del bitmap de terreno
+
+### Arreglado
+- **Reconstrucción innecesaria del bitmap (medio)**: `capa_terreno` memoiza el bitmap por **identidad** de `bioma` + `paleta` + `ancho/alto`. `setWorldView` (~10 Hz) reutiliza el bitmap cuando las entradas no cambian; reconstruye sólo si cambia la referencia del buffer, la paleta o las dimensiones. Válido bajo el contrato de no mutación externa de buffers entregados (§4.4): la identidad implica contenido. Evita reconstruir hasta 4 M px por estado.
+- Tests (5 nuevos; 64/64): reutilización con mismo buffer/paleta/dims, reconstrucción por nueva ref/paleta/dims, biomas no modificados y resultado visual idéntico. Probe en navegador: 1 build tras 5 estados iguales, 2 tras nueva referencia.
+
+## Sin publicar — E2: primera representación visual real (terreno)
+
+### Nuevo
+- **Capa de terreno** `ui/render/capa_terreno.js`: bitmap 1 px/celda desde `WorldView.terreno.bioma` + paleta inyectada; `draw` pinta sólo la porción visible (`frame.vis`). Datos ausentes/inválidos ⇒ no dibuja (no engaña); bioma sin color ⇒ magenta.
+- **Renderer con capas y cámara** (`ui/render/renderer.js`): `crear(..., {capas})`, `setPaleta(pal)` (inyectada por el adaptador, el renderer no conoce REST), y `dibujar` aplica transform de cámara `s=z·dpr` y pasa `frame{cam,vis,lod,w,h,dpr,t}` a cada capa en orden. `hitTest` intacto.
+- **Integración** (`ui/render/integracion.js`): obtiene paleta de `/api/biomas` y la inyecta; arma `capa_terreno` y la pasa al renderer. Sigue opt-in (`?renderer=nuevo`).
+- Tests (5 nuevos; 59/59): construcción de bitmap con paleta (little-endian), dibujo sólo de lo visible, ausencia/invalidéz no dibuja, magenta por defecto, y `draw` con cámara/viewport/vis.
+
+### Pendiente
+- Capas de profundidad (estructuras/habitantes/fauna/vegetación-sprite), agua/nieve/ceniza, senderos, iluminación y efectos (E3+). `WorldDelta`/`applyDelta` siguen reservados (sin contrato autoritativo).
+
+## Sin publicar — E1-FIX: integración y ciclo de vida del renderer
+
+### Arreglado
+- **Doble renderer sobre el mismo canvas (alto)**: el puente E1 ya no dibuja sobre `#lienzo`; crea un **canvas experimental propio** (`#lienzo-exp`, superpuesto, `pointer-events:none`, fondo transparente) dentro de `#lienzo-caja`. El renderer anterior sigue visible e intacto y no hay doble escritura. Ciclo de vida explícito: `puente.destroy()` destruye el renderer y **remueve el canvas**; inicializar dos veces no duplica canvas (destruye el anterior).
+- **Clear en HiDPI**: `renderer.setViewport` dimensiona el backing store a `CSS*dpr` (dimensiones CSS y físicas separadas) y `dibujar` limpia en px de dispositivo; el canvas experimental usa `clearRect` (transparente). Evita clear incompleto y doble escalado con `devicePixelRatio > 1`.
+- **Cambio de mundo**: `setWorldView` limpia la selección al cambiar `worldId`/`dimension` (no arrastra estado transitorio).
+
+### Nuevo
+- Hooks de integración unificados en `RenderIntegracion.despachar(App, evento, arg)` (no-op sin puente; reenvía si existe), usados por `mapa.js`/`vivo.js`.
+- Tests de integración (8 nuevos; 54/54 JS): despachar no-op/reenvío, canvas propio sin compartir `#lienzo`, no duplicados, destroy libera canvas+renderer, cambio de mundo con viewport HiDPI, clear HiDPI y reset de selección.
+
+## Sin publicar — E1: fundamentos del renderer definitivo
+
+### Nuevo
+- **Núcleo del renderer Canvas 2D (E1)** desacoplado de DOM/REST/WS en `ui/render/`: `worldview.js` (modelo/normalización de `WorldView` provisional, identidad real `id`/`inst`, ausente ⇒ `null`), `adaptador.js` (adaptador provisional con `buildGen`: descarta ciclos viejos, reemplazo completo, fallo parcial no entrega, cambio de mundo = ciclo nuevo), `renderer.js` (API §6.1 `crear/setWorldView/setCam/setViewport/setCapas/setSeleccion/pedirRender/setActivo/destroy/hitTest`; `applyDelta` reservada; loop on-demand con `RaceRender.crearPlanificador` + cola de procesamiento con presupuesto).
+- **Integración opt-in** `ui/render/integracion.js`: se activa con `?renderer=nuevo` (o `localStorage.mv_renderer=nuevo`), reutiliza capas/meta de `terreno` y el estado de `vivo`; el renderer viejo (`escena.js`) queda intacto y **desactivar** = quitar el flag. Hooks guardados en `mapa.js`/`vivo.js` (no-op sin el puente).
+- `RaceRender.crearPlanificador` incorpora `cancelar()` para que `destroy` libere el rAF pendiente.
+- Tests de regresión JS (23 nuevos, 46/46): descarte de ciclos viejos, reemplazo completo, fallo parcial, cambio de mundo/dimensión, invalidaciones/deduplicación de frames, continuación con trabajo pendiente, suspensión, `hitTest` sin render, limpieza por `destroy`.
+
+### Pendiente
+- Sin `authoritativeRev` (el backend no lo provee): la cola autoritativa y `applyDelta` quedan deshabilitadas; E1 no dibuja capas visuales (terreno/sprites en E2+).
+
 ## Sin publicar — Desacoplamiento estructural y modularización total
 
 ### Nuevo

@@ -138,7 +138,9 @@
   let tipos = [];
   async function recargar() {
     if (!nombre) { $("lista").innerHTML = "<div class='vacio'>No hay mundos disponibles. Forjá uno desde la pantalla del mapa.</div>"; $("mas").style.display = "none"; return; }
-    const r = await json("/api/mundos/" + nombre + "/eventos?limite=300" + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    const n = nombre;   // mundo pedido; si cambia mientras llega la respuesta, se descarta
+    const r = await json("/api/mundos/" + n + "/eventos?limite=300" + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    if (n !== nombre) return;
     tipos = r.tipos;
     if (!eventos.length) {
       eventos = r.eventos;
@@ -209,8 +211,10 @@
 
   $("mas").addEventListener("click", async () => {
     if (!eventos.length) return;
+    const n = nombre;
     const antes = eventos[eventos.length - 1].id;
-    const r = await json("/api/mundos/" + nombre + "/eventos?limite=300&antes_id=" + antes + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    const r = await json("/api/mundos/" + n + "/eventos?limite=300&antes_id=" + antes + (tipo ? "&tipo=" + encodeURIComponent(tipo) : ""));
+    if (n !== nombre) return;   // cambió el mundo: no mezclar páginas históricas
     eventos = eventos.concat(r.eventos); hayMas = r.eventos.length === 300; pintar();
   });
   $("sel-mundo").addEventListener("change", (e) => { nombre = e.target.value; $("link-mapa").href = "/?mundo=" + nombre; ultimo = ""; recargar(); });

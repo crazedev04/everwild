@@ -170,10 +170,24 @@ def elegir_inicio(capas: dict, tam_celda_m: float = 50.0) -> Tuple[int, int]:
     for x, y in cand[:MAX_CANDIDATOS_INICIO]:
         if t.componente(x, y) < MIN_ZONA_CONECTADA:
             continue
-        if _orilla_alcanzable(t, x, y, presupuesto) is None:
+        orilla = _orilla_alcanzable(t, x, y, presupuesto)
+        if orilla is None:
             continue  # no hay agua realmente alcanzable por A*: no es habitable
-        return x, y
-    return cand[0]
+        # Se devuelve la ORILLA (tierra con agua dulce adyacente y enrutable), no el candidato:
+        # el candidato puede estar a hasta 3 celdas del agua sin ser adyacente él mismo, y entonces
+        # los fundadores aparecían sin poder beber (morían de sed junto al agua). La orilla garantiza
+        # `_agua_adyacente_dulce` en el punto de partida.
+        return orilla
+    # Ningún candidato pasó los filtros de zona conectada + orilla enrutable. Último recurso:
+    # devolver tierra caminable con agua dulce ADYACENTE (aunque la zona sea chica), nunca un
+    # punto sin agua al lado. Si no existe ni eso, el mundo no es habitable y se avisa.
+    for wy, wx in zip(ys, xs):
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                x, y = int(wx) + dx, int(wy) + dy
+                if t.dentro(x, y) and t.caminable(x, y) and _agua_adyacente_dulce(t, x, y):
+                    return x, y
+    raise ValueError("No se encontró un lugar habitable con agua dulce adyacente.")
 
 
 def composicion_inicial(rng) -> List[dict]:

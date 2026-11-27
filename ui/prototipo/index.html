@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everwild — Prototipo de renderer 2D (Etapa 3A)</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b0f14; color: #e7edf3;
+    font: 13px/1.4 system-ui, sans-serif; overflow: hidden; }
+  #lienzo { display: block; width: 100vw; height: 100vh; cursor: grab; }
+  #panel { position: fixed; top: 10px; left: 10px; z-index: 10; max-width: 320px;
+    background: rgba(12,18,26,.82); border: 1px solid #243040; border-radius: 10px;
+    padding: 10px 12px; backdrop-filter: blur(6px); }
+  #panel h1 { font-size: 13px; margin: 0 0 6px; letter-spacing: .3px; color: #9fd0ff; }
+  #panel .fila { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  #panel label { flex: 0 0 auto; opacity: .85; }
+  #panel input[type=range] { flex: 1; }
+  #panel .capas { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin-top: 6px; }
+  #panel .capas label { display: flex; gap: 4px; align-items: center; font-size: 12px; }
+  #hud { position: fixed; bottom: 10px; left: 10px; z-index: 10; font: 12px/1.5 ui-monospace, monospace;
+    background: rgba(12,18,26,.8); border: 1px solid #243040; border-radius: 8px; padding: 6px 10px;
+    white-space: pre; opacity: .92; }
+  button { background: #1b2735; color: #cfe3ff; border: 1px solid #2c3e52; border-radius: 6px;
+    padding: 3px 8px; cursor: pointer; font: inherit; }
+  button:hover { background: #24384c; }
+  #capas-tit { margin-top: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; opacity: .6; }
+</style>
+</head>
+<body>
+  <canvas id="lienzo"></canvas>
+  <div id="panel">
+    <h1>Everwild · prototipo renderer 2D</h1>
+    <div class="fila"><label>Zoom</label><input id="zoom" type="range" min="0.5" max="16" step="0.1" value="2"><span id="zoomv">2.0×</span></div>
+    <div class="fila"><button id="regenerar">Nuevo mundo</button><button id="mutar">Mutar terreno</button><button id="pausa">Pausar</button></div>
+    <div id="capas-tit">Capas</div>
+    <div class="capas">
+      <label><input type="checkbox" data-capa="vegetacion" checked> Vegetación</label>
+      <label><input type="checkbox" data-capa="estructuras" checked> Construcciones</label>
+      <label><input type="checkbox" data-capa="entidades" checked> Entidades</label>
+      <label><input type="checkbox" data-capa="sombras" checked> Sombras</label>
+      <label><input type="checkbox" data-capa="efectos" checked> Efectos</label>
+      <label><input type="checkbox" data-capa="overlay" checked> Overlay</label>
+    </div>
+  </div>
+  <div id="hud">cargando…</div>
+  <script src="./layers.js"></script>
+  <script src="./prototipo.js"></script>
+</body>
+</html>
