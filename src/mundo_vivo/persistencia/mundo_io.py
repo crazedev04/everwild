@@ -263,9 +263,16 @@ def crear_dimension(con: sqlite3.Connection, ident: str, semilla: Optional[int] 
 
 
 def crear_mundo(dir_mundos: Path, semilla: int, ancho: int = ANCHO_POR_DEFECTO, alto: int = ANCHO_POR_DEFECTO,
-                tam_celda_m: int = TAM_CELDA_POR_DEFECTO, nombre: Optional[str] = None, progreso=None) -> Path:
+                tam_celda_m: int = TAM_CELDA_POR_DEFECTO, nombre: Optional[str] = None, progreso=None,
+                cerebro_remoto: bool = False) -> Path:
     """Genera un mundo nuevo en un archivo NUEVO dentro de dir_mundos.
-    `progreso(fraccion, texto)` sirve para la pantalla de carga: generar 2048×2048 lleva más de un minuto."""
+
+    `progreso(fraccion, texto)` sirve para la pantalla de carga: generar 2048×2048 lleva más de un minuto.
+
+    `cerebro_remoto` deja asentada la modalidad cognitiva del mundo en `meta`
+    (clave `cerebro_remoto`): `True` conecta a CCA, `False` conserva los cerebros
+    actuales. Se persiste para que sobreviva a reinicios y a exportar/importar.
+    """
     dir_mundos = Path(dir_mundos)
     dir_mundos.mkdir(parents=True, exist_ok=True)
     base = nombre or "mundo_%d" % semilla
@@ -281,11 +288,13 @@ def crear_mundo(dir_mundos: Path, semilla: int, ancho: int = ANCHO_POR_DEFECTO, 
     try:
         guardar_mundo(con, mundo, nombre=ruta.stem)
         world_uid(con)                                   # identidad cognitiva persistente del mundo
+        guardar_meta(con, cerebro_remoto=bool(cerebro_remoto))  # modalidad cognitiva por mundo
         from ..agentes import ajustes as _aj
         _aj.guardar(con, {"modulos": {"hambre": True}})     # los mundos nuevos nacen con hambre
         registrar_evento(con, 480, "mundo_creado", origen="sistema", importancia=5,
                          texto="Se creó el mundo con semilla %d (generador %s)." % (semilla, VERSION_GENERADOR),
-                         datos={"semilla": semilla, "ancho": ancho, "alto": alto})
+                         datos={"semilla": semilla, "ancho": ancho, "alto": alto,
+                                "cerebro_remoto": bool(cerebro_remoto)})
     finally:
         con.close()
     return ruta

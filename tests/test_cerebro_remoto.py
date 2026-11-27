@@ -652,3 +652,106 @@ def test_sin_token_admin_reutiliza_cliente_restringido():
         assert a._token_admin_configurado is False
     finally:
         a.cerrar()
+
+
+# ---------------------------------------------------------------------------
+# Precedencia de la modalidad cognitiva por mundo (crear_cerebro)
+# ---------------------------------------------------------------------------
+
+def _crear_mundo(tmp_path, semilla, *, cerebro_remoto=None):
+    """Mundo real en un archivo; `cerebro_remoto=None` simula un mundo viejo sin la clave."""
+    from mundo_vivo.persistencia import db, mundo_io
+    ruta = mundo_io.crear_mundo(tmp_path, semilla, 64, 64, tam_celda_m=50,
+                                cerebro_remoto=bool(cerebro_remoto) if cerebro_remoto is not None else False)
+    if cerebro_remoto is None:
+        con = db.abrir(ruta)
+        try:
+            with con:
+                con.execute("DELETE FROM meta WHERE clave = 'cerebro_remoto'")
+        finally:
+            con.close()
+    return ruta
+
+
+def test_crear_cerebro_mundo_remoto_usa_cca(tmp_path, monkeypatch):
+    from mundo_vivo.api.vivo import crear_cerebro
+    from mundo_vivo.persistencia import db
+    monkeypatch.delenv("MUNDO_VIVO_CEREBRO", raising=False)
+    ruta = _crear_mundo(tmp_path, 41, cerebro_remoto=True)
+    con = db.abrir(ruta)
+    try:
+        cerebro = crear_cerebro(con)
+        try:
+            assert cerebro.nombre.startswith("cognitive engine remoto")
+        finally:
+            cerebro.cerrar()
+    finally:
+        con.close()
+
+
+def test_crear_cerebro_mundo_local_ignora_entorno_remoto(tmp_path, monkeypatch):
+    """cerebro_remoto=false manda: usa el sistema actual aunque el entorno pida remoto."""
+    from mundo_vivo.api.vivo import crear_cerebro
+    from mundo_vivo.persistencia import db
+    monkeypatch.setenv("MUNDO_VIVO_CEREBRO", "remoto")
+    ruta = _crear_mundo(tmp_path, 42, cerebro_remoto=False)
+    con = db.abrir(ruta)
+    try:
+        cerebro = crear_cerebro(con)
+        assert not cerebro.nombre.startswith("cognitive engine remoto")
+    finally:
+        con.close()
+
+
+def test_crear_cerebro_mundo_remoto_ignora_entorno_local(tmp_path, monkeypatch):
+    """cerebro_remoto=true manda: usa CCA aunque el entorno pida cognitivo."""
+    from mundo_vivo.api.vivo import crear_cerebro
+    from mundo_vivo.persistencia import db
+    monkeypatch.setenv("MUNDO_VIVO_CEREBRO", "cognitivo")
+    ruta = _crear_mundo(tmp_path, 43, cerebro_remoto=True)
+    con = db.abrir(ruta)
+    try:
+        cerebro = crear_cerebro(con)
+        try:
+            assert cerebro.nombre.startswith("cognitive engine remoto")
+        finally:
+            cerebro.cerrar()
+    finally:
+        con.close()
+
+
+def test_crear_cerebro_mundo_viejo_respeta_entorno(tmp_path, monkeypatch):
+    """Mundo sin la clave: comportamiento anterior (override global)."""
+    from mundo_vivo.api.vivo import crear_cerebro
+    from mundo_vivo.persistencia import db
+    monkeypatch.setenv("MUNDO_VIVO_CEREBRO", "remoto")
+    ruta = _crear_mundo(tmp_path, 44, cerebro_remoto=None)
+    con = db.abrir(ruta)
+    try:
+        cerebro = crear_cerebro(con)
+        try:
+            assert cerebro.nombre.startswith("cognitive engine remoto")
+        finally:
+            cerebro.cerrar()
+    finally:
+        con.close()
+
+
+def test_crear_cerebro_coexistencia_remoto_y_local(tmp_path, monkeypatch):
+    """Dos mundos con preferencias opuestas eligen modos distintos en la misma corrida."""
+    from mundo_vivo.api.vivo import crear_cerebro
+    from mundo_vivo.persistencia import db
+    monkeypatch.delenv("MUNDO_VIVO_CEREBRO", raising=False)
+    remoto = db.abrir(_crear_mundo(tmp_path, 45, cerebro_remoto=True))
+    local = db.abrir(_crear_mundo(tmp_path, 46, cerebro_remoto=False))
+    cr = cl = None
+    try:
+        cr = crear_cerebro(remoto)
+        cl = crear_cerebro(local)
+        assert cr.nombre.startswith("cognitive engine remoto")
+        assert not cl.nombre.startswith("cognitive engine remoto")
+    finally:
+        if cr is not None:
+            cr.cerrar()
+        remoto.close()
+        local.close()

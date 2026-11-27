@@ -46,14 +46,35 @@ VAR_CEREBRO = "MUNDO_VIVO_CEREBRO"
 
 
 def crear_cerebro(con) -> Cerebro:
-    """Instancia el cerebro pedido. Por defecto usa Cognitive Engine (GOAP + Utility AI sin LLM)."""
-    elegido = (os.environ.get(VAR_CEREBRO) or "cognitivo").strip().lower()
-    if elegido in ("cognitivo", "cognitive", "cognitive_engine", ""):
-        from ..agentes.cerebro_cognitivo import CerebroCognitivo
+    """Instancia el cerebro pedido.
 
-        # La base va para que cada decisión quede anotada en `decisiones`: es de ahí que el visor
-        # saca «Lo que pensó».
-        return CerebroCognitivo(con)
+    La modalidad cognitiva del mundo manda sobre el entorno:
+
+    1. Si el mundo tiene ``meta.cerebro_remoto = True`` → usa CCA (remoto).
+    2. Si tiene ``meta.cerebro_remoto = False`` → usa el sistema de cerebros
+       actual, sin importar ``MUNDO_VIVO_CEREBRO``.
+    3. Si el mundo es viejo y no tiene esa clave → cae al comportamiento
+       anterior (``MUNDO_VIVO_CEREBRO``, por defecto ``cognitivo``).
+
+    Así conviven mundos locales y mundos conectados a CCA. La preferencia por
+    mundo prevalece sobre cualquier override global para los mundos nuevos.
+    """
+    # `cargar_meta` no refresca el caché: `con` se acaba de abrir, así que el
+    # valor es el del archivo (sirve para reanudar tras un apagado).
+    try:
+        from ..persistencia.mundo_io import cargar_meta
+
+        preferencia = cargar_meta(con).get("cerebro_remoto")
+    except Exception:  # noqa: BLE001 - mundo sintético sin meta: usar entorno
+        preferencia = None
+
+    if preferencia is not None:
+        # Clave presente: manda el mundo (no el entorno).
+        elegido = "remoto" if preferencia else "cerebros_actuales"
+    else:
+        # Mundo viejo sin la clave: comportamiento anterior (override global).
+        elegido = (os.environ.get(VAR_CEREBRO) or "cognitivo").strip().lower()
+
     if elegido in ("remoto", "remote", "cca", "cca_remoto"):
         # Cognición remota: usa la distribución CCA por HTTP. No abre la DB cognitiva local.
         from ..agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
@@ -62,6 +83,12 @@ def crear_cerebro(con) -> Cerebro:
         token = os.environ.get("CCA_TOKEN")
         cerebro = CerebroCognitivoRemoto(con, base_url=base_url, token=token)
         return cerebro
+    if elegido in ("cerebros_actuales", "cognitivo", "cognitive", "cognitive_engine", ""):
+        from ..agentes.cerebro_cognitivo import CerebroCognitivo
+
+        # La base va para que cada decisión quede anotada en `decisiones`: es de ahí que el visor
+        # saca «Lo que pensó».
+        return CerebroCognitivo(con)
     if elegido in ("hibrido", "híbrido", "llm"):
         return CerebroHibrido(con)
     raise ValueError(

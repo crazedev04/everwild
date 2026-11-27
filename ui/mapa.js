@@ -375,7 +375,8 @@
       const r = await json("/api/mundos", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre: nom || null, semilla: semilla ? parseInt(semilla, 10) : null, ancho: tam, alto: tam,
                                tam_celda_m: TAM_CELDA, modelo: $("in-modelo-nuevo").value.trim() || null,
-                               poblacion: parseInt($("in-poblacion").value, 10) || 4 }) });
+                               poblacion: parseInt($("in-poblacion").value, 10) || 4,
+                               conectar_cca: !!($("in-conectar-cca") && $("in-conectar-cca").checked) }) });
       try { localStorage.setItem("mv_modelo", $("in-modelo-nuevo").value.trim()); } catch (e) {}
       $("nuevo-panel").classList.remove("visible"); $("in-semilla").value = "";
       if ($("in-nombre-nuevo")) $("in-nombre-nuevo").value = "";

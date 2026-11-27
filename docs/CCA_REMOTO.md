@@ -23,13 +23,29 @@ internos de CCA dentro de Mundo Vivo.
 ## Configuración
 
 ```bash
-export MUNDO_VIVO_CEREBRO=remoto         # elige el cerebro remoto (no borra el embebido)
+export MUNDO_VIVO_CEREBRO=remoto         # override global (sólo para mundos viejos sin la clave)
 export CCA_URL=http://127.0.0.1:8000     # servicio CCA
-export CCA_TOKEN=...                     # opcional
+export CCA_TOKEN=...                     # token restringido (ciclo por cerebro)
+export CCA_TOKEN_ADMIN=...               # token admin `*` (crear/autorizar cerebros)
 ```
 
 `MUNDO_VIVO_CEREBRO=cognitivo` (por defecto) sigue usando el modo embebido; `remoto`
 usa el servicio. El modo remoto **no** abre ni escribe la base cognitiva local.
+
+### Modalidad por mundo (switch del modal)
+
+El modal de creación tiene el switch **Conectar con Cognition Chain**. La preferencia
+queda en `meta.cerebro_remoto` del propio mundo y **prevalece sobre el entorno**:
+
+1. `cerebro_remoto = true` → usa CCA (remoto).
+2. `cerebro_remoto = false` → usa el sistema de cerebros actual, sin importar
+   `MUNDO_VIVO_CEREBRO`.
+3. Mundo viejo sin la clave → comportamiento anterior (`MUNDO_VIVO_CEREBRO`).
+
+Así conviven mundos locales y remotos. La conexión (tokens, URL) se toma del entorno;
+el frontend no expone credenciales. Si CCA no responde al abrir el mundo, el alta de
+cerebros queda `error`/pendiente en `cerebros_ce` y la simulación continúa (no hay
+fallback silencioso a cerebros locales: el mundo sigue en modo remoto).
 
 ## Arquitectura y flujo
 
