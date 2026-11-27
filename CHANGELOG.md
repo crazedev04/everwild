@@ -1,5 +1,20 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — CCA remoto: recepción robusta de propuestas
+
+### Arreglado
+- **Pérdida silenciosa de propuestas por ACK prematuro (alto)**: el ACK se enviaba tras *encolar* el resultado (no tras enviarlo); si Mundo Vivo se cerraba antes de que el emisor mandara el resultado, CCA ya había marcado ACKNOWLEDGED y dejaba de reenviar ⇒ propuesta y resultado perdidos. Ahora el **ACK sólo se envía cuando el emisor confirma el envío exitoso del resultado** (`send_result` OK → `ack`). Recibir/entregar una propuesta ya no confirma.
+- **Doble ejecución por reentrega**: `propuesta_disponible` saltea y marca `proposal_id` ya ejecutados; una reentrega de la misma propuesta no vuelve a disparar la acción.
+- **Cierre con trabajo pendiente**: `cerrar()` vacía la cola (reintento final) tras unir el emisor; un resultado encolado no se descarta en silencio.
+- Recuperación ante reinicio: al no confirmar hasta el envío del resultado, una propuesta recibida pero no consumida queda DELIVERED (no-ACK) y CCA la reexpone en `pending_proposals` ⇒ se recupera sin persistencia local nueva.
+
+### Verificación
+- Modo remoto no instancia Service/Repository/Runtime/scheduler ni abre DB cognitiva local (test dedicado). Usa sólo `CcaClient`. Reintentos conservan `client_id/brain_id/client_seq` (msg_id idempotente).
+- Tests (`tests/test_cerebro_remoto.py`, 14): ACK diferido, no-ACK en recepción, multi-propuesta sin sobrescritura, recepción duplicada, no doble ejecución, cierre con pendientes, resultado correlacionado, no-DB-local, E2E real.
+
+### Pendiente / bloqueo
+- El repo hermano `../Cognitive Engine` **no está en `feat/distribution`** (actual `docs/readme-actualizacion` @ `00d21c1`); no se tocó (lectura). Para activar remoto seguro hace falta: servicio CCA en la rama de distribución con cerebros migrados, `CCA_URL`/`CCA_TOKEN`, y retirar imports internos del embebido.
+
 ## Sin publicar — Integración remota de Cognitive Engine (CCA)
 
 ### Nuevo
