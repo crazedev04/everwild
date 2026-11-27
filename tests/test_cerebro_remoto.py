@@ -25,6 +25,10 @@ class ClienteFalso:
         self.creados = {}          # brain_id -> {name, personality}
         self.fail_create = set()   # brain_ids cuyo create falla (status 0) una vez
         self.always_fail_create = set()  # brain_ids cuyo create falla (status 0) siempre
+        self.autorizados = []      # pares (target_token, brain_id)
+        self.tokens_conocidos = {"restr", "admin"}
+        self.fail_authorize_once = set()
+        self.fail_authorize = set()
 
     def create_brain(self, brain_id, name, *, personality=None):
         if brain_id in self.always_fail_create:
@@ -36,6 +40,17 @@ class ClienteFalso:
             raise CcaError(409, "brain_exists")
         self.creados[brain_id] = {"name": name, "personality": personality}
         return {"brain_id": brain_id, "name": name, "created": True}
+
+    def authorize_brain(self, target_token, brain_id):
+        if target_token not in self.tokens_conocidos:
+            raise CcaError(404, "unknown_token")
+        if brain_id in self.fail_authorize:
+            raise CcaError(0, "connection_error")
+        if brain_id in self.fail_authorize_once:
+            self.fail_authorize_once.discard(brain_id)
+            raise CcaError(0, "connection_error")
+        self.autorizados.append((target_token, brain_id))
+        return {"brain_id": brain_id, "granted": True}
 
     def list_brains(self):
         return [{"brain_id": b, "name": v["name"]} for b, v in self.creados.items()]
@@ -350,6 +365,79 @@ def test_registrar_cerebro_idempotente():
         # ya existe (409) => éxito idempotente, no error
         assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
         assert cliente.creados["b1"]["name"] == "Uno"
+        assert cliente.autorizados == [], "token único no requiere autorización dinámica"
+    finally:
+        a.cerrar()
+
+
+def test_registrar_cerebro_autoriza_despues_de_crear():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    a._token_restringido = "restr"
+    a._token_admin_configurado = True
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "registrado"
+        assert cliente.autorizados == [("restr", "b1")]
+    finally:
+        a.cerrar()
+
+
+def test_registrar_cerebro_autoriza_despues_de_verificar_409():
+    cliente = ClienteFalso()
+    cliente.creados["b1"] = {"name": "Uno", "personality": None}
+    a = _adaptador(cliente)
+    a._token_restringido = "restr"
+    a._token_admin_configurado = True
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
+        assert cliente.autorizados == [("restr", "b1")]
+    finally:
+        a.cerrar()
+
+
+def test_reapertura_autoriza_idempotente_sin_recrear():
+    cliente = ClienteFalso()
+    cliente.creados["b1"] = {"name": "Uno", "personality": None}
+    a = _adaptador(cliente)
+    a._token_restringido = "restr"
+    a._token_admin_configurado = True
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
+        assert a.registrar_cerebro("b1", "Uno") == "ya_existia"
+        assert cliente.autorizados == [("restr", "b1")], "autorización local idempotente"
+        assert "b1" in cliente.creados
+    finally:
+        a.cerrar()
+
+
+def test_fallo_autorizacion_es_error_reintentable():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    a._token_restringido = "restr"
+    a._token_admin_configurado = True
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "registrado"
+        cliente.fail_authorize.add("b2")
+        assert a.registrar_cerebro("b2", "Dos") == "error"
+        assert "b2" not in a._autorizados
+        cliente.fail_authorize.remove("b2")
+        assert a.registrar_cerebro("b2", "Dos") == "ya_existia"
+        assert ("restr", "b2") in cliente.autorizados
+    finally:
+        a.cerrar()
+
+
+def test_token_restringido_ausente_da_error_claro_sin_token():
+    cliente = ClienteFalso()
+    cliente.tokens_conocidos.remove("restr")
+    a = _adaptador(cliente)
+    a._token_restringido = "restr"
+    a._token_admin_configurado = True
+    try:
+        assert a.registrar_cerebro("b1", "Uno") == "error"
+        assert "b1" in cliente.creados, "creación ocurrió pero autorización falló"
+        assert cliente.autorizados == []
+        assert a._token_restringido == "restr", "token no se expone ni se borra"
     finally:
         a.cerrar()
 
@@ -433,10 +521,51 @@ class _MundoFalso:
 def _cerebro_remoto_con_cliente(cliente):
     from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
 
-    c = CerebroCognitivoRemoto(None, base_url="http://x", token=None)
+    c = CerebroCognitivoRemoto(None, base_url="http://x", token="restr")
     c._adapter._cliente = cliente
     c._adapter._cliente_admin = cliente
+    c._adapter._token_restringido = "restr"
+    c._adapter._token_admin_configurado = True
     return c
+
+
+def test_inmigrante_usa_mismo_flujo_de_autorizacion():
+    cliente = ClienteFalso()
+    c = _cerebro_remoto_con_cliente(cliente)
+    sim = _SimFalso(0, [])
+    h = _HabFalso(9, "Nuevo")
+    try:
+        assert c.registrar_habitante(sim, h) == "registrado"
+        assert ("restr", "W:d0:h9") in cliente.autorizados
+    finally:
+        c.cerrar()
+
+
+def test_fallo_autorizacion_habitante_persiste_error(tmp_path):
+    import sqlite3
+    from mundo_vivo.persistencia.mundo_io import estados_cerebros_ce
+
+    db = tmp_path / "mundo.db"
+    con = sqlite3.connect(str(db))
+    con.row_factory = sqlite3.Row
+    con.execute("CREATE TABLE meta (clave TEXT PRIMARY KEY, valor TEXT)")
+    con.execute("INSERT INTO meta VALUES ('world_uid', '\"uid-auth\"')")
+    con.commit()
+    cliente = ClienteFalso()
+    cliente.fail_authorize.add("uid-auth:d0:h1")
+    from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+    c = CerebroCognitivoRemoto(con, base_url="http://x", token="restr", token_admin="admin")
+    c._adapter._cliente = cliente
+    c._adapter._cliente_admin = cliente
+    c._adapter._token_restringido = "restr"
+    c._adapter._token_admin_configurado = True
+    try:
+        assert c.registrar_habitante(_SimFalso(0, []), _HabFalso(1, "A")) == "error"
+        assert estados_cerebros_ce(con)["uid-auth:d0:h1"]["estado"] == "error"
+    finally:
+        c.cerrar()
+        con.close()
 
 
 def test_inicializar_registra_todos_los_habitantes():
@@ -449,6 +578,9 @@ def test_inicializar_registra_todos_los_habitantes():
         ])
         res = c.inicializar(mundo)
         assert res["total"] == 3 and res["registrados"] == 3
+        assert set(cliente.autorizados) == {
+            ("restr", "W:d0:h1"), ("restr", "W:d0:h2"), ("restr", "W:d1:h1")
+        }
         # brain_id estable <uid|ident>:d<dim>:h<id> (con=None => ident "W")
         assert set(cliente.creados) == {"W:d0:h1", "W:d0:h2", "W:d1:h1"}
         # personalidad derivada del genoma (no inventada)
@@ -517,5 +649,6 @@ def test_sin_token_admin_reutiliza_cliente_restringido():
     a = MundoVivoRemoteAdapter("http://x", token="restr", client_id="w")
     try:
         assert a._cliente_admin is a._cliente
+        assert a._token_admin_configurado is False
     finally:
         a.cerrar()

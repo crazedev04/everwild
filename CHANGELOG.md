@@ -1,5 +1,14 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — CE autorización dinámica de cerebros
+
+### Arreglado
+- **Autorización dinámica del token restringido**: al crear o verificar un cerebro remoto, Mundo Vivo solicita al cliente administrativo que conceda acceso al token restringido sobre ese `brain_id`. El registro no se informa como exitoso hasta completar la concesión; los fallos quedan como `error` reintentable. El token restringido permanece en memoria y no se registra.
+- **Compatibilidad de token único**: si no se configura `CCA_TOKEN_ADMIN`, se conserva el comportamiento previo con un cliente total y no se emite una autorización innecesaria. `404 unknown_token` se trata como error sin exponer el token.
+
+### Verificación
+- Pruebas aisladas: creación 201, verificación 409, idempotencia de reapertura, inmigrante, fallo reintentable, token ausente, token único y persistencia `cerebros_ce`. No se ejecutó E2E real contra CE.
+
 ## Sin publicar — CE registro directo de cerebros (modo remoto)
 
 ### Nuevo

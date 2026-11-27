@@ -133,13 +133,16 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
         estado = self._adapter.registrar_cerebro(
             brain_id, h.nombre, self._personalidad_dict(h)
         )
+        detalle = ""
+        if estado == "error":
+            detalle = "No se completó el registro y la autorización del cerebro."
         if self.con is not None:
             try:
                 from ..persistencia import mundo_io as _mundo_io
 
                 _mundo_io.guardar_estado_cerebro(
                     self.con, brain_id, nombre=h.nombre, dimension=sim.dimension,
-                    habitante_id=h.id, estado=estado,
+                    habitante_id=h.id, estado=estado, detalle=detalle,
                 )
             except Exception:  # noqa: BLE001 - persistencia de estado es best-effort
                 pass

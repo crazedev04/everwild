@@ -54,9 +54,11 @@ class MundoVivoRemoteAdapter:
         self.client_id = client_id
         self.poll_interval = poll_interval
         self._cliente = cliente
+        self._token_restringido = token
         # Cliente ADMIN (token con acceso total `*`) para crear/listar cerebros. Si no se
         # configura `token_admin` (o el cliente viene inyectado en tests), reutiliza el
         # cliente restringido. El token administrativo NO se reparte: sólo vive acá.
+        self._token_admin_configurado = bool(token_admin) and not inyectado
         if not inyectado and token_admin and CcaClient is not None:
             self._cliente_admin = CcaClient(base_url, token=token_admin, timeout=timeout)
         else:
@@ -72,6 +74,7 @@ class MundoVivoRemoteAdapter:
         self._emisor: Optional[threading.Thread] = None
         self._consumidor: Optional[threading.Thread] = None
         self._conocidos: set[str] = set()
+        self._autorizados: set[str] = set()
         self.errores = 0
 
     # ---------------------------------------------------------- ciclo de vida
@@ -115,27 +118,28 @@ class MundoVivoRemoteAdapter:
     def registrar_cerebro(
         self, brain_id: str, name: str, personality: Optional[dict[str, float]] = None
     ) -> str:
-        """Registra un cerebro en CE por la API pública (`POST /brains`).
+        """Registra y autoriza un cerebro en CE por la API pública.
 
-        Idempotente: 201 lo crea; 409 (`brain_exists`) significa que ya estaba y se
-        trata como éxito. Devuelve el estado: "registrado" | "ya_existia" | "error".
-        Reintenta acotado ante fallos de conexión (CE puede estar arrancando). No
-        bloquea indefinidamente: si CE no responde, devuelve "error" y el llamador
-        decide reintentar luego (la simulación no se detiene).
+        Idempotente: 201 lo crea; 409 (`brain_exists`) requiere verificar identidad.
+        Devuelve "registrado" | "ya_existia" | "error". El éxito no se informa hasta
+        autorizar el token restringido, salvo que ambos clientes compartan el token total.
+        Reintenta acotado ante fallos de conexión (CE puede estar arrancando).
         """
+        estado = "error"
         for intento in range(3):
             try:
                 self._cliente_admin.create_brain(brain_id, name, personality=personality)
-                return "registrado"
+                estado = "registrado"
+                break
             except CcaError as exc:
-                if getattr(exc, "status", None) == 409:
-                    # Conflicto: NO es éxito ciego. Se verifica que el cerebro existente
-                    # sea el MISMO (mismo brain_id y nombre) antes de darlo por registrado.
-                    if self._mismo_cerebro(brain_id, name):
-                        return "ya_existia"
-                    self.errores += 1
-                    return "error"
-                if getattr(exc, "status", 0) == 0:  # conexión/timeout: reintenta
+                status = getattr(exc, "status", None)
+                if status == 409:
+                    if not self._mismo_cerebro(brain_id, name):
+                        self.errores += 1
+                        return "error"
+                    estado = "ya_existia"
+                    break
+                if status == 0:
                     self.errores += 1
                     if self._stop.wait(0.2 * (intento + 1)):
                         return "error"
@@ -145,7 +149,37 @@ class MundoVivoRemoteAdapter:
             except Exception:  # noqa: BLE001 - cliente inesperado: no rompe el init
                 self.errores += 1
                 return "error"
-        return "error"
+
+        if not self._autorizar_cerebro(brain_id):
+            return "error"
+        return estado
+
+    def _autorizar_cerebro(self, brain_id: str) -> bool:
+        """Concede acceso al token restringido mediante el cliente administrativo."""
+        if not self._token_admin_configurado or not self._token_restringido:
+            return True
+        if brain_id in self._autorizados:
+            return True
+        for intento in range(3):
+            try:
+                self._cliente_admin.authorize_brain(self._token_restringido, brain_id)
+                self._autorizados.add(brain_id)
+                return True
+            except CcaError as exc:
+                status = getattr(exc, "status", None)
+                self.errores += 1
+                if status == 404:
+                    # El token operativo debe existir en CE antes de concederle este cerebro.
+                    return False
+                if status in (0, 409, 429) or status >= 500:
+                    if self._stop.wait(0.2 * (intento + 1)):
+                        return False
+                    continue
+                return False
+            except Exception:  # noqa: BLE001 - cliente inesperado: no rompe el init
+                self.errores += 1
+                return False
+        return False
 
     def _mismo_cerebro(self, brain_id: str, name: str) -> bool:
         """True si el cerebro ya registrado en CE coincide (id y nombre) con el esperado."""
