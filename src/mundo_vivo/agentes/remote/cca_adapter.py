@@ -57,6 +57,7 @@ class MundoVivoRemoteAdapter:
         self._seq_lock = threading.Lock()
         self._propuestas: dict[str, list[dict[str, Any]]] = {}
         self._vistas: set[str] = set()
+        self._ejecutadas: set[str] = set()
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._emisor: Optional[threading.Thread] = None
@@ -76,9 +77,20 @@ class MundoVivoRemoteAdapter:
 
     def cerrar(self, timeout: float = 2.0) -> None:
         self._stop.set()
-        for hilo in (self._emisor, self._consumidor):
-            if hilo is not None:
-                hilo.join(timeout=timeout)
+        if self._emisor is not None:
+            self._emisor.join(timeout=timeout)
+        # Vacía lo que haya quedado en la cola (mejor esfuerzo): un resultado encolado
+        # pero no enviado NO debe confirmarse por ACK; se intenta enviarlo acá.
+        while True:
+            try:
+                item = self._cola.get_nowait()
+            except queue.Empty:
+                break
+            tipo, brain_id, seq, payload = item[0], item[1], item[2], item[3]
+            pid = item[4] if len(item) > 4 else None
+            self._emitir(tipo, brain_id, seq, payload, proposal_id=pid, final=True)
+        if self._consumidor is not None:
+            self._consumidor.join(timeout=timeout)
         try:
             self._cliente.close()
         except Exception:  # noqa: BLE001
@@ -102,9 +114,11 @@ class MundoVivoRemoteAdapter:
         seq = self._siguiente_seq(brain_id)
         self._encolar(("obs", brain_id, seq, observacion))
 
-    def enviar_resultado(self, brain_id: str, resultado: dict[str, Any]) -> None:
+    def enviar_resultado(self, brain_id: str, resultado: dict[str, Any], proposal_id: Optional[str] = None) -> None:
         seq = self._siguiente_seq(brain_id)
-        self._encolar(("res", brain_id, seq, resultado))
+        # El ACK NO se manda acá: sólo cuando el emisor confirma que el resultado salió
+        # (ACK = recepción; confirmar antes de enviar perdería la propuesta ante un cierre).
+        self._encolar(("res", brain_id, seq, resultado, proposal_id))
 
     def _encolar(self, item: tuple) -> None:
         try:
@@ -122,27 +136,42 @@ class MundoVivoRemoteAdapter:
     def _bucle_emisor(self) -> None:
         while not self._stop.is_set():
             try:
-                tipo, brain_id, seq, payload = self._cola.get(timeout=0.2)
+                item = self._cola.get(timeout=0.2)
             except queue.Empty:
                 continue
-            self._emitir(tipo, brain_id, seq, payload)
+            tipo, brain_id, seq, payload = item[0], item[1], item[2], item[3]
+            pid = item[4] if len(item) > 4 else None
+            enviado = self._emitir(tipo, brain_id, seq, payload, proposal_id=pid)
+            if not enviado and not self._stop.is_set():
+                continue
+            if not enviado:
+                # Cierre en medio del envío: se reencola para que `cerrar` lo vacíe.
+                try:
+                    self._cola.put_nowait(item)
+                except queue.Full:
+                    pass
 
-    def _emitir(self, tipo: str, brain_id: str, seq: int, payload: dict[str, Any]) -> None:
-        # Reintento acotado con el MISMO seq (msg_id estable ⇒ idempotente). Si agota,
-        # se descarta y se cuenta; el tick ya siguió.
+    def _emitir(self, tipo: str, brain_id: str, seq: int, payload: dict[str, Any],
+                proposal_id: Optional[str] = None, final: bool = False) -> bool:
+        # Reintento acotado con el MISMO seq (msg_id estable ⇒ idempotente). Devuelve
+        # True si se envió. Si agota, se descarta y se cuenta; el tick ya siguió.
         for intento in range(3):
-            if self._stop.is_set():
-                return
+            if self._stop.is_set() and not final:
+                return False
             try:
                 if tipo == "obs":
                     self._cliente.send_observation(brain_id, payload, client_id=self.client_id, client_seq=seq)
                 else:
                     self._cliente.send_result(brain_id, payload, client_id=self.client_id, client_seq=seq)
-                return
+                    # Resultado ENVIADO: ahora sí se confirma la recepción de la propuesta.
+                    if proposal_id is not None:
+                        self._cliente.ack(brain_id, proposal_id)
+                return True
             except CcaError:
                 self.errores += 1
                 if self._stop.wait(0.2 * (intento + 1)):
-                    return
+                    return False
+        return False
 
     # ---------------------------------------------------------- propuestas (consumidor)
     def _bucle_consumidor(self) -> None:
@@ -172,11 +201,21 @@ class MundoVivoRemoteAdapter:
             self._propuestas.setdefault(brain_id, []).append(propuesta)
 
     def propuesta_disponible(self, brain_id: str) -> Optional[dict[str, Any]]:
-        """Saca la próxima propuesta cacheada para un cerebro (no bloquea)."""
+        """Saca la próxima propuesta cacheada para un cerebro (no bloquea).
+
+        Saltea las ya ejecutadas (evita doble ejecución por reentrega) y las marca como
+        ejecutadas al entregarlas, para que una reentrega no vuelva a disparar la acción.
+        """
         with self._lock:
             cola = self._propuestas.get(brain_id)
-            if cola:
-                return cola.pop(0)
+            while cola:
+                p = cola.pop(0)
+                pid = p.get("proposal_id")
+                if pid is not None and pid in self._ejecutadas:
+                    continue
+                if pid is not None:
+                    self._ejecutadas.add(pid)
+                return p
         return None
 
     def ack(self, brain_id: str, proposal_id: str) -> None:

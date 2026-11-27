@@ -200,3 +200,119 @@ def test_integracion_servicio_cca_real():
             p = path + sfx
             if os.path.exists(p):
                 os.remove(p)
+
+# --- robustez de recepción (ACK diferido, recuperación, no doble ejecución) ---
+
+def test_ack_solo_tras_enviar_resultado():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    try:
+        a.enviar_resultado("b1", {"proposal_id": "p1", "brain_id": "b1", "tick": 1,
+                                  "status": "accepted"}, proposal_id="p1")
+        assert _esperar(lambda: cliente.res and ("b1", "p1") in cliente.acks)
+        # el ACK ocurrió después de registrar el envío del resultado
+        assert cliente.res[0][2]["proposal_id"] == "p1"
+    finally:
+        a.cerrar()
+
+
+def test_no_ack_en_recepcion():
+    cliente = ClienteFalso()
+    cliente.pending["b1"] = [{"proposal_id": "p1", "action_type": "esperar", "tick": 1}]
+    a = _adaptador(cliente)
+    try:
+        a.registrar("b1")
+        prop = None
+        fin = time.monotonic() + 2
+        while time.monotonic() < fin and prop is None:
+            prop = a.propuesta_disponible("b1")  # consume (aún sin ejecutar)
+            time.sleep(0.02)
+        # Recibir/entregar NO confirma: el ACK sólo llega tras enviar el resultado.
+        assert cliente.acks == [], "recibir no debe confirmar la propuesta"
+    finally:
+        a.cerrar()
+
+
+def test_varias_propuestas_sin_sobrescritura():
+    cliente = ClienteFalso()
+    cliente.pending["b1"] = [
+        {"proposal_id": "p1", "action_type": "a", "tick": 1},
+        {"proposal_id": "p2", "action_type": "b", "tick": 2},
+    ]
+    a = _adaptador(cliente)
+    try:
+        a.registrar("b1")
+        ids = []
+        fin = time.monotonic() + 2
+        while time.monotonic() < fin and len(ids) < 2:
+            p = a.propuesta_disponible("b1")
+            if p:
+                ids.append(p["proposal_id"])
+            time.sleep(0.02)
+        assert ids == ["p1", "p2"], "ambas propuestas, sin sobrescribir"
+    finally:
+        a.cerrar()
+
+
+def test_recepcion_duplicada_no_duplica_cache():
+    cliente = ClienteFalso()
+    cliente.pending["b1"] = [
+        {"proposal_id": "p1", "action_type": "a", "tick": 1},
+        {"proposal_id": "p1", "action_type": "a", "tick": 1},
+    ]
+    a = _adaptador(cliente)
+    try:
+        a.registrar("b1")
+        ids = []
+        fin = time.monotonic() + 2
+        while time.monotonic() < fin and len(ids) < 2:
+            p = a.propuesta_disponible("b1")
+            if p:
+                ids.append(p["proposal_id"])
+            time.sleep(0.02)
+        assert ids == ["p1"], "la reentrega del mismo proposal_id no se duplica"
+    finally:
+        a.cerrar()
+
+
+def test_no_doble_ejecucion_por_reentrega():
+    cliente = ClienteFalso()
+    a = _adaptador(cliente)
+    try:
+        a._cachear("b1", {"proposal_id": "p1", "action_type": "a", "tick": 1})
+        assert a.propuesta_disponible("b1")["proposal_id"] == "p1"  # ejecutar (marca)
+        a._cachear("b1", {"proposal_id": "p1", "action_type": "a", "tick": 1})  # reentrega
+        assert a.propuesta_disponible("b1") is None, "no se ejecuta dos veces"
+    finally:
+        a.cerrar()
+
+
+def test_cierre_vacia_resultado_pendiente():
+    cliente = ClienteFalso()
+    cliente.slow = 0.2
+    a = MundoVivoRemoteAdapter("http://x", client_id="w", cliente=cliente)
+    a.start()
+    a.enviar_resultado("b1", {"proposal_id": "p1", "brain_id": "b1", "tick": 1,
+                              "status": "accepted"}, proposal_id="p1")
+    a.cerrar()  # cierre con trabajo pendiente: debe vaciar la cola
+    assert cliente.res and cliente.res[0][2]["proposal_id"] == "p1"
+    assert ("b1", "p1") in cliente.acks
+
+
+def test_modo_remoto_no_abre_db_cognitiva_local(tmp_path):
+    import sqlite3
+
+    db = tmp_path / "mundo.db"
+    con = sqlite3.connect(str(db))
+    con.execute("CREATE TABLE meta (clave TEXT PRIMARY KEY, valor TEXT)")
+    con.execute("INSERT INTO meta VALUES ('world_uid', '\"uid-1\"')")
+    con.commit()
+    from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+    cerebro = CerebroCognitivoRemoto(con, base_url="http://x", token=None)
+    try:
+        creados = list(tmp_path.glob("cerebros_*.db"))
+        assert creados == [], "el modo remoto no debe crear la DB cognitiva local"
+    finally:
+        cerebro.cerrar()
+        con.close()

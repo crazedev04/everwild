@@ -160,13 +160,13 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
         return self._traducir(sim, h, _PropuestaRemota(propuesta))
 
     def _rechazar(self, sim, h, brain_id: str, propuesta: dict[str, Any], motivo: str) -> None:
+        pid = propuesta.get("proposal_id")
         self._adapter.enviar_resultado(
             brain_id,
-            {"proposal_id": propuesta.get("proposal_id"), "brain_id": brain_id, "tick": int(sim.t),
+            {"proposal_id": pid, "brain_id": brain_id, "tick": int(sim.t),
              "status": "rejected", "rejection_reason": motivo, "observable_changes": []},
+            proposal_id=pid,
         )
-        if propuesta.get("proposal_id") is not None:
-            self._adapter.ack(brain_id, propuesta["proposal_id"])
 
     # ---------------------------------------------------------- resultados
     def registrar_resultado(self, sim: Simulacion, h: HabitanteSim, ok: bool, texto: str) -> None:
@@ -181,9 +181,8 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
              "status": "accepted" if ok else "rejected",
              "rejection_reason": None if ok else (texto or "rejected_by_world")[:200],
              "observable_changes": []},
+            proposal_id=pid,
         )
-        if pid is not None:
-            self._adapter.ack(brain_id, pid)
 
     # ---------------------------------------------------------- ciclo de vida / estado
     def guardar_cerebros(self) -> None:
