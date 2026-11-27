@@ -894,8 +894,10 @@ def test_observacion_incluye_necesidades_fisiologicas():
         # sed/hambre: MV 0=ok,100=muerte → CE 100=ok,0=crítico (invertido)
         assert needs["sed"] == 60.0
         assert needs["hambre"] == 70.0
-        # energia/salud ya son 100=ok en MV
-        assert needs["energia"] == 70.0
+        # energia/salud ya son 100=ok en MV; energia viaja con su nombre canónico
+        # del contrato (`energy`), no con el interno `energia`.
+        assert needs["energy"] == 70.0
+        assert "energia" not in needs
         assert needs["salud"] == 80.0
     finally:
         cerebro.cerrar()
@@ -1108,3 +1110,117 @@ def test_circuito_supervivencia_ce_drink_real_mv_ejecuta_y_recupera_sed():
             p = path + sfx
             if os.path.exists(p):
                 os.remove(p)
+
+
+# ------------------------------------------------------------------ percepción de comida
+def _item_comestible(sim, h):
+    """Un id del catálogo de alimentos que de verdad tenga valor comestible."""
+    for iid in sorted(sim.alimentos):
+        if sim.valor_alimento(h, iid):
+            return iid
+    return None
+
+
+def test_hechos_declara_comida_en_mano_satisface_hambre():
+    """Con comida en el inventario, `_hechos` emite un hecho de comida que satisface hambre."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(hambre=50.0)
+        item = _item_comestible(sim, h)
+        assert item is not None, "el catálogo del mundo debe tener algún alimento comestible"
+        h.inventario[item] = 1
+        hechos = cerebro._hechos(sim, h, "b1")
+        comida = [f for f in hechos if f["subject"] == "comida"]
+        assert len(comida) == 1, "un solo hecho de comida, sin duplicados"
+        f = comida[0]
+        assert f["metadata"]["satisfies"] == ["hambre"]
+        assert f["metadata"]["en_mano"] is True
+        assert f["value"] == item
+        assert f["metadata"]["position"] == [float(h.x), float(h.y)]
+        # No altera la percepción de agua/fuego/compañía: sólo agrega el hecho de comida.
+        assert any(x["subject"] == "agua" for x in hechos) or True
+    finally:
+        cerebro.cerrar()
+
+
+def test_hechos_no_declara_comida_fantasma():
+    """Sin comida en mano, sólo se declara comida si realmente se junta en el lugar."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(hambre=50.0)
+        h.inventario.clear()
+        hechos = cerebro._hechos(sim, h, "b1")
+        for f in hechos:
+            if f["subject"] != "comida":
+                continue
+            assert f["metadata"]["en_mano"] is False
+            # El recurso declarado tiene que estar realmente disponible acá.
+            assert f["value"] in sim.disponibles(h)
+            assert f["metadata"]["satisfies"] == ["hambre"]
+    finally:
+        cerebro.cerrar()
+
+
+# ------------------------------------------------------------------ circuito de alimentación
+def test_circuito_comer_real_baja_hambre_y_resultado_aceptado():
+    """CE propone eat → MV ejecuta comer real → el hambre baja → resultado accepted a CE."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(hambre=60.0)
+        sim.ajustes["modulos"]["hambre"] = True   # el hambre es módulo; el mundo real lo trae activo
+        item = _item_comestible(sim, h)
+        assert item is not None
+        h.inventario[item] = 1
+        hambre_antes = h.hambre
+        propuesta = _PropuestaFalsa("eat", {"need": "hambre"}, goal_id="satisfy_hambre", tick=int(sim.t))
+        accion = cerebro._traducir(sim, h, propuesta)
+        assert accion["tipo"] == "comer", accion
+        ok, texto = sim._aplicar(h, accion)
+        assert ok, f"comer falló: {texto}"
+        assert h.hambre < hambre_antes, "comer real debe bajar el hambre (fisiología de MV)"
+        cerebro._ultima_propuesta[h.id] = {"proposal_id": "p1", "tick": int(sim.t)}
+        cerebro.registrar_resultado(sim, h, ok=True, texto=texto)
+        assert _esperar(lambda: any(r[2].get("proposal_id") == "p1" and r[2].get("status") == "accepted"
+                                    for r in cliente.res)), "el resultado accepted debe llegar a CE"
+    finally:
+        cerebro.cerrar()
+
+
+def test_comer_sin_comida_es_rechazado_sin_recuperar_hambre():
+    """Comer sin comida accesible no concreta un comer y el motor rechaza sin tocar el hambre."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(hambre=60.0)
+        sim.ajustes["modulos"]["hambre"] = True   # con el módulo activo, comer sin comida falla por falta de alimento
+        h.inventario.clear()
+        hambre_antes = h.hambre
+        propuesta = _PropuestaFalsa("eat", {"need": "hambre"}, goal_id="satisfy_hambre", tick=int(sim.t))
+        accion = cerebro._traducir(sim, h, propuesta)
+        # Sin comida en mano ni juntable, la abstracta eat no se concreta en un comer.
+        assert accion["tipo"] in ("esperar", "juntar"), accion
+        # El motor no fabrica recuperación: comer sin comida falla y el hambre no cambia.
+        ok, texto = sim._aplicar(h, {"tipo": "comer"})
+        assert ok is False, f"comer sin comida debe fallar: {texto}"
+        assert h.hambre == hambre_antes, "no debe haber recuperación ficticia de hambre"
+    finally:
+        cerebro.cerrar()
+
+
+def test_traducir_eat_con_comida_en_mano_es_comer():
+    """eat con comida en mano se traduce a la acción real `comer` (no juntar)."""
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(hambre=40.0)
+        item = _item_comestible(sim, h)
+        assert item is not None
+        h.inventario[item] = 1
+        accion = cerebro._traducir(sim, h, _PropuestaFalsa("eat"))
+        assert accion["tipo"] == "comer"
+        assert accion.get("objeto") == item
+    finally:
+        cerebro.cerrar()

@@ -19,6 +19,7 @@ from mundo_vivo.motor.simulacion import SED_DESPIERTA, CerebroDemo, HabitanteSim
 
 from .cerebro_cognitivo import (
     COMPANIA,
+    HAMBRE,
     METROS_VISTA_SOCIAL,
     SED,
     CALOR,
@@ -191,6 +192,18 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
             hechos.append({"subject": "fuego", "predicate": "fuente", "value": "fuego", "confidence": 1.0,
                            "source": "mundo_vivo",
                            "metadata": {"satisfies": [CALOR], "position": [float(fogata["x"]), float(fogata["y"])]}})
+        comida = self._comida_en_mano(sim, h)
+        en_mano = comida is not None
+        if comida is None:
+            comida = self._comida_juntable(sim, h)
+        if comida is not None:
+            # Recurso comestible REAL y accesible: o lo lleva encima (comer directo) o
+            # se junta acá mismo (juntar y luego comer). No se declara comida si no la
+            # hay; la posición es la del habitante (acción ejecutable en el lugar).
+            hechos.append({"subject": "comida", "predicate": "fuente", "value": comida, "confidence": 1.0,
+                           "source": "mundo_vivo",
+                           "metadata": {"satisfies": [HAMBRE], "position": [float(h.x), float(h.y)],
+                                        "entity_type": "food", "en_mano": en_mano}})
         for otro in sim.habitantes.values():
             if otro.id == h.id or not otro.vivo:
                 continue
@@ -216,10 +229,13 @@ class CerebroCognitivoRemoto(CerebroCognitivo):
             # decidir; no es propietario. Se INVIERTE la escala: en MV sed/hambre son
             # "cuánto falta" (0=ok, 100=muerte), en CE la necesidad es "cuánto está
             # satisfecha" (100=ok, 0=crítico). energia/salud ya son 100=ok en MV.
+            # El nombre canónico del contrato es `energy` (el de CE): MV conserva
+            # `energia` internamente y el adaptador la traduce acá, sin duplicar el
+            # estado ni dejar una necesidad fantasma del otro lado.
             "needs": {
                 "sed": max(0.0, min(100.0, 100.0 - float(h.sed))),
                 "hambre": max(0.0, min(100.0, 100.0 - float(h.hambre))),
-                "energia": max(0.0, min(100.0, float(h.energia))),
+                "energy": max(0.0, min(100.0, float(h.energia))),
                 "salud": max(0.0, min(100.0, float(h.salud))),
             },
         }
