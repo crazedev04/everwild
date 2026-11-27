@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E2: primera representación visual real (terreno)
+
+### Nuevo
+- **Capa de terreno** `ui/render/capa_terreno.js`: bitmap 1 px/celda desde `WorldView.terreno.bioma` + paleta inyectada; `draw` pinta sólo la porción visible (`frame.vis`). Datos ausentes/inválidos ⇒ no dibuja (no engaña); bioma sin color ⇒ magenta.
+- **Renderer con capas y cámara** (`ui/render/renderer.js`): `crear(..., {capas})`, `setPaleta(pal)` (inyectada por el adaptador, el renderer no conoce REST), y `dibujar` aplica transform de cámara `s=z·dpr` y pasa `frame{cam,vis,lod,w,h,dpr,t}` a cada capa en orden. `hitTest` intacto.
+- **Integración** (`ui/render/integracion.js`): obtiene paleta de `/api/biomas` y la inyecta; arma `capa_terreno` y la pasa al renderer. Sigue opt-in (`?renderer=nuevo`).
+- Tests (5 nuevos; 59/59): construcción de bitmap con paleta (little-endian), dibujo sólo de lo visible, ausencia/invalidéz no dibuja, magenta por defecto, y `draw` con cámara/viewport/vis.
+
+### Pendiente
+- Capas de profundidad (estructuras/habitantes/fauna/vegetación-sprite), agua/nieve/ceniza, senderos, iluminación y efectos (E3+). `WorldDelta`/`applyDelta` siguen reservados (sin contrato autoritativo).
+
 ## Sin publicar — E1-FIX: integración y ciclo de vida del renderer
 
 ### Arreglado
