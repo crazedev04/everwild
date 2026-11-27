@@ -458,5 +458,25 @@
 <script src="/ui/render/escena.js"></script>
 <script src="/ui/mapa.js"></script>
 <script src="/ui/vivo.js"></script>
+<script src="/ui/render/worldview.js"></script>
+<script src="/ui/render/adaptador.js"></script>
+<script src="/ui/render/renderer.js"></script>
+<script src="/ui/render/integracion.js"></script>
+<script>
+// Renderer definitivo (E1) opt-in: se activa con ?renderer=nuevo y coexiste con el
+// renderer viejo (escena.js). Sin el flag, la app funciona igual que antes.
+(function () {
+  if (!window.RenderIntegracion || !RenderIntegracion.activoFlag()) return;
+  function arrancar() {
+    var canvas = document.getElementById("lienzo");
+    RenderIntegracion.crearPuente({
+      App: window.App, canvas: canvas,
+      requestFrame: function (cb) { return requestAnimationFrame(cb); }
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancar);
+  else arrancar();
+})();
+</script>
 </body>
 </html>

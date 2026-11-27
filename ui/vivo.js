@@ -157,6 +157,7 @@
       if (o) Object.assign(o.d, { salud, sed, energia, hambre, temp, frio });
     }
     if (Date.now() - V.fichaT > 2000) { V.fichaT = Date.now(); listaHabitantes(); }
+    const nuevo = window.App.parte("renderer"); if (nuevo && nuevo.alEstado) nuevo.alEstado(V.estado);   // puente E1 opt-in
     // Nieve y ceniza continuas desactivadas del loop activo para eliminar tirones de 4 MB en hilo principal
   }
 
