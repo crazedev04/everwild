@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Circuito de supervivencia remoto (energía canónica + comida)
+
+### Arreglado
+- **Contrato de energía `energia` → `energy`**: la observación remota ahora manda el estado fisiológico de energía con el nombre canónico del contrato (`energy`, el de CE) en vez del interno `energia`. MV conserva `energia` internamente y el adaptador lo traduce al enviar, eliminando la necesidad fantasma en cero que CE mantenía y que dominaba la selección de objetivos sin poder satisfacerse (el planificador caía a `wait`). Sin duplicar estado ni crear alias.
+- **Percepción de comida**: `_hechos` emite un hecho de comida (`satisfies=["hambre"]`, posición, `entity_type="food"`) sólo cuando hay alimento real y accesible —en el inventario (`en_mano=True`) o juntable en el lugar (`en_mano=False`)—. No declara comida inexistente y no toca los hechos de agua/fuego/compañía.
+
+### Verificación
+- Tests nuevos en `tests/test_cerebro_remoto.py`: energía viaja como `energy` sin `energia`; hecho de comida con/sin fantasma; `eat` con comida en mano → `comer` real baja el hambre y el resultado `accepted` llega a CE; comer sin comida se rechaza sin recuperación ficticia. 54 tests remotos pasan; suites spawn/alimentación/social/procedencia/fauna 128 pasan (fix de spawn preservado).
+- E2E descartable 4 habitantes contra CE real: 4/4 registrados y vivos, contrato `energy` correcto, 160 hechos de comida reales, 0 errores de transporte. La tabla `needs` de CE confirma `energy` sincronizada (=80) y **sin** fila `energia` para los cerebros nuevos.
+- Pendiente: el E2E de alimentación completo (CE proponiendo `eat`) depende de la capacidad `eat` del lado CE, fuera del alcance de esta tarea (sólo MV).
+
 ## Sin publicar — Modalidad cognitiva por mundo (switch CCA)
 
 ### Nuevo

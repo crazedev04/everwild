@@ -88,8 +88,21 @@ El adaptador remoto traduce ambas direcciones sin duplicar lógica cognitiva:
 (`Observation.needs`, `sync_from_host`) refleja el estado pero **no lo persiste como
 autoridad** ni lo decae mientras el host lo reporte. Escala invertida para sed/hambre
 (MV 0=ok, 100=muerte → CE 100=ok, 0=crítico); energia/salud ya son 100=ok en MV. Se
-mandan `sed`, `hambre`, `energia`, `salud`; CE crea las que no existan con decaimiento
-local 0 (host-driven). MV nunca permite que CE sobrescriba los valores físicos.
+mandan `sed`, `hambre`, `energy`, `salud`. El nombre canónico del contrato es `energy`
+(el de CE): MV conserva `energia` internamente y el adaptador lo traduce al mandarlo,
+así no queda una necesidad fantasma en cero del otro lado ni se duplica el estado. CE
+crea las que no existan con decaimiento local 0 (host-driven). MV nunca permite que CE
+sobrescriba los valores físicos.
+
+### Percepción de comida (MV → CE)
+
+`_hechos` emite un hecho de comida (`subject="comida"`, `predicate="fuente"`) sólo
+cuando hay alimento **real y accesible**: el habitante lo lleva en el inventario
+(`en_mano=True`, se come directo) o se junta en el mismo lugar (`en_mano=False`, se
+junta y luego se come). El hecho declara `metadata.satisfies=["hambre"]`, la posición
+del habitante y `entity_type="food"`, de modo que CE puede seleccionar el objetivo
+`eat` sin que MV declare comida inexistente. No altera los hechos de agua, fuego ni
+compañía.
 
 ### Traducción de acciones abstractas (CE → MV)
 
@@ -125,10 +138,13 @@ La correlación observación→propuesta→resultado se mantiene por `proposal_i
 `tests/test_cerebro_remoto.py`: unitarios del adaptador (no bloqueo, secuencia,
 reintento sin duplicar, caché de propuestas, ACK, cierre) e **integración real** contra
 `CcaHttpServer` de la distribución (observación → propuesta → resultado correlacionado).
-Cubre además: `needs` en la observación, traducción de abstractas (`drink`/`eat`/`rest`/
-`explore`/`move_to`/`gather`), `accion_invalida` para desconocidas, `propuesta_fresca`
-(expira rancias, entrega fresca), y el circuito de supervivencia (CE propone drink →
-MV ejecuta beber → sed baja → resultado accepted a CE) con motor real y con CE real.
+Cubre además: `needs` en la observación (energía viaja como `energy`, sin `energia`
+fantasma), traducción de abstractas (`drink`/`eat`/`rest`/`explore`/`move_to`/`gather`),
+`accion_invalida` para desconocidas, `propuesta_fresca` (expira rancias, entrega fresca),
+el hecho de comida (sólo si hay alimento real accesible, sin fantasma), y el circuito de
+supervivencia (CE propone drink → MV ejecuta beber → sed baja → resultado accepted a CE;
+CE propone eat → MV ejecuta comer → hambre baja → resultado accepted; comer sin comida se
+rechaza sin recuperación ficticia) con motor real y con CE real.
 
 ## Limitaciones / pendientes
 
