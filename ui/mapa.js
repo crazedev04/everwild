@@ -34,7 +34,7 @@
     return new Tipo(await r.arrayBuffer());
   }
 
-  window.MV_abrirMapa = (nombre, dim) => abrirMundo(nombre, dim);
+  window.App.registrar("terreno", { estado, dibujar, centrar, abrirMapa: (nombre, dim) => abrirMundo(nombre, dim) });
 
   async function cargarListaMundos(elegir) {
     const lista = await json("/api/mundos");
@@ -81,7 +81,7 @@
     centrar();
     dibujar();
     $("estado").textContent = "";
-    if (window.MV && window.MV.alAbrir) window.MV.alAbrir(nombre, meta, estado.dimension);
+    const vivo = window.App.parte("vivo"); if (vivo && vivo.alAbrir) vivo.alAbrir(nombre, meta, estado.dimension);
   }
 
   // ------------------------------------------------------------ pintado
@@ -193,7 +193,7 @@
       for (let j = y0; j <= y1; j++) { ctx.moveTo(x0, j); ctx.lineTo(x1, j); }
       ctx.stroke();
     }
-    if (window.MV && window.MV.sobreMapa) window.MV.sobreMapa(ctx, s, dpr);   // capa en vivo (vivo.js)
+    const vivo = window.App.parte("vivo"); if (vivo && vivo.sobreMapa) vivo.sobreMapa(ctx, s, dpr);   // capa en vivo (render/escena.js vía vivo)
   }
 
   function centrar() {
@@ -391,7 +391,7 @@
     if (!window.confirm("¿Eliminar el mundo «" + n + "»?\nSe pierde todo (personas, recuerdos, historia) y no se puede deshacer.\nSi querés guardarlo, exportalo antes.")) return;
     $("estado").textContent = "Eliminando…";
     try {
-      if (window.MV && window.MV.desconectar) window.MV.desconectar();
+      const vivo = window.App.parte("vivo"); if (vivo && vivo.desconectar) vivo.desconectar();
       const r = await fetch("/api/mundos/" + encodeURIComponent(n), { method: "DELETE" });
       if (!r.ok) throw new Error((await r.text()) || r.status);
       try { if (localStorage.getItem("mv_mundo") === n) localStorage.removeItem("mv_mundo"); } catch (e) {}
@@ -409,7 +409,6 @@
     $("estado").textContent = "";
   });
   window.addEventListener("resize", () => { if (estado.capas) dibujar(); });
-  window.MVBase = { estado, dibujar, centrar };
 
   // -------------------------------------------------------------- inicio
   (async function iniciar() {

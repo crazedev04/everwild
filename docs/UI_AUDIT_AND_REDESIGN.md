@@ -212,6 +212,7 @@ Pocas etapas, ordenadas; separar **correcciones funcionales** de **rediseño**. 
 - **Dependencias:** Etapa 0 y 1.
 - **Riesgo:** medio (refactor grande); cada módulo con su prueba.
 - **Aceptación:** paridad funcional total (mismos datos y acciones), sin globals.
+- **Estado (implementada, migración progresiva — sin reescritura):** extraído `ui/render/escena.js` (capa de dibujo en vivo, ~540 líneas, antes en `vivo.js`) que recibe dependencias por parámetro e instala `V.sobreMapa`; introducido `ui/core/app.js` como **contrato explícito** (`App.registrar/parte`) que **rompe el ciclo** `window.MV`↔`window.MVBase`↔`MV_abrirMapa` (eliminados; `mapa.js` registra `"terreno"`, `vivo.js` registra `"vivo"`). `vivo.js` pasa de ~1180 a ~640 líneas. **Conservados** planificador de Etapa 1 y protecciones de Etapa 0. Pruebas: `tests/js/app_escena.test.cjs` (node --test). **Diferido a Etapa 3 o posterior** (para no reescribir sin autorización): split completo de estado/data/componentes, `<script type=module>` y extracción del `<style>` embebido. No se tocó Canvas 2D, estilos, motor ni backend.
 
 ### Etapa 3 — Rediseño visual y de experiencia
 - **Objetivo:** identidad "pixel art HD naturalista", HUD mínimo, drawer contextual, móvil real, terreno/agua/vegetación elevados, autoalojar fuentes.
