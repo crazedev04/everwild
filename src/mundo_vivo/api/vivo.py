@@ -54,10 +54,18 @@ def crear_cerebro(con) -> Cerebro:
         # La base va para que cada decisión quede anotada en `decisiones`: es de ahí que el visor
         # saca «Lo que pensó».
         return CerebroCognitivo(con)
+    if elegido in ("remoto", "remote", "cca", "cca_remoto"):
+        # Cognición remota: usa la distribución CCA por HTTP. No abre la DB cognitiva local.
+        from ..agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto
+
+        base_url = os.environ.get("CCA_URL", "http://127.0.0.1:8000")
+        token = os.environ.get("CCA_TOKEN")
+        cerebro = CerebroCognitivoRemoto(con, base_url=base_url, token=token)
+        return cerebro
     if elegido in ("hibrido", "híbrido", "llm"):
         return CerebroHibrido(con)
     raise ValueError(
-        f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: cognitivo, hibrido."
+        f"{VAR_CEREBRO}='{elegido}' no existe. Valores válidos: cognitivo, remoto, hibrido."
     )
 
 
@@ -398,6 +406,8 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if hasattr(self.cerebro, "cerrar"):
+                self.cerebro.cerrar()
             self.con.close()
 
 
@@ -409,6 +419,8 @@ class Ejecutor:
             if self.cerebro.cliente is not None:
                 self.cerebro.cliente.apagar()
         finally:
+            if hasattr(self.cerebro, "cerrar"):
+                self.cerebro.cerrar()
             try:
                 self.con.close()
             except Exception:

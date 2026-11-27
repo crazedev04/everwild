@@ -1,5 +1,18 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — Integración remota de Cognitive Engine (CCA)
+
+### Nuevo
+- **Modo remoto** `MUNDO_VIVO_CEREBRO=remoto`: la cognición corre en un servicio CCA (distribución rama `feat/distribution`, instalación editable). No elimina el modo embebido (`cognitivo`, por defecto). El modo remoto no abre/escribe la DB cognitiva local.
+- **`MundoVivoRemoteAdapter`** (`agentes/remote/cca_adapter.py`): usa sólo la API pública `CcaClient`. Hilo emisor con cola acotada (el tick no espera), consumidor de propuestas por `pending_proposals` con caché por habitante, `client_seq` monótono e idempotente en reintentos, ACK. Sin instanciar Service/Runtime/Repository/scheduler.
+- **`CerebroCognitivoRemoto`** (`agentes/cerebro_cognitivo_remoto.py`): reutiliza la traducción de dominio de `CerebroCognitivo`; encola observación y lee propuesta cacheada (o `esperar`); rechaza propuestas obsoletas; correlaciona resultados por `proposal_id`.
+- Ciclo de vida: `crear_cerebro` remoto en `api/vivo.py`; `Ejecutor.cerrar` cierra el cerebro (une hilos).
+- Tests (`tests/test_cerebro_remoto.py`, 7): no bloqueo, secuencia, reintento sin duplicar, caché/ACK, cierre, resultado correlacionado e **integración real** contra `CcaHttpServer`. Regresión embebida: `test_cerebro_cognitivo`+`test_aislamiento_cognitivo` (42) y `test_vivo` (5) verdes.
+- Docs: `docs/CCA_REMOTO.md` (instalación reproducible, arquitectura, limitaciones).
+
+### Pendiente
+- Migración de cerebros al repositorio del servicio (operación separada, no destructiva). Retirar imports internos de CCA del modo embebido en etapa posterior. Servicio CCA con cerebros migrados + `CCA_URL`/`CCA_TOKEN` para activar remoto.
+
 ## Sin publicar — E7: volcanes y lava
 
 ### Nuevo
