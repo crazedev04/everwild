@@ -12,6 +12,7 @@
   function crear(canvas, opciones) {
     var op = opciones || {};
     var ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+    var transparent = !!op.transparent;   // canvas experimental: no tapa la representación anterior
     var requestFrame = op.requestFrame || (typeof requestAnimationFrame === "function"
       ? requestAnimationFrame
       : function (cb) { return setTimeout(function () { cb(0); }, 0); });
@@ -61,10 +62,12 @@
     }
 
     function dibujar() {
-      if (!ctx) return;
+      if (!ctx || !canvas) return;
+      // Coordenadas de DISPOSITIVO (backing store): identity + px físicos.
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = "#0a0d12";
-      ctx.fillRect(0, 0, viewport.w || (canvas ? canvas.width : 0), viewport.h || (canvas ? canvas.height : 0));
+      var W = canvas.width, H = canvas.height;
+      if (transparent) ctx.clearRect(0, 0, W, H);   // experimental: transparente, no tapa el canvas anterior
+      else { ctx.fillStyle = "#0a0d12"; ctx.fillRect(0, 0, W, H); }
       // E1: sin capas visuales todavía (terreno/sprites en E2+). El loop y la invalidación
       // quedan verificados; la representación visual definitiva no es alcance de E1.
     }
@@ -72,7 +75,7 @@
     // --- API pública (§6.1) ---
     function setWorldView(w) {
       if (destroyed || !w) return;
-      if (contextoCambia(w)) { interpol = {}; }   // no se interpola entre mundos/dimensiones (§4.6)
+      if (contextoCambia(w)) { interpol = {}; seleccion = null; }   // no arrastra selección/estado transitorio entre mundos (§4.6)
       wv = w; dirty = true; plan.pedir();
     }
 
@@ -88,7 +91,15 @@
 
     function setViewport(w, h, dpr) {
       if (destroyed) return;
-      viewport.w = w; viewport.h = h; viewport.dpr = dpr || 1; dirty = true; plan.pedir();
+      var d = dpr || 1;
+      viewport.w = w; viewport.h = h; viewport.dpr = d;   // dimensiones CSS (independientes)
+      // backing store físico = CSS * dpr (evita doble escalado y clear incompleto en HiDPI)
+      if (canvas) {
+        var pw = Math.round(w * d), ph = Math.round(h * d);
+        if (canvas.width !== pw) canvas.width = pw;
+        if (canvas.height !== ph) canvas.height = ph;
+      }
+      dirty = true; plan.pedir();
     }
 
     function setCapas(c) {

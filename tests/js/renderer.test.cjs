@@ -101,3 +101,24 @@ test("destroy cancela rAF, limpia y evita actividad posterior", () => {
   assert.strictEqual(h.r.worldView, null);
   assert.strictEqual(h.r.cola, 0);
 });
+test("clear HiDPI: backing store = CSS*dpr y limpieza cubre todo el área física", () => {
+  const llamadas = { clear: [], fill: [] };
+  const ctx = { setTransform() {}, clearRect(x, y, w, h) { llamadas.clear.push([x, y, w, h]); }, fillRect(x, y, w, h) { llamadas.fill.push([x, y, w, h]); }, fillStyle: "" };
+  const canvas = { width: 0, height: 0, getContext: () => ctx };
+  let cb = null;
+  const r = crear(canvas, { requestFrame: (fn) => { cb = fn; return 1; }, transparent: true });
+  r.setViewport(800, 600, 2);            // CSS 800x600, dpr 2
+  assert.strictEqual(canvas.width, 1600); // backing store físico
+  assert.strictEqual(canvas.height, 1200);
+  r._plan._paso();                        // ejecuta el frame (clear)
+  assert.deepStrictEqual(llamadas.clear[0], [0, 0, 1600, 1200]); // cubre todo el backing store
+});
+
+test("cambio de mundo limpia la selección (estado transitorio incompatible)", () => {
+  const h = arnul();
+  h.r.setWorldView(wv());
+  h.r.setSeleccion(1);
+  assert.strictEqual(h.r.seleccion, 1);
+  h.r.setWorldView(wv({ worldId: "Otro", dimension: 1 })); // cambio de contexto
+  assert.strictEqual(h.r.seleccion, null);
+});
