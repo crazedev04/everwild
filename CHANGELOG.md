@@ -3,7 +3,7 @@
 ## Sin publicar — Modalidad cognitiva por mundo (switch CCA)
 
 ### Nuevo
-- **Switch "Conectar con Cognition Chain" en el modal de creación**: activado, el mundo nace configurado para usar Cognitive Engine (CCA) como cerebro; desactivado (por defecto), conserva el sistema de cerebros actual. La preferencia queda en `meta.cerebro_remoto` del propio mundo, así sobrevive a reinicios y a exportar/importar, y permite coexistencia de mundos locales y remotos.
+- **Switch "Conectar con Cognitive Engine" en el modal de creación**: activado, el mundo nace configurado para usar Cognitive Engine (CCA) como cerebro; desactivado (por defecto), conserva el sistema de cerebros actual. La preferencia queda en `meta.cerebro_remoto` del propio mundo, así sobrevive a reinicios y a exportar/importar, y permite coexistencia de mundos locales y remotos.
 - **Precedencia por mundo**: si `meta.cerebro_remoto` está definido, manda sobre el entorno (`MUNDO_VIVO_CEREBRO`); si no (mundo viejo), se mantiene el comportamiento anterior por entorno. `crear_cerebro` implementa esta precedencia.
 - **Sin credenciales en el frontend**: el switch no expone tokens; la conexión usa `CCA_URL`/`CCA_TOKEN`/`CCA_TOKEN_ADMIN` del entorno. No se crean conexiones al crear el mundo (no bloquea); el alta en CE ocurre al abrir el mundo, como ya lo hacía la integración remota.
 

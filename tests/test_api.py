@@ -103,7 +103,7 @@ class TestAPI(unittest.TestCase):
 
 @unittest.skipUnless(HAY_CLIENTE, "falta httpx (pip install -r requirements-dev.txt)")
 class TestConexionCCA(unittest.TestCase):
-    """El switch 'Conectar con Cognition Chain' del modal de creación."""
+    """El switch 'Conectar con Cognitive Engine' del modal de creación."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

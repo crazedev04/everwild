@@ -34,7 +34,7 @@ usa el servicio. El modo remoto **no** abre ni escribe la base cognitiva local.
 
 ### Modalidad por mundo (switch del modal)
 
-El modal de creación tiene el switch **Conectar con Cognition Chain**. La preferencia
+El modal de creación tiene el switch **Conectar con Cognitive Engine**. La preferencia
 queda en `meta.cerebro_remoto` del propio mundo y **prevalece sobre el entorno**:
 
 1. `cerebro_remoto = true` → usa CCA (remoto).

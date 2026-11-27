@@ -50,7 +50,7 @@ class NuevoMundo(BaseModel):
     tam_celda_m: int = mundo_io.TAM_CELDA_POR_DEFECTO
     modelo: Optional[str] = None
     poblacion: int = 4
-    # Conectar con Cognition Chain (CCA). Default False: conserva los cerebros actuales.
+    # Conectar con Cognitive Engine (CCA). Default False: conserva los cerebros actuales.
     conectar_cca: bool = False
 
 
