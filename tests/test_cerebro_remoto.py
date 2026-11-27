@@ -988,3 +988,123 @@ def test_propuesta_fresca_entrega_la_mas_nueva_y_expira_rancias():
         assert "vieja" in expirados
     finally:
         a.cerrar()
+
+
+def test_circuito_supervivencia_beber_recupera_sed_y_resultado_llega_a_ce():
+    """Circuito completo: CE propone drink → MV ejecuta beber → sed baja → resultado accepted a CE.
+
+    Usa el motor real (Simulacion) y un ClienteFalso que registra el resultado enviado.
+    No usa mocks del motor: la física de beber es la real.
+    """
+    cliente = ClienteFalso()
+    cerebro = _cerebro_remoto_con_cliente(cliente)
+    try:
+        sim, h = _sim_y_habitante(sed=80.0)
+        # Colocar al habitante junto al agua para que beber sea posible.
+        agua = sim.agua_cercana(h, sim.celdas(2000.0))
+        if agua is not None:
+            h.x, h.y = float(agua[0]), float(agua[1])
+        sed_antes = h.sed
+        # CE propone drink (abstracta).
+        propuesta = _PropuestaFalsa("drink", {"need": "sed"}, goal_id="satisfy_sed", tick=int(sim.t))
+        accion = cerebro._traducir(sim, h, propuesta)
+        assert accion["tipo"] in ("beber", "ir"), accion
+        # Si es ir, simular llegada al agua; si es beber directo, ejecutar.
+        if accion["tipo"] == "ir" and accion.get("luego") == "beber":
+            h.x, h.y = float(accion["destino"][0]), float(accion["destino"][1])
+            accion = {"tipo": "beber"}
+        ok, texto = sim._aplicar(h, accion)
+        assert ok, f"beber falló: {texto}"
+        assert h.sed < sed_antes, "beber debe bajar la sed"
+        # El resultado correlacionado llega a CE (accepted).
+        cerebro._ultima_propuesta[h.id] = {"proposal_id": "p1", "tick": int(sim.t)}
+        cerebro.registrar_resultado(sim, h, ok=True, texto=texto)
+        assert _esperar(lambda: any(r[2].get("proposal_id") == "p1" and r[2].get("status") == "accepted"
+                                    for r in cliente.res)), "el resultado accepted debe llegar a CE"
+    finally:
+        cerebro.cerrar()
+
+
+def test_circuito_supervivencia_ce_drink_real_mv_ejecuta_y_recupera_sed():
+    """Integración real: CE emite drink ante sed alta, MV lo ejecuta y la sed baja."""
+    cca = pytest.importorskip("cognitive_engine")
+    import os
+    import tempfile
+
+    from cognitive_engine.api.client import CcaClient
+    from cognitive_engine.api.runtime import Runtime
+    from cognitive_engine.api.server import CcaHttpServer, ServiceConfig
+    from cognitive_engine.api.service import CognitiveEngineService
+    from cognitive_engine.persistence.repository import SQLiteBrainRepository
+    from cognitive_engine.scheduler.scheduler import MultiBrainScheduler
+
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    os.remove(path)
+    repo = SQLiteBrainRepository(path)
+    svc = CognitiveEngineService(repository=repo, scheduler=MultiBrainScheduler())
+    bid = "mv-survival:h1"
+    svc.create_brain(bid, "H1")
+    rt = Runtime(svc)
+    cfg = ServiceConfig(host="127.0.0.1", port=0, tokens={"tok": {"*"}})
+    srv = CcaHttpServer(rt, cfg)
+    srv.start()
+    adapter = None
+    cerebro = None
+    try:
+        url = f"http://127.0.0.1:{srv.port}"
+        cliente = CcaClient(url, token="tok", timeout=3.0)
+        adapter = MundoVivoRemoteAdapter(url, client_id="w", poll_interval=0.05, cliente=cliente)
+        adapter.start()
+        adapter.registrar(bid)
+
+        from mundo_vivo.agentes.cerebro_cognitivo_remoto import CerebroCognitivoRemoto, _PropuestaRemota
+        cerebro = CerebroCognitivoRemoto.__new__(CerebroCognitivoRemoto)
+        cerebro.cliente = None
+        cerebro.con = None
+        cerebro._demo = None
+        cerebro._adapter = adapter
+        cerebro._cerebros = {}
+        cerebro._ultima_propuesta = {}
+        cerebro._decisiones = 0
+        cerebro._sin_traducir = {}
+        cerebro._ultimo_tick = {}
+        cerebro._world_uid = "mv-survival"
+        cerebro._rechazos_obsoletos = 0
+
+        sim, h = _sim_y_habitante(sed=85.0)
+        agua = sim.agua_cercana(h, sim.celdas(2000.0))
+        if agua is not None:
+            h.x, h.y = float(agua[0]), float(agua[1])
+        sed_antes = h.sed
+
+        # CE recibe la observación con needs (sed alta) y emite una propuesta.
+        obs = cerebro._observacion_remota(sim, h, bid)
+        adapter.enviar_observacion(bid, obs)
+        prop = None
+        fin = time.monotonic() + 5
+        while time.monotonic() < fin and prop is None:
+            prop = adapter.propuesta_disponible(bid)
+            time.sleep(0.05)
+        assert prop is not None, "CE real debe proponer ante sed alta"
+        cerebro._ultima_propuesta[h.id] = prop
+        accion = cerebro._traducir(sim, h, _PropuestaRemota(prop))
+        assert accion["tipo"] != "accion_invalida", f"CE emitió {prop} y MV no tradujo: {accion}"
+        # Ejecutar la acción física (beber o ir+beber).
+        if accion["tipo"] == "ir" and accion.get("luego") == "beber":
+            h.x, h.y = float(accion["destino"][0]), float(accion["destino"][1])
+            accion = {"tipo": "beber"}
+        if accion["tipo"] == "beber":
+            ok, texto = sim._aplicar(h, accion)
+            assert ok and h.sed < sed_antes, "beber real debe bajar la sed"
+            cerebro.registrar_resultado(sim, h, ok=True, texto=texto)
+    finally:
+        if cerebro is not None:
+            cerebro.cerrar()
+        elif adapter is not None:
+            adapter.cerrar()
+        srv.stop()
+        for sfx in ("", "-wal", "-shm"):
+            p = path + sfx
+            if os.path.exists(p):
+                os.remove(p)
