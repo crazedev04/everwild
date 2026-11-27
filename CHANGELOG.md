@@ -1,5 +1,16 @@
 # Registro de cambios — Mundo Vivo
 
+## Sin publicar — E4: capas de agua y estados ambientales
+
+### Nuevo
+- **Capa de agua** `ui/render/capa_agua.js`: bitmap 1 px/celda desde `WorldView.terreno.agua` (códigos reales 0 ninguna / 1 océano / 2 lago / 3 río) y `caudal` (0-255, sólo ríos: más caudal ⇒ más opaco). Código 0 o inválido ⇒ transparente (no engaña). Caché por identidad de buffers (`agua`,`caudal`,dims); `draw` pinta sólo lo visible.
+- **Capa de ambiente** `ui/render/capa_ambiente.js`: nieve y ceniza/quemado desde `WorldView.mapas_dinamicos.nieve/quemado` (0-255). 0 ⇒ transparente; ausente/inválido ⇒ no dibuja. Un bitmap alfa por mapa, caché por identidad; no muta la vista.
+- **Integración** (`ui/render/integracion.js`): orden de capas `[terreno, agua, ambiente, entidades]` (agua y ceniza/nieve sobre el terreno, bajo las entidades). Los dinámicos se bajan **una vez por mundo/dimensión** desde `/dinamico/{nieve,quemado}` (deflate) y se inyectan sin mutar las capas del terreno; si no hay `fetch`/`DecompressionStream`, quedan null (no dibuja). Sigue opt-in (`?renderer=nuevo`); el loop por defecto no se toca.
+- Tests (12 nuevos; 84/84 JS): agua (válida/ausente/longitud inválida/caché/cambio de mundo/no mutación) y ambiente (válida/ausente/inválida/caché/cambio/no mutación).
+
+### Pendiente
+- `fuego` (lista) e iluminación/efectos aún sin capa dedicada. `WorldDelta`/`applyDelta` siguen reservados.
+
 ## Sin publicar — E3: capas de entidades (estructuras, habitantes, fauna)
 
 ### Nuevo

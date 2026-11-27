@@ -12,6 +12,8 @@
   var Ad = (typeof require !== "undefined") ? require("./adaptador.js") : root.AdaptadorRenderer;
   var Rn = (typeof require !== "undefined") ? require("./renderer.js") : root.Renderer;
   var CT = (typeof require !== "undefined") ? require("./capa_terreno.js") : root.CapaTerreno;
+  var CA = (typeof require !== "undefined") ? require("./capa_agua.js") : root.CapaAgua;
+  var CB = (typeof require !== "undefined") ? require("./capa_ambiente.js") : root.CapaAmbiente;
   var CE = (typeof require !== "undefined") ? require("./capa_entidades.js") : root.CapaEntidades;
   var COLORES = ["#ff7a59", "#5ac8fa", "#ffd166", "#b794f6", "#6ee7a8", "#f472b6", "#f59e0b", "#94a3b8"];
   var puenteActual = null;   // evita canvases duplicados si se inicializa varias veces
@@ -53,10 +55,35 @@
     if (parent && parent.appendChild) parent.appendChild(exp);
 
     var adaptador = Ad.crearAdaptador();
-    var capaTerreno = CT.crearCapaTerreno({});                 // bitmap 1 px/celda (E2)
+    var capaTerreno = CT.crearCapaTerreno({});                       // bitmap 1 px/celda (E2)
+    var capaAgua = CA.crearCapaAgua({});                             // océano/lago/río + caudal (E4)
+    var capaAmbiente = CB.crearCapaAmbiente({});                     // nieve + quemado dinámicos (E4)
     var capaEntidades = CE.crearCapaEntidades({ COLORES: COLORES }); // estructuras/habitantes/fauna (E3)
-    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaEntidades] });
+    var renderer = Rn.crear(exp, { requestFrame: opts.requestFrame, transparent: true, capas: [capaTerreno, capaAgua, capaAmbiente, capaEntidades] });
     var estadoVivo = null;
+    var dinamico = { nieve: null, quemado: null };   // mapas dinámicos (1 vez por mundo)
+    var _dinKey = null;
+
+    // Descarga + infla un mapa dinámico (deflate, 1 byte/celda) una vez por mundo/dimensión.
+    // Opt-in: no toca el loop por defecto. Si no hay fetch/DecompressionStream, queda null (no engaña).
+    function cargarDinamico(nombre, dim) {
+      var key = nombre + "#" + (dim || 0);
+      if (key === _dinKey) return;
+      _dinKey = key; dinamico = { nieve: null, quemado: null };
+      if (typeof fetch !== "function" || typeof DecompressionStream === "undefined") return;
+      function bajar(capa) {
+        return fetch("/api/mundos/" + encodeURIComponent(nombre) + "/dinamico/" + capa)
+          .then(function (r) { return r.arrayBuffer(); })
+          .then(function (buf) {
+            var ds = new DecompressionStream("deflate");
+            var st = new Blob([buf]).stream().pipeThrough(ds);
+            return new Response(st).arrayBuffer();
+          })
+          .then(function (ab) { dinamico[capa] = new Uint8Array(ab); reconstruir(); })
+          .catch(function () { /* sin mapa dinámico: la capa no dibuja eso */ });
+      }
+      bajar("nieve"); bajar("quemado");
+    }
 
     // Paleta de biomas: el adaptador (no el renderer) conoce REST y la inyecta.
     function cargarPaleta() {
@@ -77,13 +104,18 @@
       var t = App.parte("terreno");
       if (!t || !t.estado || !t.estado.meta || !t.estado.capas) return;
       var est = t.estado;
+      cargarDinamico(est.nombre, est.dimension || 0);
       var gen = adaptador.ciclo();
       var ctx = { worldId: est.nombre, dimension: est.dimension || 0 };
       var v = est.vista || { x: 0, y: 0, z: 1 };
       var cw = (parent && parent.clientWidth) || 0, ch = (parent && parent.clientHeight) || 0;
       renderer.setViewport(cw, ch, dprOf());   // CSS * dpr en el backing store (§3 fix HiDPI)
       renderer.setCam(v.x, v.y, v.z);          // la UI es dueña de la cámara; el renderer sólo la recibe
-      adaptador.construir(gen, ctx, { meta: est.meta, capas: est.capas, estado: estadoVivo })
+      // inyecta los dinámicos (si llegaron) sin mutar el objeto de capas del terreno
+      var capas = (dinamico.nieve || dinamico.quemado)
+        ? Object.assign({}, est.capas, { nieve: dinamico.nieve, quemado: dinamico.quemado })
+        : est.capas;
+      adaptador.construir(gen, ctx, { meta: est.meta, capas: capas, estado: estadoVivo })
         .then(function (res) {
           var e = adaptador.entregar(res);
           if (e.aplicada) { renderer.setWorldView(e.wv); renderer.pedirRender(); }
